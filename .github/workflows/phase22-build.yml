@@ -1,4 +1,4 @@
-name: Marorong Card War Phase22 Validation
+name: Marorong Card War Phase23 Validation
 on:
   push:
   pull_request:
@@ -19,7 +19,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run vendor
-      - name: Build phase 22
+      - name: Build phase 23
         run: python build.py
       - name: Install testing dependencies
         run: |
@@ -38,12 +38,18 @@ jobs:
       - name: Collect downloadable build
         run: |
           mkdir -p dist
-          cp Marorong_Card_War_Phase22_3D_Prototype.html dist/index.html
+          cp Marorong_Card_War_Phase23_3D_Prototype.html dist/index.html
           mkdir -p dist/vendor
           cp vendor/three.module.js dist/vendor/three.module.js
           cp build-manifest.json dist/build-manifest.json
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: Marorong-Card-War-Phase22-3D
+          name: Phase23-Browser-Screenshots
+          path: tests/*png
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Marorong-Card-War-Phase23-3D
           path: dist/
           if-no-files-found: error

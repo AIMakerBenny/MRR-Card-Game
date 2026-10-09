@@ -104,11 +104,20 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     front.position.z=13.2;group.add(front);
     const shadow=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.28,depthWrite:false}));
     shadow.position.set(5,-8,4);group.add(shadow);
-    const entry={id,group,plate,edge,front,shadow,signature:null,hasCard:false,prevEffect:'',position:new THREE.Vector3()};
+    // The focus glow belongs to the visual card only, never to the original hit target.
+    const halo=new THREE.Mesh(new THREE.RingGeometry(.68,.77,48),
+      new THREE.MeshBasicMaterial({color:0xffe3a0,transparent:true,opacity:.68,side:THREE.DoubleSide,depthWrite:false}));
+    halo.position.z=12.6;halo.visible=false;group.add(halo);
+    const entry={id,group,plate,edge,front,shadow,halo,signature:null,hasCard:false,prevEffect:'',
+      position:new THREE.Vector3(),lift:0,targetLift:0,hovered:false,selected:false};
     entries.set(id,entry);return entry;
   }
   function removeEntry(id){const e=entries.get(id);if(!e)return;
-    e.front.material.map?.dispose();e.front.material.dispose();scene.remove(e.group);entries.delete(id);}
+    e.front.material.map?.dispose();e.front.material.dispose();e.front.geometry.dispose();
+    e.plate.material.dispose();e.edge.material.forEach(m=>m.dispose());
+    e.shadow.material.dispose();e.shadow.geometry.dispose();
+    e.halo.material.dispose();e.halo.geometry.dispose();
+    scene.remove(e.group);entries.delete(id);}
   function effectAt(e,type){
     if(reduced.matches)return;
     const color=type==='fx-heal'?0x78f3bd:type==='fx-hit'?0xf3a570:0xffe0a0;
@@ -130,6 +139,9 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       e.plate.material.color.set(slot.classList.contains('legal')?0x368e83:slot.classList.contains('attack-target')?0x9c723c:0x627474);
       const info=cardInfo(slot);
       const card=slot.querySelector('.board-card');
+      // Empty slots are already painted by the accessible DOM arena.
+      // Do not overlay translucent empty WebGL plates over row names or UI.
+      e.plate.visible=!!info&&!!card;
       if(info&&card){
         const cr=rectOf(card);const cw=Math.max(26,cr.w),ch=Math.max(38,cr.h);
         e.hasCard=true;e.edge.visible=e.front.visible=e.shadow.visible=true;
@@ -138,9 +150,14 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
         e.plate.position.set(r.x-cr.x,r.y-cr.y,-4);
         if(e.signature!==info.signature){e.front.material.map?.dispose();e.front.material.map=textureFor(info);e.front.material.needsUpdate=true;e.signature=info.signature;}
         const active=slot.classList.contains('selected-slot')||slot.classList.contains('attack-target');
-        e.edge.rotation.y=active?-.11:0;e.front.rotation.y=active?-.11:0;
+        const hovered=slot.matches(':hover');
+        e.hovered=hovered;e.selected=active;e.targetLift=hovered?18:active?10:0;
+        e.halo.visible=hovered||active;
+        e.halo.scale.set(cw*.75,ch*.75,1);
+        e.halo.material.color.set(slot.classList.contains('attack-target')?0xffb66e:hovered?0xffdfa7:0x93e9d6);
       }else{
         e.signature=null;e.hasCard=false;e.edge.visible=e.front.visible=e.shadow.visible=false;
+        e.lift=e.targetLift=0;e.hovered=e.selected=false;e.halo.visible=false;
         e.plate.position.set(0,0,0);e.group.position.set(r.x,r.y,3);
       }
       const fx=['fx-hit','fx-heal','fx-summon'].find(x=>slot.classList.contains(x))||'';
@@ -157,6 +174,19 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     if(innerWidth!==width||innerHeight!==height)resize();
     // Client rects can change on hover/scroll without mutating the slot subtree.
     sync();
+    // Ease only the selected / hovered card out of the tabletop.
+    // The DOM cards and every other 3D card keep their original slots.
+    for(const e of entries.values()){
+      if(!e.hasCard)continue;
+      e.lift+=(e.targetLift-e.lift)*.28;
+      if(Math.abs(e.targetLift-e.lift)<.1)e.lift=e.targetLift;
+      e.group.position.z=9+e.lift;
+      e.plate.position.z=-4-e.lift; // Keep the slot plate on the table.
+      e.shadow.position.set(5+e.lift*.18,-8-e.lift*.25,4-e.lift);
+      const yaw=e.hovered?.075:e.selected?-.075:0;
+      e.edge.rotation.y=yaw;e.front.rotation.y=yaw;
+      e.halo.material.opacity=e.hovered?.74:.5;
+    }
     for(let i=effects.length-1;i>=0;i--){const fx=effects[i],pct=(t-fx.born)/fx.duration;
       if(pct>=1){scene.remove(fx.mesh);fx.mesh.geometry.dispose();fx.mesh.material.dispose();effects.splice(i,1);continue;}
       fx.mesh.scale.setScalar(1+pct*2.4);fx.mesh.material.opacity=(1-pct)*.76;
@@ -193,5 +223,13 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     const button=document.querySelector('#mcw3d-toggle');if(button)button.textContent='입체 모드';
     const status=document.querySelector('#mcw3d-status');if(status){status.textContent='WebGL 연결이 끊겨 CSS 입체 모드로 전환했습니다.';status.classList.add('active');}
   });
-  return {start,stop,pause,resume,resize,dispose,get state(){return {running,paused,cardCount:Array.from(entries.values()).filter(e=>e.hasCard).length,slotCount:entries.size};}};
+  return {start,stop,pause,resume,resize,dispose,get state(){
+    const active=Array.from(entries.values()).filter(e=>e.hasCard);
+    return {running,paused,cardCount:active.length,slotCount:entries.size,
+      hoveredCardCount:active.filter(e=>e.hovered).length,
+      liftedCardCount:active.filter(e=>e.lift>3).length,
+      maxLift:active.reduce((max,e)=>Math.max(max,e.lift),0),
+      maxTargetLift:active.reduce((max,e)=>Math.max(max,e.targetLift),0),
+      focusedSlot:active.find(e=>e.hovered)?.id||null};
+  }};
 };
