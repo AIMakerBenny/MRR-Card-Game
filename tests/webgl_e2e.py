@@ -13,7 +13,7 @@ assert (ROOT/'vendor/three.module.js').exists(), 'Three.js is not vendored: run 
 handler=partial(SimpleHTTPRequestHandler,directory=str(ROOT))
 server=ThreadingHTTPServer(('127.0.0.1',0),handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
-url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase23_3D_Prototype.html'
+url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase26_3D_Prototype.html'
 try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
@@ -47,6 +47,9 @@ try:
         assert page.locator('.slot:has(.board-card) .card-ui').first.evaluate(
             "el => Number(getComputedStyle(el).opacity) > 0.9"
         ), 'Phase 23 visual regression: WebGL mode hides DOM card art'
+        assert page.evaluate('MCW3D.scene.state.frameRevision === 24 && MCW3D.scene.state.decoratedCards === 1'), 'Card face texture and metal trim missing'
+        assert page.evaluate('MCW3D.scene.state.battlefieldRevision === 25 && MCW3D.scene.state.battlefieldTrimCount === 4 && MCW3D.scene.state.battlefieldLightPoolCount === 2'), 'Arena rim/light pools missing'
+        assert page.locator('#mcw3d-canvas-host').evaluate("e => getComputedStyle(e).pointerEvents === 'none'"), 'WebGL scene steals mouse input'
         before_focus=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         # Newly placed cards may remain selected. Their idle height is 10,
         # whereas a true hover must raise only that card to height 18.
@@ -62,6 +65,39 @@ try:
         page.wait_for_function('''idle => MCW3D.scene.state.hoveredCardCount === 0 && MCW3D.scene.state.maxTargetLift === idle && MCW3D.scene.state.maxLift <= idle+1''',arg=idle_target,timeout=8000)
         after_focus=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         assert before_focus==after_focus,'Hover changed the game state'
+        # 3D drawing must be constrained to #arena (no decorations on HUD).
+        clip=page.evaluate('MCW3D.scene.state.renderClip')
+        arena=page.locator('#arena').bounding_box()
+        assert clip is not None and arena is not None
+        assert abs(clip['x']-max(0,arena['x']))<=2, (clip,arena)
+        assert abs(clip['w']-min(1920-arena['x'],arena['width']))<=3,(clip,arena)
+        assert page.locator('#mcw3d-canvas-host canvas').evaluate("e => getComputedStyle(e).pointerEvents === 'none'")
+        assert page.evaluate('MCW3D.scene.state.visualFxRevision === 26')
+        # Trigger an established visual marker. This touches only presentation;
+        # it is not a simulated gameplay attack or a balance change.
+        node.evaluate("el => el.classList.remove('fx-hit','fx-heal','fx-summon')")
+        page.wait_for_timeout(110)
+        old_fx=page.evaluate('MCW3D.scene.state.visualFxTriggered')
+        node.evaluate("el => el.classList.add('fx-hit')")
+        page.wait_for_function('prior => MCW3D.scene.state.visualFxTriggered > prior && MCW3D.scene.state.activeVisualMeshes > 1',arg=old_fx,timeout=8000)
+        page.wait_for_timeout(175)
+        assert node.locator('.board-card').evaluate("el => getComputedStyle(el,'::after').content !== 'none'"), 'Hit ring CSS overlay was not painted on card'
+        page.screenshot(path=str(ROOT/'tests/webgl_phase26_hit.png'))
+        node.evaluate("el => el.classList.remove('fx-hit')")
+        page.wait_for_timeout(120)
+        old_fx=page.evaluate('MCW3D.scene.state.visualFxTriggered')
+        node.evaluate("el => el.classList.add('fx-heal')")
+        page.wait_for_function('prior => MCW3D.scene.state.visualFxTriggered > prior',arg=old_fx,timeout=8000)
+        node.evaluate("el => el.classList.remove('fx-heal')")
+        page.wait_for_timeout(120)
+        old_fx=page.evaluate('MCW3D.scene.state.visualFxTriggered')
+        node.evaluate("el => el.classList.add('fx-summon')")
+        page.wait_for_function('prior => MCW3D.scene.state.visualFxTriggered > prior',arg=old_fx,timeout=8000)
+        node.evaluate("el => el.classList.remove('fx-summon')")
+        page.wait_for_timeout(1000)
+        assert page.evaluate('MCW3D.scene.state.activeVisualMeshes === 0'), 'VFX meshes failed to release'
+        after_fx=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
+        assert before_focus==after_fx,'Decorative combat effects changed gameplay data'
         page.screenshot(path=str(ROOT/'tests/webgl_1920x1080.png'))
         print('WEBGL PHASE23 PASS - local Three.js, 30 slots, hover lift, return, game state unchanged.')
         browser.close()

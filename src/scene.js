@@ -27,6 +27,33 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   const plateGeometry=new THREE.BoxGeometry(1,1,1);
   const entries=new Map();
   const effects=[];
+  let effectsTriggered=0,lastClip=null;
+  // Phase 25 - sparse, transparent battlefield dressing that mirrors the DOM
+  // arena rectangle. It has no input or state authority.
+  const arenaTrim=new THREE.Group();scene.add(arenaTrim);
+  const rimGeo=new THREE.BoxGeometry(1,1,1);
+  const rimMat=new THREE.MeshStandardMaterial({color:0x987b51,metalness:.75,roughness:.38,
+    transparent:true,opacity:.065,depthWrite:false});
+  const rimParts=Array.from({length:4},()=>{
+    const m=new THREE.Mesh(rimGeo,rimMat);arenaTrim.add(m);return m;
+  });
+  const lightPools=[];
+  for(const tone of ['cyan','amber']){
+    // Each color requires its own backing canvas. Reusing a mutable canvas
+    // makes both textures display the last painted gradient on first upload.
+    const glowCanvas=document.createElement('canvas');
+    glowCanvas.width=glowCanvas.height=128;
+    const glowCtx=glowCanvas.getContext('2d');
+    const g=glowCtx.createRadialGradient(64,64,4,64,64,64);
+    g.addColorStop(0,tone==='cyan'?'rgba(55,170,180,.50)':'rgba(189,127,55,.37)');
+    g.addColorStop(.6,tone==='cyan'?'rgba(35,95,117,.18)':'rgba(108,71,44,.15)');
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    glowCtx.clearRect(0,0,128,128);glowCtx.fillStyle=g;glowCtx.fillRect(0,0,128,128);
+    const tex=new THREE.CanvasTexture(glowCanvas);tex.colorSpace=THREE.SRGBColorSpace;
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+      new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,opacity:.58,side:THREE.DoubleSide}));
+    m.position.z=-72;arenaTrim.add(m);lightPools.push(m);
+  }
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   let observer=null,dirty=true,failed=false;
   function rectOf(node){const r=node.getBoundingClientRect();return {x:r.left+r.width/2,y:height-r.top-r.height/2,w:r.width,h:r.height};}
@@ -61,6 +88,16 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     if(ctx.measureText(value).width>maxWidth){while(value.length>2&&ctx.measureText(value+'…').width>maxWidth)value=value.slice(0,-1);value+='…';}
     return value;
   }
+  // Phase 24 - visual-only heraldry. Never creates card types or game abilities.
+  function sealFor(info){
+    if(/영웅/.test(info.kind))return '♛';
+    if(/함선/.test(info.kind))return '⚓';
+    if(/시설|포탈/.test(info.kind))return '⌂';
+    if(/마법|의식/.test(info.kind))return '✧';
+    if(/장비/.test(info.kind))return '⚒';
+    if(/자원|보급/.test(info.kind))return '◇';
+    return '⚔';
+  }
   function textureFor(info){
     const cvs=document.createElement('canvas');cvs.width=384;cvs.height=538;
     const c=cvs.getContext('2d');const accent=colorOf(info.kind);
@@ -79,10 +116,30 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     for(let k=0;k<3;k++){c.beginPath();c.ellipse(0,0,80+k*26,100+k*18,0,0,Math.PI*2);c.stroke();}
     c.globalAlpha=.6;c.beginPath();c.moveTo(-80,80);c.lineTo(0,-100);c.lineTo(80,80);c.closePath();c.stroke();
     c.restore();
-    c.fillStyle='#f8e8bd';c.font='bold 90px Georgia,serif';c.textAlign='center';c.fillText(info.sigil||'✦',192,235);
+    // Layered ink, distinct category crest and restrained metallic etching.
+    c.save();
+    c.translate(192,239);
+    for(let i=0;i<12;i++){
+      c.rotate(Math.PI/6);c.strokeStyle=i%2?'#dabf8660':'#9ad3cc45';c.lineWidth=2;
+      c.beginPath();c.moveTo(0,-103);c.lineTo(0,-125);c.stroke();
+    }
+    c.strokeStyle=accent;c.lineWidth=5;c.beginPath();c.arc(0,0,104,0,Math.PI*2);c.stroke();
+    c.strokeStyle='#f3e3b3';c.lineWidth=1.7;c.beginPath();c.arc(0,0,96,0,Math.PI*2);c.stroke();
+    c.fillStyle='#0c1c25';c.beginPath();c.arc(0,0,79,0,Math.PI*2);c.fill();
+    c.fillStyle=accent;c.font='bold 116px Georgia,serif';c.textAlign='center';c.fillText(sealFor(info),0,13);
+    c.fillStyle='#ffeac2';c.font='bold 54px Georgia,serif';c.fillText(info.sigil||'',0,76);
+    c.restore();
+    // Four inset filigree corners keep the card visually distinct at small sizes.
+    c.save();c.strokeStyle='#d4b984af';c.lineWidth=3;
+    for(const [x,y,dx,dy] of [[48,125,1,1],[336,125,-1,1],[48,351,1,-1],[336,351,-1,-1]]){
+      c.beginPath();c.moveTo(x,y+dy*21);c.lineTo(x,y);c.lineTo(x+dx*21,y);c.stroke();
+    }c.restore();
     c.fillStyle='#bdc9c8';c.font="19px 'Malgun Gothic',sans-serif";c.fillText(info.kind.replace(/·.*/,'' ).slice(0,12),192,390);
     c.fillStyle='#c0a874';c.fillRect(38,417,308,2);
     c.fillStyle='#f8edd8';c.font="bold 28px 'Malgun Gothic',sans-serif";c.fillText(info.stats||'전장 카드',192,460);
+    // Raised cost/status trim and engraved bottom bands stay presentation-only.
+    c.strokeStyle=accent;c.lineWidth=3;c.beginPath();c.moveTo(52,486);c.lineTo(332,486);c.stroke();
+    c.fillStyle='#edd5a8';c.font='bold 14px sans-serif';c.fillText('MARORONG',192,507);
     if(info.status){c.fillStyle='#283a4b';rounded(c,231,105,120,28,7);c.fill();c.fillStyle='#fff2bd';c.font='bold 15px sans-serif';c.fillText(info.status.slice(0,12),291,119);}
     const texture=new THREE.CanvasTexture(cvs);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
     return texture;
@@ -118,18 +175,58 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     e.shadow.material.dispose();e.shadow.geometry.dispose();
     e.halo.material.dispose();e.halo.geometry.dispose();
     scene.remove(e.group);entries.delete(id);}
+  // Phase 26: predictable VFX only. No damage/healing/target calculations here.
+  // A single game visual class starts a distinct material effect. Entries expire
+  // promptly and each allocated geometry/material is disposed at completion.
   function effectAt(e,type){
     if(reduced.matches)return;
-    const color=type==='fx-heal'?0x78f3bd:type==='fx-hit'?0xf3a570:0xffe0a0;
-    const ring=new THREE.Mesh(new THREE.RingGeometry(26,30,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.75,side:THREE.DoubleSide,depthWrite:false}));
-    ring.position.copy(e.position);ring.position.z=30;scene.add(ring);effects.push({mesh:ring,born:performance.now(),duration:650});
+    const color=type==='fx-heal'?0x79eeb9:type==='fx-hit'?0xffa66b:0xe8c57b;
+    const now=performance.now(),origin=e.position.clone();
+    const ring=new THREE.Mesh(new THREE.RingGeometry(23,28,48),
+      new THREE.MeshBasicMaterial({color,transparent:true,opacity:.74,side:THREE.DoubleSide,depthWrite:false}));
+    ring.position.copy(origin);ring.position.z=36;
+    scene.add(ring);effects.push({mesh:ring,born:now,duration:630,particle:false});
+    const n=type==='fx-hit'?11:type==='fx-heal'?10:14;
+    for(let i=0;i<n;i++){
+      const theta=2*Math.PI*i/n+(type==='fx-summon'?.2:0);
+      const mesh=new THREE.Mesh(new THREE.PlaneGeometry(4.5,10),
+        new THREE.MeshBasicMaterial({color,transparent:true,opacity:.88,depthWrite:false,side:THREE.DoubleSide}));
+      mesh.position.set(origin.x+Math.cos(theta)*8,origin.y+Math.sin(theta)*8,40);
+      scene.add(mesh);
+      const vx=type==='fx-hit'?Math.cos(theta)*74:type==='fx-heal'?Math.cos(theta)*19:Math.cos(theta)*42;
+      const vy=type==='fx-hit'?Math.sin(theta)*65:type==='fx-heal'?65+i*3:Math.sin(theta)*40+18;
+      effects.push({mesh,born:now,duration:type==='fx-heal'?840:620,particle:true,
+        origin:mesh.position.clone(),vx,vy,spin:(i%2?1:-1)*2});
+    }
+    effectsTriggered++;
+    while(effects.length>112){
+      const old=effects.shift();scene.remove(old.mesh);
+      old.mesh.geometry.dispose();old.mesh.material.dispose();
+    }
+  }
+  function syncArena(){
+    const node=document.querySelector('#arena');
+    const r=node?.getBoundingClientRect();
+    if(!r||r.width<160||r.height<100){arenaTrim.visible=false;return;}
+    arenaTrim.visible=true;
+    const cx=r.left+r.width/2,cy=height-r.top-r.height/2;
+    const w=Math.max(0,r.width-24),h=Math.max(0,r.height-24);
+    arenaTrim.position.set(cx,cy,-60);
+    rimParts[0].position.set(0,h/2,0);rimParts[0].scale.set(w,2,2);
+    rimParts[1].position.set(0,-h/2,0);rimParts[1].scale.set(w,2,2);
+    rimParts[2].position.set(-w/2,0,0);rimParts[2].scale.set(2,h,2);
+    rimParts[3].position.set(w/2,0,0);rimParts[3].scale.set(2,h,2);
+    lightPools[0].position.set(0,-h*.23,0);
+    lightPools[1].position.set(0,h*.23,0);
+    for(const p of lightPools)p.scale.set(w*.85,h*.58,1);
   }
   function sync(){
     if(!running)return;
     const seen=new Set();
     const gameVisible=!document.querySelector('#gameScreen')?.classList.contains('hidden');
     renderer.domElement.style.display=gameVisible?'block':'none';
-    if(!gameVisible)return;
+    if(!gameVisible){arenaTrim.visible=false;return;}
+    syncArena();
     for(const slot of document.querySelectorAll('#enemyTerrace [data-slot],#fieldTable [data-slot],#myTerrace [data-slot]')){
       const id=slot.getAttribute('data-slot');if(!id)continue;seen.add(id);
       const r=rectOf(slot);if(r.w<10||r.h<10)continue;
@@ -148,7 +245,13 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
         e.edge.scale.set(cw,ch,6);e.front.scale.set(cw-6,ch-7,1);e.shadow.scale.set(cw,ch,1);
         e.group.position.set(cr.x,cr.y,9);
         e.plate.position.set(r.x-cr.x,r.y-cr.y,-4);
-        if(e.signature!==info.signature){e.front.material.map?.dispose();e.front.material.map=textureFor(info);e.front.material.needsUpdate=true;e.signature=info.signature;}
+        if(e.signature!==info.signature){
+          e.front.material.map?.dispose();e.front.material.map=textureFor(info);
+          e.front.material.needsUpdate=true;e.signature=info.signature;
+          const accent=new THREE.Color(colorOf(info.kind));
+          for(const idx of [0,1,2])e.edge.material[idx].color.copy(accent);
+          e.halo.material.color.copy(accent);
+        }
         const active=slot.classList.contains('selected-slot')||slot.classList.contains('attack-target');
         const hovered=slot.matches(':hover');
         e.hovered=hovered;e.selected=active;e.targetLift=hovered?18:active?10:0;
@@ -189,9 +292,32 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     }
     for(let i=effects.length-1;i>=0;i--){const fx=effects[i],pct=(t-fx.born)/fx.duration;
       if(pct>=1){scene.remove(fx.mesh);fx.mesh.geometry.dispose();fx.mesh.material.dispose();effects.splice(i,1);continue;}
-      fx.mesh.scale.setScalar(1+pct*2.4);fx.mesh.material.opacity=(1-pct)*.76;
+      if(fx.particle){
+        fx.mesh.position.x=fx.origin.x+fx.vx*pct;
+        fx.mesh.position.y=fx.origin.y+fx.vy*pct;
+        fx.mesh.rotation.z=pct*fx.spin;
+        fx.mesh.scale.setScalar(Math.max(.2,1-pct*.7));
+        fx.mesh.material.opacity=(1-pct)*.88;
+      }else{
+        fx.mesh.scale.setScalar(1+pct*2.4);
+        fx.mesh.material.opacity=(1-pct)*.74;
+      }
     }
-    renderer.render(scene,camera);
+    // Avoid rendering 3D embellishments over HUD, hand, menus and detail panel.
+    // Clearing the whole transparent canvas first also prevents stale scenery
+    // pixels after browser zoom or layout changes.
+    renderer.setScissorTest(false);renderer.clear(true,true,true);
+    const rect=document.querySelector('#arena')?.getBoundingClientRect();
+    if(rect&&rect.width>100&&rect.height>80){
+      const x=Math.max(0,Math.floor(rect.left)),y=Math.max(0,Math.floor(height-rect.bottom));
+      const right=Math.min(width,Math.ceil(rect.right)),top=Math.min(height,Math.ceil(height-rect.top));
+      const cw=Math.max(0,right-x),ch=Math.max(0,top-y);
+      lastClip={x,y,w:cw,h:ch};
+      if(cw>0&&ch>0){
+        renderer.setScissor(x,y,cw,ch);renderer.setScissorTest(true);
+        renderer.render(scene,camera);renderer.setScissorTest(false);
+      }
+    }else lastClip=null;
   }
   function resize(){width=innerWidth;height=innerHeight;
     camera.left=0;camera.right=width;camera.top=height;camera.bottom=0;
@@ -217,7 +343,11 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   }
   function pause(){paused=true;cancelAnimationFrame(raf);}
   function resume(){if(running&&paused){paused=false;raf=requestAnimationFrame(frame);}}
-  function dispose(){stop();renderer.dispose();renderer.domElement.remove();}
+  function dispose(){
+    stop();
+    for(const p of lightPools){p.geometry.dispose();p.material.map.dispose();p.material.dispose();}
+    rimGeo.dispose();rimMat.dispose();renderer.dispose();renderer.domElement.remove();
+  }
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();stop();
     document.body.classList.remove('mcw-three-ready');document.body.classList.add('mcw-depth-fallback');
     const button=document.querySelector('#mcw3d-toggle');if(button)button.textContent='입체 모드';
@@ -230,6 +360,12 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       liftedCardCount:active.filter(e=>e.lift>3).length,
       maxLift:active.reduce((max,e)=>Math.max(max,e.lift),0),
       maxTargetLift:active.reduce((max,e)=>Math.max(max,e.targetLift),0),
-      focusedSlot:active.find(e=>e.hovered)?.id||null};
+      focusedSlot:active.find(e=>e.hovered)?.id||null,
+      decoratedCards:active.filter(e=>e.front.material.map&&e.signature).length,
+      frameRevision:24,battlefieldRevision:25,
+      battlefieldTrimCount:arenaTrim.visible?rimParts.length:0,
+      battlefieldLightPoolCount:arenaTrim.visible?lightPools.length:0,
+      visualFxRevision:26,visualFxTriggered:effectsTriggered,
+      activeVisualMeshes:effects.length,renderClip:lastClip};
   }};
 };
