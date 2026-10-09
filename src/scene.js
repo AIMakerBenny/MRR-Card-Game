@@ -27,6 +27,30 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   const plateGeometry=new THREE.BoxGeometry(1,1,1);
   const entries=new Map();
   const effects=[];
+  // Phase 25 - sparse, transparent battlefield dressing that mirrors the DOM
+  // arena rectangle. It has no input or state authority.
+  const arenaTrim=new THREE.Group();scene.add(arenaTrim);
+  const rimGeo=new THREE.BoxGeometry(1,1,1);
+  const rimMat=new THREE.MeshStandardMaterial({color:0x987b51,metalness:.75,roughness:.38,
+    transparent:true,opacity:.44,depthWrite:false});
+  const rimParts=Array.from({length:4},()=>{
+    const m=new THREE.Mesh(rimGeo,rimMat);arenaTrim.add(m);return m;
+  });
+  const glowCanvas=document.createElement('canvas');
+  glowCanvas.width=glowCanvas.height=128;
+  const glowCtx=glowCanvas.getContext('2d');
+  const lightPools=[];
+  for(const tone of ['cyan','amber']){
+    const g=glowCtx.createRadialGradient(64,64,4,64,64,64);
+    g.addColorStop(0,tone==='cyan'?'rgba(55,170,180,.50)':'rgba(189,127,55,.37)');
+    g.addColorStop(.6,tone==='cyan'?'rgba(35,95,117,.18)':'rgba(108,71,44,.15)');
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    glowCtx.clearRect(0,0,128,128);glowCtx.fillStyle=g;glowCtx.fillRect(0,0,128,128);
+    const tex=new THREE.CanvasTexture(glowCanvas);tex.colorSpace=THREE.SRGBColorSpace;
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+      new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,opacity:.58,side:THREE.DoubleSide}));
+    m.position.z=-72;arenaTrim.add(m);lightPools.push(m);
+  }
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   let observer=null,dirty=true,failed=false;
   function rectOf(node){const r=node.getBoundingClientRect();return {x:r.left+r.width/2,y:height-r.top-r.height/2,w:r.width,h:r.height};}
@@ -154,12 +178,29 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     const ring=new THREE.Mesh(new THREE.RingGeometry(26,30,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.75,side:THREE.DoubleSide,depthWrite:false}));
     ring.position.copy(e.position);ring.position.z=30;scene.add(ring);effects.push({mesh:ring,born:performance.now(),duration:650});
   }
+  function syncArena(){
+    const node=document.querySelector('#arena');
+    const r=node?.getBoundingClientRect();
+    if(!r||r.width<160||r.height<100){arenaTrim.visible=false;return;}
+    arenaTrim.visible=true;
+    const cx=r.left+r.width/2,cy=height-r.top-r.height/2;
+    const w=Math.max(0,r.width-24),h=Math.max(0,r.height-24);
+    arenaTrim.position.set(cx,cy,-60);
+    rimParts[0].position.set(0,h/2,0);rimParts[0].scale.set(w,3,3);
+    rimParts[1].position.set(0,-h/2,0);rimParts[1].scale.set(w,3,3);
+    rimParts[2].position.set(-w/2,0,0);rimParts[2].scale.set(3,h,3);
+    rimParts[3].position.set(w/2,0,0);rimParts[3].scale.set(3,h,3);
+    lightPools[0].position.set(0,-h*.23,0);
+    lightPools[1].position.set(0,h*.23,0);
+    for(const p of lightPools)p.scale.set(w*.85,h*.58,1);
+  }
   function sync(){
     if(!running)return;
     const seen=new Set();
     const gameVisible=!document.querySelector('#gameScreen')?.classList.contains('hidden');
     renderer.domElement.style.display=gameVisible?'block':'none';
-    if(!gameVisible)return;
+    if(!gameVisible){arenaTrim.visible=false;return;}
+    syncArena();
     for(const slot of document.querySelectorAll('#enemyTerrace [data-slot],#fieldTable [data-slot],#myTerrace [data-slot]')){
       const id=slot.getAttribute('data-slot');if(!id)continue;seen.add(id);
       const r=rectOf(slot);if(r.w<10||r.h<10)continue;
@@ -253,7 +294,11 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   }
   function pause(){paused=true;cancelAnimationFrame(raf);}
   function resume(){if(running&&paused){paused=false;raf=requestAnimationFrame(frame);}}
-  function dispose(){stop();renderer.dispose();renderer.domElement.remove();}
+  function dispose(){
+    stop();
+    for(const p of lightPools){p.geometry.dispose();p.material.map.dispose();p.material.dispose();}
+    rimGeo.dispose();rimMat.dispose();renderer.dispose();renderer.domElement.remove();
+  }
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();stop();
     document.body.classList.remove('mcw-three-ready');document.body.classList.add('mcw-depth-fallback');
     const button=document.querySelector('#mcw3d-toggle');if(button)button.textContent='입체 모드';
@@ -268,6 +313,8 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       maxTargetLift:active.reduce((max,e)=>Math.max(max,e.targetLift),0),
       focusedSlot:active.find(e=>e.hovered)?.id||null,
       decoratedCards:active.filter(e=>e.front.material.map&&e.signature).length,
-      frameRevision:24};
+      frameRevision:24,battlefieldRevision:25,
+      battlefieldTrimCount:arenaTrim.visible?rimParts.length:0,
+      battlefieldLightPoolCount:arenaTrim.visible?lightPools.length:0};
   }};
 };
