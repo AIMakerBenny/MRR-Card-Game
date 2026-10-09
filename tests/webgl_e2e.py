@@ -81,6 +81,7 @@ try:
         node.evaluate("el => el.classList.add('fx-hit')")
         page.wait_for_function('prior => MCW3D.scene.state.visualFxTriggered > prior && MCW3D.scene.state.activeVisualMeshes > 1',arg=old_fx,timeout=8000)
         page.wait_for_timeout(175)
+        assert node.evaluate("el => getComputedStyle(el,'::after').content !== 'none'"), 'Hit ring CSS overlay was not painted'
         page.screenshot(path=str(ROOT/'tests/webgl_phase26_hit.png'))
         node.evaluate("el => el.classList.remove('fx-hit')")
         page.wait_for_timeout(120)
