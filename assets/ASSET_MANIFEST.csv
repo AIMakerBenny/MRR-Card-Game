@@ -1,0 +1,6 @@
+asset_key,source,license,status,target,notes
+procedural-card-frame,src/scene.js,project_source,implemented,all,Canvas procedural render uses existing visible DOM card data
+procedural-board-pedestal,src/scene.js,project_source,implemented,all,Three BoxGeometry procedural slot mounts
+custom-card-art,not_available,not_available,pending,244 card definitions,To be created after 3D QA
+3d-environment-decor,not_available,not_available,pending,battlefield,To be sourced only with verified permissions
+sound-effects,not_available,not_available,pending,battle events,No third-party audio assets bundled

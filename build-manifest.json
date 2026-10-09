@@ -1,0 +1,9 @@
+{
+  "build": "Phase22 3D Prototype 01",
+  "source": "Phase21_UI_Fixed",
+  "source_sha256": "e1ca166c83d55579a9e5012ae879254e53f86e4506a4016f9b1bd0908a05d13e",
+  "output_sha256": "e1dcb55f58a4e2898839861928bdd26765cf2a99917f3480976ff68e04ea35e6",
+  "three_version": "0.160.1",
+  "changes_to_rules": false,
+  "runtime": "Legacy playable offline; optional WebGL Three.js from vendored or CDN module; CSS depth fallback"
+}

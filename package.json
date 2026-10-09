@@ -1,0 +1,16 @@
+{
+  "name": "marorong-card-war-3d",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Phase21-compatible Three.js presentation layer for Marorong Card War",
+  "license": "UNLICENSED",
+  "scripts": {
+    "vendor": "node scripts/vendor-three.mjs",
+    "build": "python build.py",
+    "test:static": "python tests/static_audit.py",
+    "test:browser": "python tests/browser_smoke.py"
+  },
+  "dependencies": {
+    "three": "0.160.1"
+  }
+}

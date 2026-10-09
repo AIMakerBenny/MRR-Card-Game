@@ -1,0 +1,197 @@
+/* Three.js presentation adapter for MARORONG CARD WAR Phase 21.
+ * World units are CSS pixels and snapshots come only from the visible DOM.
+ * No rules/state changes; no hidden-hand reads; pointer-events never captured.
+ */
+window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
+  'use strict';
+  const scene=new THREE.Scene();
+  let width=innerWidth,height=innerHeight,last=0,raf=0,running=false,paused=false;
+  const camera=new THREE.OrthographicCamera(0,width,height,0,-1500,1500);
+  camera.position.set(width/2,height/2,1100);camera.lookAt(width/2,height/2,0);
+  const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'high-performance'});
+  renderer.setClearColor(0x000000,0);
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));
+  renderer.setSize(width,height,false);
+  renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.12;
+  renderer.domElement.setAttribute('aria-hidden','true');
+  renderer.domElement.style.pointerEvents='none';
+  mount.appendChild(renderer.domElement);
+  const ambient=new THREE.AmbientLight(0xbed5d7,2.4);scene.add(ambient);
+  const key=new THREE.DirectionalLight(0xffdaaa,2.3);
+  key.position.set(width*.19,height*.96,650);scene.add(key);
+  const fill=new THREE.PointLight(0x6cbcd1,34000,1900);
+  fill.position.set(width*.82,height*.42,200);scene.add(fill);
+  const cardGeometry=new THREE.BoxGeometry(1,1,1);
+  const plateGeometry=new THREE.BoxGeometry(1,1,1);
+  const entries=new Map();
+  const effects=[];
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+  let observer=null,dirty=true,failed=false;
+  function rectOf(node){const r=node.getBoundingClientRect();return {x:r.left+r.width/2,y:height-r.top-r.height/2,w:r.width,h:r.height};}
+  function colorOf(kind){
+    if(/영웅/.test(kind))return '#d2ad61';
+    if(/마법|의식|전술/.test(kind))return '#9b80ca';
+    if(/시설|함선|포탈/.test(kind))return '#88ac9d';
+    if(/장비/.test(kind))return '#bfb0a1';
+    if(/자원|보급/.test(kind))return '#6ec1c8';
+    return '#c69a62';
+  }
+  function cardInfo(slot){
+    const card=slot.querySelector('.board-card .card-ui');
+    if(!card)return null;
+    const get=(selector)=>card.querySelector(selector)?.textContent?.trim()||'';
+    const status=slot.querySelector('.status-chip')?.textContent?.trim()||'';
+    const name=get('.card-name'),kind=get('.card-kind')||card.className,
+      cost=get('.cost-bubble'),stats=get('.card-stats'),sigil=get('.sigil-text');
+    return {name,kind,cost,stats,sigil,status,signature:[name,kind,cost,stats,sigil,status].join('|')};
+  }
+  function rounded(ctx,x,y,w,h,r){
+    const rr=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+rr,y);ctx.lineTo(x+w-rr,y);
+    ctx.quadraticCurveTo(x+w,y,x+w,y+rr);ctx.lineTo(x+w,y+h-rr);
+    ctx.quadraticCurveTo(x+w,y+h,x+w-rr,y+h);ctx.lineTo(x+rr,y+h);
+    ctx.quadraticCurveTo(x,y+h,x,y+h-rr);ctx.lineTo(x,y+rr);
+    ctx.quadraticCurveTo(x,y,x+rr,y);ctx.closePath();
+  }
+  function fitText(ctx,value,maxWidth,baseSize,minSize){
+    let size=baseSize;
+    while(size>minSize){ctx.font=`bold ${size}px 'Malgun Gothic',sans-serif`;if(ctx.measureText(value).width<=maxWidth)break;size-=2;}
+    ctx.font=`bold ${size}px 'Malgun Gothic',sans-serif`;
+    if(ctx.measureText(value).width>maxWidth){while(value.length>2&&ctx.measureText(value+'…').width>maxWidth)value=value.slice(0,-1);value+='…';}
+    return value;
+  }
+  function textureFor(info){
+    const cvs=document.createElement('canvas');cvs.width=384;cvs.height=538;
+    const c=cvs.getContext('2d');const accent=colorOf(info.kind);
+    const bg=c.createLinearGradient(0,0,384,538);bg.addColorStop(0,'#49534e');bg.addColorStop(.14,'#1a2b30');bg.addColorStop(.75,'#1c252b');bg.addColorStop(1,'#4b4639');
+    c.fillStyle=bg;rounded(c,4,4,376,530,20);c.fill();
+    c.strokeStyle=accent;c.lineWidth=10;rounded(c,9,9,366,520,18);c.stroke();
+    c.strokeStyle='#efd69a';c.lineWidth=3;rounded(c,19,19,346,500,12);c.stroke();
+    c.fillStyle='#0b1820';rounded(c,26,25,332,71,9);c.fill();
+    c.fillStyle='#eee0c2';c.textAlign='center';c.textBaseline='middle';
+    const title=fitText(c,info.name,280,35,20);c.fillText(title,207,58);
+    c.fillStyle='#28648a';c.beginPath();c.arc(46,54,29,0,Math.PI*2);c.fill();
+    c.strokeStyle='#e8d4aa';c.lineWidth=3;c.stroke();c.fillStyle='#fff4db';c.font='bold 30px sans-serif';c.fillText(info.cost||'0',46,54);
+    const art=c.createLinearGradient(0,117,0,370);art.addColorStop(0,'#293e43');art.addColorStop(.56,'#304c4a');art.addColorStop(1,'#0c1c25');
+    c.fillStyle=art;rounded(c,35,113,314,251,10);c.fill();c.strokeStyle=accent;c.lineWidth=2;c.stroke();
+    c.save();c.translate(192,238);c.strokeStyle=accent;c.globalAlpha=.46;c.lineWidth=2;
+    for(let k=0;k<3;k++){c.beginPath();c.ellipse(0,0,80+k*26,100+k*18,0,0,Math.PI*2);c.stroke();}
+    c.globalAlpha=.6;c.beginPath();c.moveTo(-80,80);c.lineTo(0,-100);c.lineTo(80,80);c.closePath();c.stroke();
+    c.restore();
+    c.fillStyle='#f8e8bd';c.font='bold 90px Georgia,serif';c.textAlign='center';c.fillText(info.sigil||'✦',192,235);
+    c.fillStyle='#bdc9c8';c.font="19px 'Malgun Gothic',sans-serif";c.fillText(info.kind.replace(/·.*/,'' ).slice(0,12),192,390);
+    c.fillStyle='#c0a874';c.fillRect(38,417,308,2);
+    c.fillStyle='#f8edd8';c.font="bold 28px 'Malgun Gothic',sans-serif";c.fillText(info.stats||'전장 카드',192,460);
+    if(info.status){c.fillStyle='#283a4b';rounded(c,231,105,120,28,7);c.fill();c.fillStyle='#fff2bd';c.font='bold 15px sans-serif';c.fillText(info.status.slice(0,12),291,119);}
+    const texture=new THREE.CanvasTexture(cvs);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+    return texture;
+  }
+  function makeEntry(id){
+    const group=new THREE.Group();scene.add(group);
+    const plate=new THREE.Mesh(plateGeometry,new THREE.MeshStandardMaterial({color:0x627474,metalness:.47,roughness:.54,transparent:true,opacity:.24,depthWrite:false}));
+    plate.position.z=2;group.add(plate);
+    const edge=new THREE.Mesh(cardGeometry,[
+      new THREE.MeshStandardMaterial({color:0xb79964,metalness:.76,roughness:.32}),
+      new THREE.MeshStandardMaterial({color:0xb79964,metalness:.76,roughness:.32}),
+      new THREE.MeshStandardMaterial({color:0xe3c58b,metalness:.74,roughness:.3}),
+      new THREE.MeshStandardMaterial({color:0x67492d,metalness:.68,roughness:.45}),
+      new THREE.MeshStandardMaterial({color:0x2b3437,metalness:.43,roughness:.55}),
+      new THREE.MeshStandardMaterial({color:0x2b3437,metalness:.43,roughness:.55})
+    ]);
+    edge.position.z=10;group.add(edge);
+    const front=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.FrontSide}));
+    front.position.z=13.2;group.add(front);
+    const shadow=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.28,depthWrite:false}));
+    shadow.position.set(5,-8,4);group.add(shadow);
+    const entry={id,group,plate,edge,front,shadow,signature:null,hasCard:false,prevEffect:'',position:new THREE.Vector3()};
+    entries.set(id,entry);return entry;
+  }
+  function removeEntry(id){const e=entries.get(id);if(!e)return;
+    e.front.material.map?.dispose();e.front.material.dispose();scene.remove(e.group);entries.delete(id);}
+  function effectAt(e,type){
+    if(reduced.matches)return;
+    const color=type==='fx-heal'?0x78f3bd:type==='fx-hit'?0xf3a570:0xffe0a0;
+    const ring=new THREE.Mesh(new THREE.RingGeometry(26,30,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.75,side:THREE.DoubleSide,depthWrite:false}));
+    ring.position.copy(e.position);ring.position.z=30;scene.add(ring);effects.push({mesh:ring,born:performance.now(),duration:650});
+  }
+  function sync(){
+    if(!running)return;
+    const seen=new Set();
+    const gameVisible=!document.querySelector('#gameScreen')?.classList.contains('hidden');
+    renderer.domElement.style.display=gameVisible?'block':'none';
+    if(!gameVisible)return;
+    for(const slot of document.querySelectorAll('#enemyTerrace [data-slot],#fieldTable [data-slot],#myTerrace [data-slot]')){
+      const id=slot.getAttribute('data-slot');if(!id)continue;seen.add(id);
+      const r=rectOf(slot);if(r.w<10||r.h<10)continue;
+      const e=entries.get(id)||makeEntry(id);
+      e.position.set(r.x,r.y,6);e.group.position.copy(e.position);
+      e.plate.scale.set(Math.min(r.w*.8,r.h*.74),Math.min(r.h*.83,r.w*.85),4);
+      e.plate.material.color.set(slot.classList.contains('legal')?0x368e83:slot.classList.contains('attack-target')?0x9c723c:0x627474);
+      const info=cardInfo(slot);
+      const card=slot.querySelector('.board-card');
+      if(info&&card){
+        const cr=rectOf(card);const cw=Math.max(26,cr.w),ch=Math.max(38,cr.h);
+        e.hasCard=true;e.edge.visible=e.front.visible=e.shadow.visible=true;
+        e.edge.scale.set(cw,ch,6);e.front.scale.set(cw-6,ch-7,1);e.shadow.scale.set(cw,ch,1);
+        e.group.position.set(cr.x,cr.y,9);
+        e.plate.position.set(r.x-cr.x,r.y-cr.y,-4);
+        if(e.signature!==info.signature){e.front.material.map?.dispose();e.front.material.map=textureFor(info);e.front.material.needsUpdate=true;e.signature=info.signature;}
+        const active=slot.classList.contains('selected-slot')||slot.classList.contains('attack-target');
+        e.edge.rotation.y=active?-.11:0;e.front.rotation.y=active?-.11:0;
+      }else{
+        e.signature=null;e.hasCard=false;e.edge.visible=e.front.visible=e.shadow.visible=false;
+        e.plate.position.set(0,0,0);e.group.position.set(r.x,r.y,3);
+      }
+      const fx=['fx-hit','fx-heal','fx-summon'].find(x=>slot.classList.contains(x))||'';
+      if(fx&&fx!==e.prevEffect)effectAt(e,fx);
+      e.prevEffect=fx;
+    }
+    for(const id of Array.from(entries.keys()))if(!seen.has(id))removeEntry(id);
+    dirty=false;
+  }
+  function frame(t){
+    if(!running||paused)return;
+    raf=requestAnimationFrame(frame);
+    if(t-last<32)return;last=t;
+    if(innerWidth!==width||innerHeight!==height)resize();
+    // Client rects can change on hover/scroll without mutating the slot subtree.
+    sync();
+    for(let i=effects.length-1;i>=0;i--){const fx=effects[i],pct=(t-fx.born)/fx.duration;
+      if(pct>=1){scene.remove(fx.mesh);fx.mesh.geometry.dispose();fx.mesh.material.dispose();effects.splice(i,1);continue;}
+      fx.mesh.scale.setScalar(1+pct*2.4);fx.mesh.material.opacity=(1-pct)*.76;
+    }
+    renderer.render(scene,camera);
+  }
+  function resize(){width=innerWidth;height=innerHeight;
+    camera.left=0;camera.right=width;camera.top=height;camera.bottom=0;
+    camera.position.set(width/2,height/2,1100);camera.lookAt(width/2,height/2,0);camera.updateProjectionMatrix();
+    key.position.set(width*.19,height*.96,650);fill.position.set(width*.82,height*.42,200);
+    renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.setSize(width,height,false);dirty=true;
+  }
+  function start(){
+    if(running){paused=false;return;}
+    running=true;paused=false;resize();
+    observer=new MutationObserver(()=>{dirty=true;});
+    for(const node of [document.querySelector('#arenaInner'),document.querySelector('#gameScreen')]){
+      if(!node)continue;
+      if(node.id==='gameScreen')observer.observe(node,{attributes:true,attributeFilter:['class']});
+      else observer.observe(node,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+    }
+    raf=requestAnimationFrame(frame);
+  }
+  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;
+    for(const id of Array.from(entries.keys()))removeEntry(id);
+    for(const fx of effects){scene.remove(fx.mesh);fx.mesh.geometry.dispose();fx.mesh.material.dispose();}effects.length=0;
+    renderer.clear();
+  }
+  function pause(){paused=true;cancelAnimationFrame(raf);}
+  function resume(){if(running&&paused){paused=false;raf=requestAnimationFrame(frame);}}
+  function dispose(){stop();renderer.dispose();renderer.domElement.remove();}
+  renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();stop();
+    document.body.classList.remove('mcw-three-ready');document.body.classList.add('mcw-depth-fallback');
+    const button=document.querySelector('#mcw3d-toggle');if(button)button.textContent='입체 모드';
+    const status=document.querySelector('#mcw3d-status');if(status){status.textContent='WebGL 연결이 끊겨 CSS 입체 모드로 전환했습니다.';status.classList.add('active');}
+  });
+  return {start,stop,pause,resume,resize,dispose,get state(){return {running,paused,cardCount:Array.from(entries.values()).filter(e=>e.hasCard).length,slotCount:entries.size};}};
+};

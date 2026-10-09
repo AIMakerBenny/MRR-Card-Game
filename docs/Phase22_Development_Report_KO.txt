@@ -1,0 +1,55 @@
+MARORONG CARD WAR - PHASE 22 PROTOTYPE 01
+기준일: 2026-10-09
+원본: 사용자 제공 Marorong_Card_War_Phase21_UI_Fixed(1).html
+
+1. 수행한 실제 작업
+
+Phase21 HTML을 legacy/Phase21_Original.html에 보존했다.
+기존 카드 JSON 데이터와 게임 판정 JavaScript에 변경을 가하지 않았다.
+일체형 HTML을 지속적으로 빌드할 수 있게 Python build.py를 만들었다.
+기존 HTML에 별도 Three.js 표현 모듈, 3D 전장 토글, CSS 안전 대체 모드를 추가했다.
+3D 표현 코드가 DOM에서 현재 공개된 카드와 슬롯 위치만 읽도록 하였다.
+WebGL 코드에는 3D 카드 두께와 재질, 슬롯 받침대, 조명, 간단한 피격·회복·소환 링 효과를 작성하였다.
+이 3D 코드의 실제 렌더링 성공 여부는 아직 확인되지 않았다.
+상용/외부 에셋을 임의 수집하지 않고 절차적 카드 텍스처를 생성하도록 했다.
+원본 업데이트는 GitHub에서 버전 관리할 수 있도록 소스 트리와 CI workflow를 준비했다.
+
+2. 검증 완료
+
+STATIC AUDIT PASS - 기존 게임 script 동일, 카드 244개와 진영 10개 유지, 파일 해시 일치.
+PARITY PASS - 동일 시드 원본과 수정본의 경기 시작 상태 동일; CSS 입체 모드를 전환해도 상태 동일.
+Chromium BROWSER PASS - 1920x1080, 1366x768, 390x844에서 시작과 손패, 30슬롯, 버튼 및 CSS 대체 모드 정상.
+Chromium PLACEMENT PASS - 실제 게임 판정으로 합법 카드를 배치한 뒤 손패 감소 한 번, 슬롯 30개 유지.
+빌드 성공 및 소스 ZIP 무결성 검증 완료.
+
+3. 이번 단계에서 미검증
+
+Three.js 모듈을 외부 네트워크에서 받아 실제 WebGL로 실행하는 작업: Not available.
+WebGL 3D 카드 위치, 카드 텍스처 글자 가독성, FPS 및 GPU 리소스: Not available.
+모든 카드 종류의 효과 연출: Not available.
+244장 개별 카드 일러스트, 음향, 고품질 완성 아트: Not available.
+원본 Phase21 Source ZIP에 들어 있는 검사 스크립트의 통합: Not available.
+GitHub 저장소에 직접 Push 및 GitHub Actions 실행 결과: Not available.
+과거 저장 파일의 다양한 버전 호환성, 실제 모바일 터치: Not available.
+
+4. 산출물
+
+Marorong_Card_War_Phase22_3D_Prototype.html - 현재 실행 가능한 버전, Three.js 사용 불가 시 CSS 입체 모드로 대체
+Marorong_Card_War_Phase22_3D_Source_Project.zip - 이후 수정을 위한 전체 소스, 원본 HTML, 빌드 코드, 테스트 및 GitHub Actions
+
+5. 다음 순서
+
+Phase22 소스 프로젝트를 GitHub의 별도 저장소에 배치.
+GitHub Actions에서 npm three@0.160.1 설치 및 vendor/three.module.js 저장.
+엄격한 Playwright WebGL 실기동 테스트 실행 및 실패 항목 수정.
+3D 카드의 실제 위치 동기화, 조명과 그림자, 고해상도 텍스처를 눈으로 확인하며 조정.
+공격과 소환 등 확정 이벤트를 시각 계층으로 전달할 규약 설계.
+3D에서 카드 선택, 공격, 드래그, AI 행동, 저장·복원 등 종합 검증.
+개별 카드 아트는 라이선스를 확인하거나 생성 후 에셋 목록에 등록.
+
+6. 정책
+
+테스트가 성공하지 않았는데 완료라고 보고하지 않는다.
+기존 카드 규칙, AI, 저장 및 게임 동작을 3D 표현을 위해 임의로 바꾸지 않는다.
+불가능한 에셋 다운로드나 외부 권한을 확보했다고 주장하지 않는다.
+향후 업데이트는 별도 브랜치, 회귀 테스트, 실제 Chromium QA 후 반영한다.
