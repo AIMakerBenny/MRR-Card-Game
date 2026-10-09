@@ -33,7 +33,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   const arenaTrim=new THREE.Group();scene.add(arenaTrim);
   const rimGeo=new THREE.BoxGeometry(1,1,1);
   const rimMat=new THREE.MeshStandardMaterial({color:0x987b51,metalness:.75,roughness:.38,
-    transparent:true,opacity:.44,depthWrite:false});
+    transparent:true,opacity:.065,depthWrite:false});
   const rimParts=Array.from({length:4},()=>{
     const m=new THREE.Mesh(rimGeo,rimMat);arenaTrim.add(m);return m;
   });
@@ -212,10 +212,10 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     const cx=r.left+r.width/2,cy=height-r.top-r.height/2;
     const w=Math.max(0,r.width-24),h=Math.max(0,r.height-24);
     arenaTrim.position.set(cx,cy,-60);
-    rimParts[0].position.set(0,h/2,0);rimParts[0].scale.set(w,3,3);
-    rimParts[1].position.set(0,-h/2,0);rimParts[1].scale.set(w,3,3);
-    rimParts[2].position.set(-w/2,0,0);rimParts[2].scale.set(3,h,3);
-    rimParts[3].position.set(w/2,0,0);rimParts[3].scale.set(3,h,3);
+    rimParts[0].position.set(0,h/2,0);rimParts[0].scale.set(w,2,2);
+    rimParts[1].position.set(0,-h/2,0);rimParts[1].scale.set(w,2,2);
+    rimParts[2].position.set(-w/2,0,0);rimParts[2].scale.set(2,h,2);
+    rimParts[3].position.set(w/2,0,0);rimParts[3].scale.set(2,h,2);
     lightPools[0].position.set(0,-h*.23,0);
     lightPools[1].position.set(0,h*.23,0);
     for(const p of lightPools)p.scale.set(w*.85,h*.58,1);

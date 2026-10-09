@@ -80,6 +80,7 @@ try:
         old_fx=page.evaluate('MCW3D.scene.state.visualFxTriggered')
         node.evaluate("el => el.classList.add('fx-hit')")
         page.wait_for_function('prior => MCW3D.scene.state.visualFxTriggered > prior && MCW3D.scene.state.activeVisualMeshes > 1',arg=old_fx,timeout=8000)
+        page.wait_for_timeout(175)
         page.screenshot(path=str(ROOT/'tests/webgl_phase26_hit.png'))
         node.evaluate("el => el.classList.remove('fx-hit')")
         page.wait_for_timeout(120)

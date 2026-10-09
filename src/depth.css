@@ -38,3 +38,11 @@ body.mcw-depth-fallback #gameScreen .arena:after{
 #mcw3d-status.active{display:block}
 @media (max-width:760px){#mcw3d-toggle{min-height:32px;padding:3px 5px;font-size:10px}#mcw3d-status{top:44px;right:8px}}
 @media (prefers-reduced-motion:reduce){body.mcw-three-ready #mcw3d-canvas-host{transition:none}}
+
+/* Phase26 visual QA correction: draw reliable battlefield borders in the
+   HTML layout that owns arena hit testing, not across gameplay rows. */
+body.mcw-three-ready #gameScreen #arena{
+  border:1px solid rgba(192,157,99,.48);
+  box-shadow:inset 0 0 0 1px rgba(234,207,147,.07),
+    inset 0 0 48px rgba(7,22,30,.5),0 5px 24px rgba(0,0,0,.28);
+}
