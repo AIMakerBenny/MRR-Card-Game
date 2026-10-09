@@ -49,22 +49,22 @@ body.mcw-three-ready #gameScreen #arena{
 
 /* Phase26 clarity pass: the same existing visual events also light the
    accessible DOM card perimeter. No rules or click targets are changed. */
-body.mcw-three-ready #gameScreen .slot.fx-hit::after,
-body.mcw-three-ready #gameScreen .slot.fx-heal::after,
-body.mcw-three-ready #gameScreen .slot.fx-summon::after{
-  content:"";position:absolute;inset:-4px;z-index:19;
+body.mcw-three-ready #gameScreen .slot.fx-hit .board-card::after,
+body.mcw-three-ready #gameScreen .slot.fx-heal .board-card::after,
+body.mcw-three-ready #gameScreen .slot.fx-summon .board-card::after{
+  content:"";position:absolute;inset:-6px;z-index:19;
   border-radius:9px;pointer-events:none;mix-blend-mode:screen;
   animation:mcw-vfx-halo .65s ease-out forwards;
 }
-body.mcw-three-ready #gameScreen .slot.fx-hit::after{
+body.mcw-three-ready #gameScreen .slot.fx-hit .board-card::after{
   border:3px solid #ffb276;
   box-shadow:0 0 17px 5px #e27b4da0,inset 0 0 11px 2px #ffb77f6e;
 }
-body.mcw-three-ready #gameScreen .slot.fx-heal::after{
+body.mcw-three-ready #gameScreen .slot.fx-heal .board-card::after{
   border:3px solid #7ce8af;
   box-shadow:0 0 15px 5px #3cca9b91,inset 0 0 12px 2px #a8ffd191;
 }
-body.mcw-three-ready #gameScreen .slot.fx-summon::after{
+body.mcw-three-ready #gameScreen .slot.fx-summon .board-card::after{
   border:3px solid #edc87f;
   box-shadow:0 0 19px 6px #ffd68ca6,inset 0 0 14px 3px #dcb56e7a;
 }
@@ -74,9 +74,9 @@ body.mcw-three-ready #gameScreen .slot.fx-summon::after{
   100%{opacity:0;transform:scale(1.14)}
 }
 @media(prefers-reduced-motion:reduce){
-  body.mcw-three-ready #gameScreen .slot.fx-hit::after,
-  body.mcw-three-ready #gameScreen .slot.fx-heal::after,
-  body.mcw-three-ready #gameScreen .slot.fx-summon::after{
+  body.mcw-three-ready #gameScreen .slot.fx-hit .board-card::after,
+  body.mcw-three-ready #gameScreen .slot.fx-heal .board-card::after,
+  body.mcw-three-ready #gameScreen .slot.fx-summon .board-card::after{
     animation:none!important;opacity:.36;transform:none;
   }
 }
