@@ -43,6 +43,10 @@ try:
         assert targets.count()>0,'No legal target for normal placement'
         targets.first.evaluate('(el)=>el.click()')
         page.wait_for_function('MCW3D.scene.state.cardCount === 1',timeout=8000)
+        # The selected card must remain actually visible in WebGL mode.
+        assert page.locator('.slot:has(.board-card) .card-ui').first.evaluate(
+            "el => Number(getComputedStyle(el).opacity) > 0.9"
+        ), 'Phase 23 visual regression: WebGL mode hides DOM card art'
         before_focus=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         # Newly placed cards may remain selected. Their idle height is 10,
         # whereas a true hover must raise only that card to height 18.

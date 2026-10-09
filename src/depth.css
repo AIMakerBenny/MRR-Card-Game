@@ -9,7 +9,9 @@
   visibility:hidden;contain:layout style; }
 #mcw3d-canvas-host canvas { width:100%;height:100%;display:block;pointer-events:none }
 body.mcw-three-ready #mcw3d-canvas-host{visibility:visible}
-body.mcw-three-ready #gameScreen .board-card .card-ui{opacity:0!important}
+/* Phase 23: Keep DOM card art and Korean stats legible above the optional visual layer.
+   Hiding these cards before proven 3D texture coverage can make real cards vanish. */
+body.mcw-three-ready #gameScreen .board-card .card-ui{opacity:1!important}
 /* Original hit targets, card instance ordering, and game state remain DOM-owned. */
 body.mcw-three-ready #gameScreen .board-card{cursor:pointer}
 /* Temporary native CSS depth if Three.js cannot be loaded. It is explicitly not WebGL. */

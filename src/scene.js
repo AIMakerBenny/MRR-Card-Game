@@ -139,6 +139,9 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       e.plate.material.color.set(slot.classList.contains('legal')?0x368e83:slot.classList.contains('attack-target')?0x9c723c:0x627474);
       const info=cardInfo(slot);
       const card=slot.querySelector('.board-card');
+      // Empty slots are already painted by the accessible DOM arena.
+      // Do not overlay translucent empty WebGL plates over row names or UI.
+      e.plate.visible=!!info&&!!card;
       if(info&&card){
         const cr=rectOf(card);const cw=Math.max(26,cr.w),ch=Math.max(38,cr.h);
         e.hasCard=true;e.edge.visible=e.front.visible=e.shadow.visible=true;
