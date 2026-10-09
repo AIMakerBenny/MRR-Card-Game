@@ -225,6 +225,8 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     return {running,paused,cardCount:active.length,slotCount:entries.size,
       hoveredCardCount:active.filter(e=>e.hovered).length,
       liftedCardCount:active.filter(e=>e.lift>3).length,
+      maxLift:active.reduce((max,e)=>Math.max(max,e.lift),0),
+      maxTargetLift:active.reduce((max,e)=>Math.max(max,e.targetLift),0),
       focusedSlot:active.find(e=>e.hovered)?.id||null};
   }};
 };

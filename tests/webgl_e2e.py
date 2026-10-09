@@ -44,14 +44,18 @@ try:
         targets.first.evaluate('(el)=>el.click()')
         page.wait_for_function('MCW3D.scene.state.cardCount === 1',timeout=8000)
         before_focus=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
+        # Newly placed cards may remain selected. Their idle height is 10,
+        # whereas a true hover must raise only that card to height 18.
+        idle_target=page.evaluate('MCW3D.scene.state.maxTargetLift')
+        assert idle_target in (0,10),f'Unexpected idle focus lift: {idle_target}'
         node=page.locator('.slot:has(.board-card)').first
         node.hover()
-        page.wait_for_function('MCW3D.scene.state.hoveredCardCount === 1 && MCW3D.scene.state.liftedCardCount === 1',timeout=8000)
+        page.wait_for_function('MCW3D.scene.state.hoveredCardCount === 1 && MCW3D.scene.state.maxTargetLift === 18 && MCW3D.scene.state.maxLift > 15',timeout=8000)
         assert page.locator('[data-slot]').count()==30
         assert page.locator('.board-card').count()==1
         page.screenshot(path=str(ROOT/'tests/webgl_phase23_hover.png'))
         page.mouse.move(0,0)
-        page.wait_for_function('MCW3D.scene.state.hoveredCardCount === 0 && MCW3D.scene.state.liftedCardCount === 0',timeout=8000)
+        page.wait_for_function('''idle => MCW3D.scene.state.hoveredCardCount === 0 && MCW3D.scene.state.maxTargetLift === idle && MCW3D.scene.state.maxLift <= idle+1''',arg=idle_target,timeout=8000)
         after_focus=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         assert before_focus==after_focus,'Hover changed the game state'
         page.screenshot(path=str(ROOT/'tests/webgl_1920x1080.png'))
