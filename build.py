@@ -12,13 +12,13 @@ css = (ROOT/'src/depth.css').read_text(encoding='utf-8')
 scene = (ROOT/'src/scene.js').read_text(encoding='utf-8')
 boot = (ROOT/'src/boot.js').read_text(encoding='utf-8')
 assert '</script' not in scene.lower() and '</script' not in boot.lower()
-source = source.replace('<title>MARORONG CARD WAR · Phase 21 UI Fixed</title>', '<title>MARORONG CARD WAR · Phase 22 3D Prototype</title>')
+source = source.replace('<title>MARORONG CARD WAR · Phase 21 UI Fixed</title>', '<title>MARORONG CARD WAR · Phase 23 3D Prototype</title>')
 source = source.replace('</head>',f'<style id="mcw3d-extension-css">\n{css}\n</style>\n</head>')
 source = source.replace('</body>', f'<script type="module" id="mcw3d-extension-js">\n{scene}\n{boot}\n</script>\n</body>')
-output = ROOT/'Marorong_Card_War_Phase22_3D_Prototype.html'
+output = ROOT/'Marorong_Card_War_Phase23_3D_Prototype.html'
 output.write_text(source, encoding='utf-8')
 manifest = {
-    'build': 'Phase22 3D Prototype 01',
+    'build': 'Phase23 Card Focus 01',
     'source': 'Phase21_UI_Fixed',
     'source_sha256': sha,
     'output_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),

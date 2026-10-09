@@ -14,3 +14,12 @@ MARORONG CARD WAR - Phase 22 3D Prototype 01
 미검증 사항: 실물 WebGL Three.js 구동 여부, 모바일 실기기, 개별 카드 일러스트, 모든 능력 간 상호작용. CI 결과를 확인한 후에만 통과로 보고합니다.
 
 이 프로젝트는 별도 빌드를 위한 소스 구조를 제공하며 완성된 3D 게임을 의미하지 않습니다.
+
+Phase 23 - 3D 전장 카드 호버·선택 강조
+- 마우스가 가리키는 전장 카드만 상승하고 카드 주변에 입체 광륜을 표시합니다.
+- 선택한 카드와 공격 대상은 별도 강조됩니다.
+- 다른 카드의 위치와 게임 판정은 변경하지 않습니다.
+- 원본 2D 호버, 대상 선택, 저장, AI는 Phase21 코드가 담당합니다.
+- 빌드: python build.py
+- 실행본: Marorong_Card_War_Phase23_3D_Prototype.html
+- 실제 WebGL 호버와 게임 상태 불변 여부는 GitHub Actions의 tests/webgl_e2e.py를 통과해야 완료로 보고합니다.

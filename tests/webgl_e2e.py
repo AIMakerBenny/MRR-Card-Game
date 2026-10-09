@@ -13,11 +13,13 @@ assert (ROOT/'vendor/three.module.js').exists(), 'Three.js is not vendored: run 
 handler=partial(SimpleHTTPRequestHandler,directory=str(ROOT))
 server=ThreadingHTTPServer(('127.0.0.1',0),handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
-url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase22_3D_Prototype.html'
+url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase23_3D_Prototype.html'
 try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
         page=browser.new_page(viewport={'width':1920,'height':1080})
+        # Reproducible opening hand, same seed as the existing placement smoke test.
+        page.add_init_script('''() => {let seed=198704;Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};}''')
         errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
         page.goto(url,wait_until='domcontentloaded')
         page.locator('#newGame').click();page.locator('#launchGame').click()
@@ -31,8 +33,29 @@ try:
         after=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         assert before==after, 'Three scene mutated game state'
         assert not errors,errors
+        # Use normal game commands to place a card, then check the actual
+        # WebGL focus state. No test mutates the game's rules or hand directly.
+        options=page.locator('.hand-slot').evaluate_all('''els=>els.map((e,i)=>({index:i,cost:Number(e.querySelector('.cost-bubble')?.textContent||99),isBoardCard:/type-(몬스터|시설|영웅유닛)/.test(e.querySelector('.card-ui')?.className||'')}))''')
+        legal=[x for x in options if x['isBoardCard'] and x['cost']<=2]
+        assert legal,'Cannot test focus: no affordable field card'
+        page.locator('.hand-slot').nth(legal[0]['index']).evaluate('(el)=>el.click()')
+        targets=page.locator('.slot.legal')
+        assert targets.count()>0,'No legal target for normal placement'
+        targets.first.evaluate('(el)=>el.click()')
+        page.wait_for_function('MCW3D.scene.state.cardCount === 1',timeout=8000)
+        before_focus=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
+        node=page.locator('.slot:has(.board-card)').first
+        node.hover()
+        page.wait_for_function('MCW3D.scene.state.hoveredCardCount === 1 && MCW3D.scene.state.liftedCardCount === 1',timeout=8000)
+        assert page.locator('[data-slot]').count()==30
+        assert page.locator('.board-card').count()==1
+        page.screenshot(path=str(ROOT/'tests/webgl_phase23_hover.png'))
+        page.mouse.move(0,0)
+        page.wait_for_function('MCW3D.scene.state.hoveredCardCount === 0 && MCW3D.scene.state.liftedCardCount === 0',timeout=8000)
+        after_focus=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
+        assert before_focus==after_focus,'Hover changed the game state'
         page.screenshot(path=str(ROOT/'tests/webgl_1920x1080.png'))
-        print('WEBGL RUNTIME PASS - local pinned Three.js, 30 mirrored slots, canvas and engine parity.')
+        print('WEBGL PHASE23 PASS - local Three.js, 30 slots, hover lift, return, game state unchanged.')
         browser.close()
 finally:
     server.shutdown();server.server_close()
