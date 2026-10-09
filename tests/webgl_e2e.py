@@ -13,7 +13,7 @@ assert (ROOT/'vendor/three.module.js').exists(), 'Three.js is not vendored: run 
 handler=partial(SimpleHTTPRequestHandler,directory=str(ROOT))
 server=ThreadingHTTPServer(('127.0.0.1',0),handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
-url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase23_3D_Prototype.html'
+url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase24_3D_Prototype.html'
 try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
@@ -47,6 +47,7 @@ try:
         assert page.locator('.slot:has(.board-card) .card-ui').first.evaluate(
             "el => Number(getComputedStyle(el).opacity) > 0.9"
         ), 'Phase 23 visual regression: WebGL mode hides DOM card art'
+        assert page.evaluate('MCW3D.scene.state.frameRevision === 24 && MCW3D.scene.state.decoratedCards === 1'), 'Card face texture and metal trim missing'
         before_focus=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         # Newly placed cards may remain selected. Their idle height is 10,
         # whereas a true hover must raise only that card to height 18.

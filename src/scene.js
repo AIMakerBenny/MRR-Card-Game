@@ -61,6 +61,16 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     if(ctx.measureText(value).width>maxWidth){while(value.length>2&&ctx.measureText(value+'…').width>maxWidth)value=value.slice(0,-1);value+='…';}
     return value;
   }
+  // Phase 24 - visual-only heraldry. Never creates card types or game abilities.
+  function sealFor(info){
+    if(/영웅/.test(info.kind))return '♛';
+    if(/함선/.test(info.kind))return '⚓';
+    if(/시설|포탈/.test(info.kind))return '⌂';
+    if(/마법|의식/.test(info.kind))return '✧';
+    if(/장비/.test(info.kind))return '⚒';
+    if(/자원|보급/.test(info.kind))return '◇';
+    return '⚔';
+  }
   function textureFor(info){
     const cvs=document.createElement('canvas');cvs.width=384;cvs.height=538;
     const c=cvs.getContext('2d');const accent=colorOf(info.kind);
@@ -79,10 +89,30 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     for(let k=0;k<3;k++){c.beginPath();c.ellipse(0,0,80+k*26,100+k*18,0,0,Math.PI*2);c.stroke();}
     c.globalAlpha=.6;c.beginPath();c.moveTo(-80,80);c.lineTo(0,-100);c.lineTo(80,80);c.closePath();c.stroke();
     c.restore();
-    c.fillStyle='#f8e8bd';c.font='bold 90px Georgia,serif';c.textAlign='center';c.fillText(info.sigil||'✦',192,235);
+    // Layered ink, distinct category crest and restrained metallic etching.
+    c.save();
+    c.translate(192,239);
+    for(let i=0;i<12;i++){
+      c.rotate(Math.PI/6);c.strokeStyle=i%2?'#dabf8660':'#9ad3cc45';c.lineWidth=2;
+      c.beginPath();c.moveTo(0,-103);c.lineTo(0,-125);c.stroke();
+    }
+    c.strokeStyle=accent;c.lineWidth=5;c.beginPath();c.arc(0,0,104,0,Math.PI*2);c.stroke();
+    c.strokeStyle='#f3e3b3';c.lineWidth=1.7;c.beginPath();c.arc(0,0,96,0,Math.PI*2);c.stroke();
+    c.fillStyle='#0c1c25';c.beginPath();c.arc(0,0,79,0,Math.PI*2);c.fill();
+    c.fillStyle=accent;c.font='bold 116px Georgia,serif';c.textAlign='center';c.fillText(sealFor(info),0,13);
+    c.fillStyle='#ffeac2';c.font='bold 54px Georgia,serif';c.fillText(info.sigil||'',0,76);
+    c.restore();
+    // Four inset filigree corners keep the card visually distinct at small sizes.
+    c.save();c.strokeStyle='#d4b984af';c.lineWidth=3;
+    for(const [x,y,dx,dy] of [[48,125,1,1],[336,125,-1,1],[48,351,1,-1],[336,351,-1,-1]]){
+      c.beginPath();c.moveTo(x,y+dy*21);c.lineTo(x,y);c.lineTo(x+dx*21,y);c.stroke();
+    }c.restore();
     c.fillStyle='#bdc9c8';c.font="19px 'Malgun Gothic',sans-serif";c.fillText(info.kind.replace(/·.*/,'' ).slice(0,12),192,390);
     c.fillStyle='#c0a874';c.fillRect(38,417,308,2);
     c.fillStyle='#f8edd8';c.font="bold 28px 'Malgun Gothic',sans-serif";c.fillText(info.stats||'전장 카드',192,460);
+    // Raised cost/status trim and engraved bottom bands stay presentation-only.
+    c.strokeStyle=accent;c.lineWidth=3;c.beginPath();c.moveTo(52,486);c.lineTo(332,486);c.stroke();
+    c.fillStyle='#edd5a8';c.font='bold 14px sans-serif';c.fillText('MARORONG',192,507);
     if(info.status){c.fillStyle='#283a4b';rounded(c,231,105,120,28,7);c.fill();c.fillStyle='#fff2bd';c.font='bold 15px sans-serif';c.fillText(info.status.slice(0,12),291,119);}
     const texture=new THREE.CanvasTexture(cvs);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
     return texture;
@@ -148,7 +178,13 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
         e.edge.scale.set(cw,ch,6);e.front.scale.set(cw-6,ch-7,1);e.shadow.scale.set(cw,ch,1);
         e.group.position.set(cr.x,cr.y,9);
         e.plate.position.set(r.x-cr.x,r.y-cr.y,-4);
-        if(e.signature!==info.signature){e.front.material.map?.dispose();e.front.material.map=textureFor(info);e.front.material.needsUpdate=true;e.signature=info.signature;}
+        if(e.signature!==info.signature){
+          e.front.material.map?.dispose();e.front.material.map=textureFor(info);
+          e.front.material.needsUpdate=true;e.signature=info.signature;
+          const accent=new THREE.Color(colorOf(info.kind));
+          for(const idx of [0,1,2])e.edge.material[idx].color.copy(accent);
+          e.halo.material.color.copy(accent);
+        }
         const active=slot.classList.contains('selected-slot')||slot.classList.contains('attack-target');
         const hovered=slot.matches(':hover');
         e.hovered=hovered;e.selected=active;e.targetLift=hovered?18:active?10:0;
@@ -230,6 +266,8 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       liftedCardCount:active.filter(e=>e.lift>3).length,
       maxLift:active.reduce((max,e)=>Math.max(max,e.lift),0),
       maxTargetLift:active.reduce((max,e)=>Math.max(max,e.targetLift),0),
-      focusedSlot:active.find(e=>e.hovered)?.id||null};
+      focusedSlot:active.find(e=>e.hovered)?.id||null,
+      decoratedCards:active.filter(e=>e.front.material.map&&e.signature).length,
+      frameRevision:24};
   }};
 };

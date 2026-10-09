@@ -23,3 +23,9 @@ Phase 23 - 3D 전장 카드 호버·선택 강조
 - 빌드: python build.py
 - 실행본: Marorong_Card_War_Phase23_3D_Prototype.html
 - 실제 WebGL 호버와 게임 상태 불변 여부는 GitHub Actions의 tests/webgl_e2e.py를 통과해야 완료로 보고합니다.
+
+Phase 24 - Three.js 카드 문양과 프레임 개편
+- 기존 게임 데이터·능력을 변경하지 않고 유형별 장식 문양과 금속 프레임을 생성합니다.
+- 전장 카드 앞면 CanvasTexture, 선택 강조와 금속색이 실제 카드 종류에 맞게 갱신됩니다.
+- 카드 이름·체력 및 실제 명령은 기존 HTML에서 계속 표시합니다.
+- 실제 Chromium WebGL 카드 텍스처 수 검증을 통과한 뒤 완료 처리합니다.
