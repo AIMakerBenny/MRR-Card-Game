@@ -36,11 +36,13 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   const rimParts=Array.from({length:4},()=>{
     const m=new THREE.Mesh(rimGeo,rimMat);arenaTrim.add(m);return m;
   });
-  const glowCanvas=document.createElement('canvas');
-  glowCanvas.width=glowCanvas.height=128;
-  const glowCtx=glowCanvas.getContext('2d');
   const lightPools=[];
   for(const tone of ['cyan','amber']){
+    // Each color requires its own backing canvas. Reusing a mutable canvas
+    // makes both textures display the last painted gradient on first upload.
+    const glowCanvas=document.createElement('canvas');
+    glowCanvas.width=glowCanvas.height=128;
+    const glowCtx=glowCanvas.getContext('2d');
     const g=glowCtx.createRadialGradient(64,64,4,64,64,64);
     g.addColorStop(0,tone==='cyan'?'rgba(55,170,180,.50)':'rgba(189,127,55,.37)');
     g.addColorStop(.6,tone==='cyan'?'rgba(35,95,117,.18)':'rgba(108,71,44,.15)');
