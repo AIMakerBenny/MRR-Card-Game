@@ -27,6 +27,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   const plateGeometry=new THREE.BoxGeometry(1,1,1);
   const entries=new Map();
   const effects=[];
+  let effectsTriggered=0,lastClip=null;
   // Phase 25 - sparse, transparent battlefield dressing that mirrors the DOM
   // arena rectangle. It has no input or state authority.
   const arenaTrim=new THREE.Group();scene.add(arenaTrim);
@@ -174,11 +175,34 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     e.shadow.material.dispose();e.shadow.geometry.dispose();
     e.halo.material.dispose();e.halo.geometry.dispose();
     scene.remove(e.group);entries.delete(id);}
+  // Phase 26: predictable VFX only. No damage/healing/target calculations here.
+  // A single game visual class starts a distinct material effect. Entries expire
+  // promptly and each allocated geometry/material is disposed at completion.
   function effectAt(e,type){
     if(reduced.matches)return;
-    const color=type==='fx-heal'?0x78f3bd:type==='fx-hit'?0xf3a570:0xffe0a0;
-    const ring=new THREE.Mesh(new THREE.RingGeometry(26,30,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.75,side:THREE.DoubleSide,depthWrite:false}));
-    ring.position.copy(e.position);ring.position.z=30;scene.add(ring);effects.push({mesh:ring,born:performance.now(),duration:650});
+    const color=type==='fx-heal'?0x79eeb9:type==='fx-hit'?0xffa66b:0xe8c57b;
+    const now=performance.now(),origin=e.position.clone();
+    const ring=new THREE.Mesh(new THREE.RingGeometry(23,28,48),
+      new THREE.MeshBasicMaterial({color,transparent:true,opacity:.74,side:THREE.DoubleSide,depthWrite:false}));
+    ring.position.copy(origin);ring.position.z=36;
+    scene.add(ring);effects.push({mesh:ring,born:now,duration:630,particle:false});
+    const n=type==='fx-hit'?11:type==='fx-heal'?10:14;
+    for(let i=0;i<n;i++){
+      const theta=2*Math.PI*i/n+(type==='fx-summon'?.2:0);
+      const mesh=new THREE.Mesh(new THREE.PlaneGeometry(4.5,10),
+        new THREE.MeshBasicMaterial({color,transparent:true,opacity:.88,depthWrite:false,side:THREE.DoubleSide}));
+      mesh.position.set(origin.x+Math.cos(theta)*8,origin.y+Math.sin(theta)*8,40);
+      scene.add(mesh);
+      const vx=type==='fx-hit'?Math.cos(theta)*74:type==='fx-heal'?Math.cos(theta)*19:Math.cos(theta)*42;
+      const vy=type==='fx-hit'?Math.sin(theta)*65:type==='fx-heal'?65+i*3:Math.sin(theta)*40+18;
+      effects.push({mesh,born:now,duration:type==='fx-heal'?840:620,particle:true,
+        origin:mesh.position.clone(),vx,vy,spin:(i%2?1:-1)*2});
+    }
+    effectsTriggered++;
+    while(effects.length>112){
+      const old=effects.shift();scene.remove(old.mesh);
+      old.mesh.geometry.dispose();old.mesh.material.dispose();
+    }
   }
   function syncArena(){
     const node=document.querySelector('#arena');
@@ -268,9 +292,32 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     }
     for(let i=effects.length-1;i>=0;i--){const fx=effects[i],pct=(t-fx.born)/fx.duration;
       if(pct>=1){scene.remove(fx.mesh);fx.mesh.geometry.dispose();fx.mesh.material.dispose();effects.splice(i,1);continue;}
-      fx.mesh.scale.setScalar(1+pct*2.4);fx.mesh.material.opacity=(1-pct)*.76;
+      if(fx.particle){
+        fx.mesh.position.x=fx.origin.x+fx.vx*pct;
+        fx.mesh.position.y=fx.origin.y+fx.vy*pct;
+        fx.mesh.rotation.z=pct*fx.spin;
+        fx.mesh.scale.setScalar(Math.max(.2,1-pct*.7));
+        fx.mesh.material.opacity=(1-pct)*.88;
+      }else{
+        fx.mesh.scale.setScalar(1+pct*2.4);
+        fx.mesh.material.opacity=(1-pct)*.74;
+      }
     }
-    renderer.render(scene,camera);
+    // Avoid rendering 3D embellishments over HUD, hand, menus and detail panel.
+    // Clearing the whole transparent canvas first also prevents stale scenery
+    // pixels after browser zoom or layout changes.
+    renderer.setScissorTest(false);renderer.clear(true,true,true);
+    const rect=document.querySelector('#arena')?.getBoundingClientRect();
+    if(rect&&rect.width>100&&rect.height>80){
+      const x=Math.max(0,Math.floor(rect.left)),y=Math.max(0,Math.floor(height-rect.bottom));
+      const right=Math.min(width,Math.ceil(rect.right)),top=Math.min(height,Math.ceil(height-rect.top));
+      const cw=Math.max(0,right-x),ch=Math.max(0,top-y);
+      lastClip={x,y,w:cw,h:ch};
+      if(cw>0&&ch>0){
+        renderer.setScissor(x,y,cw,ch);renderer.setScissorTest(true);
+        renderer.render(scene,camera);renderer.setScissorTest(false);
+      }
+    }else lastClip=null;
   }
   function resize(){width=innerWidth;height=innerHeight;
     camera.left=0;camera.right=width;camera.top=height;camera.bottom=0;
@@ -317,6 +364,8 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       decoratedCards:active.filter(e=>e.front.material.map&&e.signature).length,
       frameRevision:24,battlefieldRevision:25,
       battlefieldTrimCount:arenaTrim.visible?rimParts.length:0,
-      battlefieldLightPoolCount:arenaTrim.visible?lightPools.length:0};
+      battlefieldLightPoolCount:arenaTrim.visible?lightPools.length:0,
+      visualFxRevision:26,visualFxTriggered:effectsTriggered,
+      activeVisualMeshes:effects.length,renderClip:lastClip};
   }};
 };
