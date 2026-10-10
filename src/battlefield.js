@@ -123,8 +123,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const woodSurface=tabletop?material({map:tabletopTexture('wood'),color:0xffffff,roughness:.83}):null;
   const parchmentSurface=tabletop?material({map:tabletopTexture('parchment'),color:0xffffff,roughness:.98}):null;
   const woodEdge=tabletop?material({color:0x51301d,roughness:.82}):null;
-  const parchmentSlot=tabletop?material({color:0xd7bd90,roughness:.94,transparent:true,opacity:.16}):null;
-  const parchmentInk=tabletop?material({color:0x80603b,roughness:.9,transparent:true,opacity:.34}):null;
+  const parchmentSlot=tabletop?material({color:0xd7bd90,roughness:.94,transparent:true,opacity:.055}):null;
+  const parchmentInk=tabletop?material({color:0x80603b,roughness:.9,transparent:true,opacity:.17}):null;
   const softZone=tabletop?material({color:0x9a7150,metalness:.25,roughness:.77}):null;
 
   const black=material({color:0x223746,metalness:.18,roughness:.72});
@@ -229,6 +229,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const glowGeo=geometry(new THREE.TorusGeometry(1.04,.07,8,48));
   const cardGeometry=geometry(new THREE.BoxGeometry(tabletop?2.22:2.08,2.84,.22));
   const cardFaceGeometry=geometry(new THREE.PlaneGeometry(tabletop?2.10:1.96,2.71));
+  // Phase57: dimensional gilt trims are scenery, not selectable meshes.
+  const pcGilt=tabletop?material({color:0xc49c62,metalness:.73,roughness:.26,emissive:0x251406}):null;
+  const pcSide=tabletop?geometry(new THREE.BoxGeometry(.046,2.89,.075)):null;
+  const pcEnd=tabletop?geometry(new THREE.BoxGeometry(2.23,.046,.075)):null;
   // Phase52: public-health display floats above each card, never reads G.
   const healthBackGeo=geometry(new THREE.BoxGeometry(2.18,.22,.075));
   const healthFillGeo=geometry(new THREE.BoxGeometry(2.04,.15,.084));
@@ -312,6 +316,99 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // Phase51: deterministic original illustrated art, no external images or
   // hidden game data. Each public card's name and kind select a coherent
   // illustration silhouette, with a stable per-card palette and atmosphere.
+
+  // Phase57: render-only engravings from publicly visible card text.
+  function pc57Engrave(c,p,ally,pass){
+    let seed=2166136261;
+    for(const ch of String(p.name||''))seed=Math.imul(seed^ch.charCodeAt(0),16777619)>>>0;
+    const rng=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+    const info=String(p.kind||'')+' '+String(p.name||'');
+    const fort=/시설|성소|병영|성채|전초|기지|탑|제단|대성당|연구소/.test(info);
+    const ship=/함선|해적선|범선|전함|항구|수병/.test(info);
+    const mage=/마법|마도|술사|성녀|사제|치유|엘리온|의식/.test(info);
+    const archer=/궁병|석궁|사수|저격|총|활/.test(info);
+    const beast=/야수|늑대|곰|용|도마뱀|뱀파이어|흡혈|괴물|쥐인/.test(info);
+    const hue=[38,185,212,275,145,10][seed%6],a='hsla('+hue+',83%,75%,';
+    const ink=ally?'#edd7ab':'#eac4ac';
+    const line=(pts,color,width)=>{c.beginPath();c.moveTo(pts[0][0],pts[0][1]);
+      for(let i=1;i<pts.length;i++)c.lineTo(pts[i][0],pts[i][1]);
+      c.strokeStyle=color;c.lineWidth=width;c.stroke();};
+    c.save();
+    if(pass==='landscape'){
+      const sun=c.createRadialGradient(260,315,6,260,315,225);
+      sun.addColorStop(0,a+'.38)');sun.addColorStop(1,a+'0)');
+      c.fillStyle=sun;c.fillRect(56,200,399,318);
+      for(let i=0;i<34;i++){
+        c.fillStyle=a+(rng()*.24+.09).toFixed(2)+')';
+        c.beginPath();c.ellipse(60+rng()*392,216+rng()*270,.7+rng()*2,1+rng()*3,0,0,7);c.fill();
+      }
+      if(fort){
+        for(let i=0;i<7;i++){
+          const x=63+i*56,ht=38+rng()*57;
+          c.fillStyle='#101c21a5';c.fillRect(x,458-ht,18,ht);
+          c.beginPath();c.moveTo(x-5,458-ht);c.lineTo(x+9,439-ht);
+          c.lineTo(x+23,458-ht);c.closePath();c.fill();
+          line([[x+5,455-ht],[x+5,448-ht]],'#e3bb78b0',2);
+        }
+      }else if(ship){
+        for(let i=0;i<12;i++){
+          const y=400+i*10;c.beginPath();c.moveTo(56,y);
+          c.bezierCurveTo(147,y-19,297,y+18,458,y-7);
+          c.strokeStyle=i%2?'#8aebf545':'#e7daa737';c.lineWidth=1.4;c.stroke();
+        }
+      }else if(mage){
+        for(let i=0;i<4;i++){
+          c.beginPath();c.arc(260,379,90+i*26,Math.PI*.06,Math.PI*1.86);
+          c.strokeStyle=a+(.52-i*.09).toFixed(2)+')';c.lineWidth=1.5;c.stroke();
+        }
+        for(let i=0;i<13;i++){
+          const t=i*Math.PI*2/13,r=136+(i%3)*14;
+          const x=260+Math.cos(t)*r,y=379+Math.sin(t)*r*.78;
+          line([[x-5,y],[x+5,y],[x,y-10]],a+'.52)',1.5);
+        }
+      }else if(archer){
+        for(let i=0;i<8;i++)line([[58,315+i*24],[443,202+i*24]],'#d9f9e430',2);
+      }else if(beast){
+        for(let i=0;i<7;i++){
+          const x=65+i*55,y=275+(i%2)*28;
+          for(let j=0;j<3;j++)line([[x+j*10,y],[x+j*10+17,y+54]],'#e4b39e51',2);
+        }
+      }else{
+        for(let i=0;i<5;i++){
+          const x=83+i*81,y=283+rng()*40;
+          c.fillStyle='#091926a9';c.fillRect(x,y,10,156);
+          c.beginPath();c.moveTo(x+9,y);c.lineTo(x+50,y+11);
+          c.lineTo(x+9,y+42);c.closePath();c.fillStyle='#edd7ab67';c.fill();
+        }
+      }
+    }else if(pass==='frame'){
+      c.lineWidth=7;c.strokeStyle='#1d120b';c.strokeRect(25,25,462,655);
+      c.lineWidth=2;c.strokeStyle=ink+'a9';c.strokeRect(32,31,448,642);
+      for(const [x,y] of [[37,36],[475,36],[37,668],[475,668]]){
+        c.fillStyle='#5e3824';c.beginPath();c.arc(x,y,5,0,7);c.fill();
+        c.fillStyle='#ffe2a4';c.beginPath();c.arc(x-1,y-1,2.1,0,7);c.fill();
+      }
+      for(let i=0;i<7;i++){
+        const yy=69+i*12;
+        line([[43,yy],[46,yy+4],[43,yy+8]],ink+'70',1.4);
+        line([[469,yy],[466,yy+4],[469,yy+8]],ink+'70',1.4);
+      }
+      // Original archetype insignia in a small lower-right bronze medallion.
+      const x=430,y=626,disk=c.createRadialGradient(x-5,y-7,2,x,y,27);
+      disk.addColorStop(0,'#f3dda1');disk.addColorStop(.48,'#a67843');disk.addColorStop(1,'#322921');
+      c.beginPath();c.arc(x,y,23,0,7);c.fillStyle=disk;c.fill();
+      c.strokeStyle='#f8e3b7';c.lineWidth=2;c.beginPath();c.arc(x,y,17,0,7);c.stroke();
+      c.translate(x,y);
+      if(fort){c.strokeRect(-7,-7,14,15);line([[-12,-8],[0,-15],[12,-8]],'#f7eaca',2);}
+      else if(ship){line([[-13,3],[11,3],[7,11],[-7,11]],'#f7eaca',2);line([[0,2],[0,-13],[9,2]],'#f7eaca',2);}
+      else if(mage){for(let i=0;i<3;i++){c.rotate(Math.PI*2/3);line([[0,-12],[4,-3],[0,3]],'#f7eaca',2);}}
+      else if(archer)line([[-8,10],[8,-10],[-1,-7],[8,-10],[9,0]],'#f7eaca',2);
+      else if(beast){for(let i=-1;i<=1;i++)line([[i*7-4,-11],[i*7+4,12]],'#f7eaca',2);}
+      else line([[0,-13],[4,-3],[2,13],[-2,13],[-4,-3],[0,-13]],'#f7eaca',2);
+    }
+    c.restore();
+  }
+
   function drawCardIllustration(c,profile,ally){
     let hash=2166136261;
     for(const ch of profile.name){hash=Math.imul(hash^ch.charCodeAt(0),16777619)>>>0;}
@@ -357,6 +454,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     for(let i=0;i<3;i++){
       c.beginPath();c.arc(256,391,119+i*21,Math.PI*1.02,Math.PI*1.97);c.stroke();
     }
+    if(tabletop)pc57Engrave(c,profile,ally,'landscape');
     c.save();c.translate(256,410);
     // Keep large recognisable silhouettes rather than tiny undecipherable symbols.
     if(building){
@@ -452,8 +550,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     c.strokeStyle='#efcd89';c.lineWidth=5;c.stroke();
     c.fillStyle='#ffffff';c.font='bold 33px sans-serif';
     c.fillText(profile.cost.slice(0,3),58,96);
+    if(tabletop)pc57Engrave(c,profile,ally,'frame');
     const texture=new THREE.CanvasTexture(canvas);
     texture.userData.artArchetype=archetype;
+    texture.userData.artPhase=tabletop?57:51;
     texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=4;
     madeTextures.push(texture);return texture;
   }
@@ -692,6 +792,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           map:cardTexture(p,slot.owner===0),metalness:.05,roughness:.48
         }));
         face.position.z=.116;face.userData.mrrSlotKey=p.key;group.add(face);
+        if(tabletop){
+          for(const x of [-1.112,1.112]){
+            const trim=new THREE.Mesh(pcSide,pcGilt);trim.position.set(x,0,.161);group.add(trim);
+          }
+          for(const y of [-1.427,1.427]){
+            const trim=new THREE.Mesh(pcEnd,pcGilt);trim.position.set(0,y,.161);group.add(trim);
+          }
+        }
         const stand=new THREE.Mesh(cardGeometry,bronze);
         stand.position.z=-.065;stand.scale.set(1.055,1.05,.18);group.add(stand);
         // Parent the indicators to the 3D card so tilt, hover and focus
@@ -882,7 +990,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       fxSources:'native-slot-classes',cinematicRevision:49,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       realCombatQaRevision:50,nativeCombatEvents:nativeCombatEvents.slice(),
-      visualArtRevision:51,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
+      visualArtRevision:51,pcArtRevision:tabletop?57:0,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
       healthHudRevision:52,healthIndicatorCount,cardHealth:Object.fromEntries(cardHealth),
       previewRevision:53,previewReadyCards:cardIndex.size,
       desktopArtRevision:tabletop?55:0,tabletopSurface:tabletop?'parchment-and-wood':'legacy-stone',
