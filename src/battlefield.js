@@ -301,7 +301,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const fill=el.querySelector('.board-card .hpbar > div');
       const pct=fill?Number.parseFloat(fill.style.width):NaN;
       const chip=el.querySelector('.board-card .status-chip')?.textContent?.trim()||'';
-      return {key,selected:el.classList.contains('selected-slot'),
+      return {key,cardId:card?.getAttribute('data-mrr-public-card-id')||null,
+        selected:el.classList.contains('selected-slot'),
         legal:el.classList.contains('legal'),attackTarget:el.classList.contains('attack-target'),
         name:card?.querySelector('.card-name')?.textContent?.trim()||'',
         kind:card?.querySelector('.card-kind')?.textContent?.trim()||'',
@@ -572,9 +573,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // Match the exact public name/type/faction shown on the already-rendered
       // card. Do not inspect the hidden decks, opponent hand, or native G.
       const lookup=window.MRRCardArtRegistry;
-      const id=lookup?.byPublicKey?.[JSON.stringify([profile.name,profile.kind])];
-      const src=id?lookup?.assets?.[id]:null;
-      texture.userData.artId=id||null;
+      const id=profile.cardId;
+      const known=typeof id==='string'&&lookup?.knownIds?.includes(id);
+      const src=known?lookup?.assets?.[id]:null;
+      texture.userData.artId=known?id:null;
       if(typeof src==='string'&&/^data:image\/(png|jpeg);base64,/.test(src)){
         const img=new Image();
         img.onload=()=>{
@@ -811,7 +813,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const nextStatusSignature=JSON.stringify(list.map(p=>[p.key,p.selected,p.legal,p.attackTarget,p.hasHealth,p.hpRatio,p.stateChip]));
     const statusChanged=nextStatusSignature!==statusSignature;
     statusSignature=nextStatusSignature;
-    const cardsSignature=JSON.stringify(list.map(p=>[p.key,p.name,p.kind,p.cost,p.stats,p.sigil]));
+    const cardsSignature=JSON.stringify(list.map(p=>[p.key,p.cardId,p.name,p.kind,p.cost,p.stats,p.sigil]));
     const cardChanged=cardsSignature!==signature;
     if(cardChanged){
       signature=cardsSignature;
