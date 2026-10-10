@@ -1,4 +1,4 @@
-name: Marorong Card War Phase59 Validation
+name: Marorong Card War Phase60-63 PC Batch Validation
 on:
   push:
   pull_request:
@@ -19,7 +19,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run vendor
-      - name: Build phase 59
+      - name: Build phase 63
         run: python build.py
       - name: Install testing dependencies
         run: |
@@ -45,6 +45,8 @@ jobs:
         run: python tests/phase58_artwork_placeholder_e2e.py
       - name: Phase59 actual owner artwork importer and Chromium 3-resolution QA
         run: python tests/phase59_art_import_e2e.py
+      - name: Phase63 actual Chromium PC contextual card command and three-resolution real attack QA
+        run: python tests/phase63_pc_context_e2e.py
       - name: Hand interaction and enemy-back visual regression
         run: python tests/hand_visual_e2e.py
       - name: Strict real WebGL rendering test
@@ -70,7 +72,7 @@ jobs:
       - name: Collect downloadable build
         run: |
           mkdir -p dist
-          cp Marorong_Card_War_Phase59_3D_Prototype.html dist/index.html
+          cp Marorong_Card_War_Phase63_3D_Prototype.html dist/index.html
           mkdir -p dist/assets
           cp assets/CARD_ART_SPEC.md assets/card_art_index.csv dist/assets/
           mkdir -p dist/vendor
@@ -79,11 +81,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Phase59-Browser-Screenshots
+          name: Phase63-Browser-Screenshots
           path: tests/*png
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
-          name: Marorong-Card-War-Phase59-3D
+          name: Marorong-Card-War-Phase63-3D
           path: dist/
           if-no-files-found: error
