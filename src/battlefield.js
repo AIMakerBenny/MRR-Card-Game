@@ -5,29 +5,32 @@
 window.MRRBattlefieldFactory=function(THREE,mount,events){
   'use strict';
   events=events||{};
+  // Phase55: use a dedicated art direction only in the main PC gameplay view.
+  // The older 3D modal and authoritative HTML engine remain unchanged.
+  const tabletop=mount.id==='mrr-integrated-stage';
   const scene=new THREE.Scene();
-  scene.background=new THREE.Color(0x080f1a);
-  scene.fog=new THREE.FogExp2(0x080f1a,0.018);
+  scene.background=new THREE.Color(tabletop?0x261a15:0x080f1a);
+  scene.fog=new THREE.FogExp2(tabletop?0x261a15:0x080f1a,tabletop?.009:.018);
   const camera=new THREE.PerspectiveCamera(44,1,.1,130);
   const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=1.47;
+  renderer.toneMappingExposure=tabletop?1.22:1.47;
   renderer.shadowMap.enabled=true;
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   renderer.domElement.setAttribute('aria-label','실시간 공개 카드 3D 전장');
   renderer.domElement.style.cssText='width:100%;height:100%;display:block';
   mount.appendChild(renderer.domElement);
-  scene.add(new THREE.HemisphereLight(0xbad8e8,0x423440,2.0));
-  const sun=new THREE.DirectionalLight(0xffe2b1,4.2);
+  scene.add(new THREE.HemisphereLight(tabletop?0xffe5c3:0xbad8e8,tabletop?0x49301f:0x423440,tabletop?2.4:2.0));
+  const sun=new THREE.DirectionalLight(tabletop?0xffe1b1:0xffe2b1,tabletop?3.3:4.2);
   sun.position.set(-8,18,13);sun.castShadow=true;
   sun.shadow.mapSize.set(2048,2048);
   sun.shadow.camera.left=-22;sun.shadow.camera.right=22;
   sun.shadow.camera.top=22;sun.shadow.camera.bottom=-22;
   scene.add(sun);
-  const enemyLamp=new THREE.PointLight(0xf06b65,80,29);
+  const enemyLamp=new THREE.PointLight(tabletop?0xecb67b:0xf06b65,tabletop?52:80,29);
   enemyLamp.position.set(0,3,-9.5);scene.add(enemyLamp);
-  const friendlyLamp=new THREE.PointLight(0x51cdea,95,29);
+  const friendlyLamp=new THREE.PointLight(tabletop?0xc5d0b0:0x51cdea,tabletop?50:95,29);
   friendlyLamp.position.set(0,3,9.5);scene.add(friendlyLamp);
 
   const madeGeometry=[],madeMaterials=[],madeTextures=[];
@@ -36,6 +39,94 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     madeMaterials.push(m);return m;
   };
   const geometry=g=>{madeGeometry.push(g);return g;};
+
+  // Phase55: deterministic offline textures; no downloaded artwork, network,
+  // hidden-card access or extra render pass. Each texture is shared for the
+  // entire main tabletop and is disposed when the scene closes.
+  const tabletopTextures=[];
+  function tabletopTexture(kind){
+    const c=document.createElement('canvas'),n=1024;
+    c.width=c.height=n;
+    const ctx=c.getContext('2d',{alpha:false});
+    const pix=ctx.createImageData(n,n);
+    let seed=kind==='wood'?991827:555137;
+    const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+    for(let y=0;y<n;y++){
+      const plank=kind==='wood'?Math.floor(y/145):0;
+      const seam=kind==='wood'?Math.min(y%145,145-y%145):100;
+      for(let x=0;x<n;x++){
+        const k=(y*n+x)*4,noise=(rand()-.5)*23;
+        if(kind==='wood'){
+          const grain=Math.sin(x*.083+Math.sin(y*.028)*3.4)*6+
+            Math.sin(x*.012+y*.035)*4;
+          const knot=((plank*17)%7)*2;
+          const dark=seam<3?22:seam<6?12:0;
+          pix.data[k]=Math.max(0,83+grain+noise-dark-knot);
+          pix.data[k+1]=Math.max(0,51+grain*.7+noise*.65-dark);
+          pix.data[k+2]=Math.max(0,31+grain*.45+noise*.4-dark);
+        }else{
+          const e=Math.min(x,y,n-1-x,n-1-y)/(n*.18);
+          const burn=38*Math.pow(1-Math.min(1,e),2);
+          const paper=3*Math.sin(y*.012+x*.004)+2*Math.sin(x*.021-y*.009);
+          pix.data[k]=Math.max(0,232+noise*.55+paper-burn*.8);
+          pix.data[k+1]=Math.max(0,211+noise*.67+paper-burn);
+          pix.data[k+2]=Math.max(0,173+noise*.8+paper-burn*1.3);
+        }
+        pix.data[k+3]=255;
+      }
+    }
+    ctx.putImageData(pix,0,0);
+    if(kind==='parchment'){
+      // Hand-drawn, low-contrast atlas: cartographic circles, compass rays,
+      // border filigree and opposing zones. Slot hit targets live above it.
+      ctx.save();ctx.strokeStyle='rgba(86,58,40,.24)';ctx.lineWidth=3;
+      ctx.strokeRect(28,28,968,968);ctx.strokeRect(42,42,940,940);
+      for(let i=0;i<4;i++){
+        const offset=63+i*8;
+        ctx.strokeRect(offset,offset,n-offset*2,n-offset*2);
+      }
+      ctx.strokeStyle='rgba(97,69,43,.12)';ctx.lineWidth=2;
+      for(let i=1;i<6;i++){
+        const y=95+i*138;
+        ctx.beginPath();ctx.moveTo(100,y);ctx.lineTo(924,y);ctx.stroke();
+      }
+      const cx=n/2,cy=n/2;
+      for(const rad of [104,146,204,252]){
+        ctx.beginPath();ctx.arc(cx,cy,rad,0,Math.PI*2);ctx.stroke();
+      }
+      ctx.lineWidth=2.5;ctx.strokeStyle='rgba(113,79,47,.24)';
+      for(let i=0;i<24;i++){
+        const a=i*Math.PI/12;
+        ctx.beginPath();
+        ctx.moveTo(cx+Math.cos(a)*106,cy+Math.sin(a)*106);
+        ctx.lineTo(cx+Math.cos(a)*(i%2?154:198),cy+Math.sin(a)*(i%2?154:198));
+        ctx.stroke();
+      }
+      ctx.strokeStyle='rgba(108,76,43,.25)';
+      for(const [x,y] of [[100,100],[924,100],[100,924],[924,924]]){
+        for(const r of [10,19,28]){
+          ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();
+        }
+      }
+      ctx.lineWidth=3;ctx.strokeStyle='rgba(129,81,60,.20)';
+      ctx.beginPath();ctx.moveTo(55,514);ctx.lineTo(968,514);ctx.stroke();
+      ctx.restore();
+    }
+    const tex=new THREE.CanvasTexture(c);
+    tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=8;
+    if(kind==='wood'){
+      tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+      tex.repeat.set(6,6);
+    }
+    tabletopTextures.push(tex);return tex;
+  }
+  const woodSurface=tabletop?material({map:tabletopTexture('wood'),color:0xffffff,roughness:.83}):null;
+  const parchmentSurface=tabletop?material({map:tabletopTexture('parchment'),color:0xffffff,roughness:.98}):null;
+  const woodEdge=tabletop?material({color:0x51301d,roughness:.82}):null;
+  const parchmentSlot=tabletop?material({color:0xd7bd90,roughness:.94,transparent:true,opacity:.38}):null;
+  const parchmentInk=tabletop?material({color:0x80603b,roughness:.9,transparent:true,opacity:.56}):null;
+  const softZone=tabletop?material({color:0x9a7150,metalness:.25,roughness:.77}):null;
+
   const black=material({color:0x223746,metalness:.18,roughness:.72});
   const stone=material({color:0x354957,metalness:.18,roughness:.71});
   const bronze=material({color:0xc6a777,metalness:.68,roughness:.29,clearcoat:.4},true);
@@ -45,16 +136,32 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const tileGeo=geometry(new THREE.BoxGeometry(2.25,.15,2.45));
   const edgeGeo=geometry(new THREE.BoxGeometry(2.38,.08,2.58));
   const platformGeo=geometry(new THREE.BoxGeometry(22,.65,22.1));
-  const floor=new THREE.Mesh(geometry(new THREE.PlaneGeometry(180,180)),black);
+  const floor=new THREE.Mesh(geometry(new THREE.PlaneGeometry(180,180)),tabletop?woodSurface:black);
   floor.rotation.x=-Math.PI/2;floor.position.y=-.52;floor.receiveShadow=true;scene.add(floor);
-  const platform=new THREE.Mesh(platformGeo,stone);
+  const platform=new THREE.Mesh(platformGeo,tabletop?woodEdge:stone);
   platform.position.y=-.22;platform.receiveShadow=true;scene.add(platform);
+  if(tabletop){
+    const sheet=new THREE.Mesh(geometry(new THREE.PlaneGeometry(21.95,21.94)),parchmentSurface);
+    sheet.rotation.x=-Math.PI/2;sheet.position.y=.113;
+    sheet.receiveShadow=true;scene.add(sheet);
+  }
   const border=new THREE.Mesh(geometry(new THREE.BoxGeometry(22.45,.17,22.55)),bronze);
   border.position.y=-.58;scene.add(border);
   for(const sx of [-1,1]){
     const rail=new THREE.Mesh(geometry(new THREE.BoxGeometry(.17,.24,22.2)),gold);
     rail.position.set(sx*11.01,.18,0);scene.add(rail);
     for(const sz of [-1,1]){
+      if(tabletop){
+        const candle=new THREE.Group();candle.position.set(sx*11.8,0,sz*11.8);
+        const foot=new THREE.Mesh(geometry(new THREE.CylinderGeometry(.68,.75,.22,18)),bronze);
+        foot.position.y=.24;candle.add(foot);
+        const wax=new THREE.Mesh(geometry(new THREE.CylinderGeometry(.35,.38,.94,16)),
+          material({color:0xefdfb5,roughness:.88}));
+        wax.position.y=.79;wax.castShadow=true;candle.add(wax);
+        const flame=new THREE.Mesh(geometry(new THREE.ConeGeometry(.15,.43,11)),
+          material({color:0xffe6a1,emissive:0xffb84e,emissiveIntensity:2.2,roughness:.4}));
+        flame.position.y=1.50;candle.add(flame);scene.add(candle);continue;
+      }
       const tower=new THREE.Group();tower.position.set(sx*11.6,0,sz*11.5);
       const post=new THREE.Mesh(geometry(new THREE.CylinderGeometry(.43,.56,4.1,10)),stone);
       post.position.y=1.9;post.castShadow=true;tower.add(post);
@@ -98,21 +205,21 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const wardMat=material({color:0xffe39e,emissive:0xf2ba53,emissiveIntensity:.75});
   const stripGeo=geometry(new THREE.BoxGeometry(19.5,.025,.045));
   for(const lane of lanes){
-    const laneMaterial=lane.owner===0?blue:red;
+    const laneMaterial=tabletop?softZone:(lane.owner===0?blue:red);
     const laneBorder=new THREE.Mesh(stripGeo,laneMaterial);
     laneBorder.position.set(0,.17,lane.z-1.36);scene.add(laneBorder);
     for(let col=0;col<5;col++){
       const x=(col-2)*3.37;
-      const inset=new THREE.Mesh(edgeGeo,bronze);inset.position.set(x,.15,lane.z);
+      const inset=new THREE.Mesh(edgeGeo,tabletop?parchmentInk:bronze);inset.position.set(x,.15,lane.z);
       inset.receiveShadow=true;scene.add(inset);
-      const base=new THREE.Mesh(tileGeo,black);base.position.set(x,.23,lane.z);
+      const base=new THREE.Mesh(tileGeo,tabletop?parchmentSlot:black);base.position.set(x,.23,lane.z);
       base.receiveShadow=true;scene.add(base);
       const key=lane.owner+':'+lane.row+':'+col;
       base.userData.mrrSlotKey=key;slotPickMeshes.push(base);
       const halo=new THREE.Mesh(glowGeo,legalGlow);
       halo.rotation.x=-Math.PI/2;halo.position.set(x,.38,lane.z);
       halo.visible=false;scene.add(halo);
-      const crest=new THREE.Mesh(geometry(new THREE.TorusGeometry(.5,.035,7,32)),laneMaterial);
+      const crest=new THREE.Mesh(geometry(new THREE.TorusGeometry(.5,.035,7,32)),tabletop?parchmentInk:laneMaterial);
       crest.rotation.x=-Math.PI/2;crest.position.set(x,.32,lane.z);scene.add(crest);
       boardSlots.set(key,{x,z:lane.z,owner:lane.owner,row:lane.row,col,base,halo});
     }
@@ -125,11 +232,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   attackArrow.visible=false;scene.add(attackArrow);
   const attackTip=new THREE.Mesh(geometry(new THREE.ConeGeometry(.28,.69,10)),attackGlow);
   attackTip.visible=false;scene.add(attackTip);
-  const center=new THREE.Mesh(geometry(new THREE.BoxGeometry(21,.035,.1)),gold);
+  const center=new THREE.Mesh(geometry(new THREE.BoxGeometry(21,.035,.1)),tabletop?parchmentInk:gold);
   center.position.y=.19;scene.add(center);
-  const seal=new THREE.Mesh(geometry(new THREE.TorusGeometry(1.06,.055,8,80)),bronze);
+  const seal=new THREE.Mesh(geometry(new THREE.TorusGeometry(1.06,.055,8,80)),tabletop?parchmentInk:bronze);
   seal.rotation.x=-Math.PI/2;seal.position.y=.23;scene.add(seal);
-  const sealCore=new THREE.Mesh(geometry(new THREE.OctahedronGeometry(.45)),gold);
+  const sealCore=new THREE.Mesh(geometry(new THREE.OctahedronGeometry(.45)),tabletop?softZone:gold);
   sealCore.position.y=.95;scene.add(sealCore);
   const emberPositions=new Float32Array(210*3);
   for(let i=0;i<210;i++){
@@ -700,13 +807,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   function setCameraPreset(preset){
     const target=preset==='selected'?(selectedKey||hoveredKey):null;
     if(preset==='selected'&&!target)return false;
-    if(!['all','ally','enemy','selected'].includes(preset))return false;
-    yaw=0;pitch=preset==='selected'?.64:preset==='all'?.77:.67;
+    if(!['all','ally','enemy','selected','tabletop'].includes(preset))return false;
+    if(preset==='tabletop'&&!tabletop)return false;
+    yaw=0;pitch=preset==='tabletop'?1.17:preset==='selected'?.64:preset==='all'?.77:.67;
     focusKey=target;cameraPreset=preset;
     const slot=target?boardSlots.get(target):null;
     focusX=slot?.x||0;
     focusZ=slot?.z||(preset==='ally'?5.6:preset==='enemy'?-5.6:0);
-    distance=preset==='all'?29:preset==='selected'?11.5:18.5;
+    distance=preset==='tabletop'?34.5:preset==='all'?29:preset==='selected'?11.5:18.5;
     updateCamera();return true;
   }
   function resetCamera(){setCameraPreset('all');}
@@ -718,6 +826,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     cards=[];for(const g of madeGeometry)g.dispose();
     for(const m of madeMaterials)m.dispose();
     for(const t of madeTextures)t.dispose();
+    for(const t of tabletopTextures)t.dispose();
     mount.removeEventListener('pointerdown',down);
     mount.removeEventListener('pointermove',move);
     mount.removeEventListener('pointerup',up);
@@ -739,6 +848,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       visualArtRevision:51,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
       healthHudRevision:52,healthIndicatorCount,cardHealth:Object.fromEntries(cardHealth),
       previewRevision:53,previewReadyCards:cardIndex.size,
+      desktopArtRevision:tabletop?55:0,tabletopSurface:tabletop?'parchment-and-wood':'legacy-stone',
+      proceduralTextureCount:tabletopTextures.length,
       combatEvent:latestCombat,stagedStrike:!!pendingStrike,
       liveStrikeCount:liveEffects.filter(x=>(x.group.userData.beams||[]).length).length};}};
 };
