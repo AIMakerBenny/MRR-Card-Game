@@ -471,7 +471,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   }
   // Phase35 visual feedback reads only the public HP bar percentage.
   // Percentage point delta is NOT a claim about actual damage or healing units.
-  const hpPopups=[];let hpChangeFxCount=0;
+  const hpPopups=[];let healthChangeFxCount=0;
   function clearHealthPopups(){for(const p of hpPopups)p.el.remove();hpPopups.length=0;}
   function healthFeedback(e,slot,before,after){
     if(before===null||after===null||Math.abs(after-before)<.006)return;
@@ -487,7 +487,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     div.style.left=Math.round(rect.left+rect.width/2-box.left)+'px';
     div.style.top=Math.round(rect.top+rect.height*.16-box.top)+'px';
     arena.appendChild(div);
-    hpPopups.push({el:div,born:performance.now()});hpChangeFxCount++;
+    hpPopups.push({el:div,born:performance.now()});healthChangeFxCount++;
     while(hpPopups.length>12)hpPopups.shift().el.remove();
   }
   function removeEntry(id){const e=entries.get(id);if(!e)return;
