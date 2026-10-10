@@ -202,6 +202,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   impactLamp.position.set(0,2,0);scene.add(impactLamp);
   let pendingStrike=null,cinemaImpact=null,confirmedStrikes=0,cinematicFrameCount=0;
   let latestCombat=null;
+  const nativeCombatEvents=[];
   function stageAttack(sourceKey,targetKey){
     if(!boardSlots.has(sourceKey)||!boardSlots.has(targetKey)||sourceKey===targetKey)return false;
     pendingStrike={sourceKey,targetKey,at:performance.now()};
@@ -322,7 +323,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     liveEffects.push({type,key,group,ring,sparkGeo,sparkMat,beacon,
       velocity,born:now,life,resources:[ringGeo,ringMat,sparkGeo,sparkMat,beaconGeo,beaconMat,...(group.userData.beamResources||[]),...(group.userData.columnResources||[])]});
     effectsReceived[type]++;
-    events.onCombat?.({type,key,name:document.querySelector('#arena [data-slot="'+key+'"] .card-name')?.textContent?.trim()||'',at:now,confirmedStrike:!!strike});
+    const combatEntry={type,key,name:document.querySelector('#arena [data-slot="'+key+'"] .card-name')?.textContent?.trim()||'',at:now,confirmedStrike:!!strike};
+    nativeCombatEvents.push(combatEntry);
+    if(nativeCombatEvents.length>12)nativeCombatEvents.shift();
+    events.onCombat?.(combatEntry);
     while(liveEffects.length>24)removeFx(liveEffects.shift());
   }
   function removeFx(fx){
@@ -558,6 +562,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,
       fxSources:'native-slot-classes',cinematicRevision:49,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
+      realCombatQaRevision:50,nativeCombatEvents:nativeCombatEvents.slice(),
       combatEvent:latestCombat,stagedStrike:!!pendingStrike,
       liveStrikeCount:liveEffects.filter(x=>(x.group.userData.beams||[]).length).length};}};
 };
@@ -605,7 +610,7 @@ window.MRRBattlefieldUIInit=function(loadThree){
       combatFeed.setAttribute('role','status');combatFeed.setAttribute('aria-live','polite');
       function onNativeCombat(event){
         const label=event.type==='hit'?'피격':event.type==='heal'?'치유':'소환';
-        combatFeed.textContent=label+'  |  '+(event.name||'전장 슬롯');
+        combatFeed.textContent=label+' 신호  |  '+(event.name||'전장 슬롯')+(event.confirmedStrike?'  ·  공격 궤적 확정':'');
         combatFeed.dataset.kind=event.type;combatFeed.classList.add('active');
         combatFeed.dataset.since=String(event.at);
       }
