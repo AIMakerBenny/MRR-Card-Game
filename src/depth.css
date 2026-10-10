@@ -239,3 +239,15 @@ body.mcw-three-ready #arena .mcw35-hurt{color:#ffb08a}
 @media(max-width:760px){#mcw-cinema-open{font-size:11px;min-height:30px;padding:3px 6px}
  #mcw-cinema-header{font-size:15px;padding:8px 11px}
  #mcw-cinema-dialog{height:min(700px,94vh)}}
+
+/* Phase39: navigation lives in the deliberate modal, not in the game board. */
+#mcw-cinema-controls{display:flex;align-items:center;gap:9px;margin-left:auto;
+  font:13px sans-serif;color:#bcd9d8;white-space:nowrap;}
+#mcw-cinema-controls button{background:#244455;border:1px solid #698d99;border-radius:4px;
+  color:#f0e1be;padding:7px 9px;cursor:pointer;}
+#mcw-cinema-controls button:disabled{opacity:.35;cursor:default;}
+#mcw-cinema-current{max-width:270px;overflow:hidden;text-overflow:ellipsis;}
+#mcw-cinema-close{margin-left:0;}
+@media(max-width:760px){#mcw-cinema-controls{font-size:10px;gap:4px}
+  #mcw-cinema-controls button{padding:4px;}
+  #mcw-cinema-current{max-width:100px}}

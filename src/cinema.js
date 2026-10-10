@@ -83,6 +83,7 @@ window.MRRCinemaFactory=function(THREE,mount){
     new THREE.MeshBasicMaterial({color:0xf2d293}));
   stageGeometries.push(portraitGlow.geometry);stageMats.push(portraitGlow.material);
   portraitGlow.position.set(0,4.7,-1.1);stage.add(portraitGlow);
+  let cardToken=0;
   let frame=0,raf=0,running=false,disposed=false,startAt=0,profile={name:'MARORONG',kind:'CARD WAR',cost:'',stats:''};
   function artwork(p){
     const cvs=document.createElement('canvas');cvs.width=640;cvs.height=900;
@@ -124,13 +125,34 @@ window.MRRCinemaFactory=function(THREE,mount){
     c.strokeStyle='#9e8455';c.lineWidth=2;c.strokeRect(54,693,532,138);
     c.fillStyle='#eddaa8';c.font='bold 27px sans-serif';c.fillText((p.stats||'3D CINEMATIC CARD').slice(0,45),320,748,495);
     c.font='18px sans-serif';c.fillStyle='#b7d8d7';c.fillText('MARORONG CARD WAR',320,797);
+    if(p.cost){
+      c.fillStyle='#193b52';c.beginPath();c.arc(555,205,36,0,Math.PI*2);c.fill();
+      c.lineWidth=4;c.strokeStyle='#e0bd7e';c.stroke();
+      c.fillStyle='#f9e4b7';c.font='bold 36px sans-serif';c.fillText(String(p.cost).slice(0,4),555,209);
+    }
     const texture=new THREE.CanvasTexture(cvs);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=4;
     return texture;
   }
   function setCard(p){
     if(disposed)return;
-    profile={name:String(p?.name||'MARORONG'),kind:String(p?.kind||'CARD WAR'),cost:String(p?.cost||''),stats:String(p?.stats||'')};
+    const token=++cardToken;
+    profile={name:String(p?.name||'MARORONG'),kind:String(p?.kind||'CARD WAR'),
+      cost:String(p?.cost||''),stats:String(p?.stats||'')};
     frontMaterial.map?.dispose();frontMaterial.map=artwork(profile);frontMaterial.needsUpdate=true;
+    // Reuse only locally generated public card art from the live DOM.
+    // On-load guards prevent old images from replacing later card selections.
+    if(typeof p?.artData==='string'&&p.artData.startsWith('data:image/png;base64,')){
+      const pic=new Image();
+      pic.onload=()=>{
+        if(disposed||token!==cardToken)return;
+        const ctx=frontMaterial.map?.image?.getContext('2d');
+        if(!ctx)return;
+        ctx.save();ctx.beginPath();ctx.rect(65,188,510,475);ctx.clip();
+        ctx.drawImage(pic,65,188,510,475);ctx.restore();
+        frontMaterial.map.needsUpdate=true;
+      };
+      pic.src=p.artData;
+    }
   }
   function resize(){
     if(disposed)return;
@@ -162,7 +184,7 @@ window.MRRCinemaFactory=function(THREE,mount){
   }
   setCard(profile);
   return {start,stop,dispose,resize,setCard,get state(){return {running,projection:camera.type,frameCount:frame,profile:{...profile},
-      stageRevision:38,stageMeshCount:stageObjects.length,
+      stageRevision:38,cardBindingRevision:39,stageMeshCount:stageObjects.length,
       castShadows:renderer.shadowMap.enabled,lightCount:5,
       meshes:6+rails.length+stageObjects.length,hasCanvas:renderer.domElement.isConnected};}};
 };
