@@ -100,3 +100,20 @@
     bottom:calc(clamp(68px,10.3vh,112px) - var(--fc-hand-h))!important;
   }
 }
+
+
+/* A deployed card takes visual priority over the idle hand. The player can
+   hover a visible card edge to bring the hand forward for the next choice.
+   Native legal placement always retracts again, so WebGL slots stay clickable. */
+@media (min-width:1024px) and (min-height:700px){
+  body.mrr-integrated-active #gameScreen:has(#arena .board-card) .hand-wrap{
+    bottom:calc(clamp(48px,6.3vh,94px) - var(--fc-hand-h))!important;
+  }
+  body.mrr-integrated-active #gameScreen:has(#arena .board-card):not(:has(#arena .slot.legal))
+    .hand-wrap:has(.hand-slot:hover){
+    bottom:calc(clamp(154px,17.2vh,234px) - var(--fc-hand-h))!important;
+  }
+  body.mrr-integrated-active #gameScreen:has(#arena .slot.legal) .hand-wrap{
+    bottom:calc(clamp(68px,10.3vh,112px) - var(--fc-hand-h))!important;
+  }
+}
