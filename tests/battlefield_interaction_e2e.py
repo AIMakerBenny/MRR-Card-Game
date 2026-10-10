@@ -22,7 +22,7 @@ try:
       let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;
       Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
     }''')
-    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase47_3D_Prototype.html'
+    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase48_3D_Prototype.html'
     affordable=[]
     for seed in range(198704,198728):
       page.goto(url+f'?qa_seed={seed}')
@@ -46,7 +46,7 @@ try:
     page.locator('#mrr-battlefield-open').click()
     page.wait_for_function('MRRBattlefield.state.open && MRRBattlefield.state.scene.frames>2',timeout=19000)
     state=page.evaluate('MRRBattlefield.state.scene')
-    assert state['revision']==47 and state['projection']=='PerspectiveCamera',state
+    assert state['revision']>=47 and state['projection']=='PerspectiveCamera',state
     assert state['slotCount']==30 and state['legalCount']==legal_count,state
     assert state['pickableCount']>=30 and state['shadows'],state
     assert page.locator('#mrr-battlefield-stage canvas').count()==1

@@ -196,6 +196,89 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=4;
     madeTextures.push(texture);return texture;
   }
+  // Phase48: CSS effects are emitted by the unmodified original game.
+  // Observe only real native fx-* class transitions, never compute damage or healing.
+  const liveEffects=[],effectsReceived={hit:0,heal:0,summon:0};
+  const recentFx=new Map();
+  const effectColors={hit:0xffa96e,heal:0x7affbd,summon:0x69d8ef};
+  const fxObserver=new MutationObserver(records=>{
+    if(disposed)return;
+    for(const record of records){
+      if(record.type!=='attributes'||record.attributeName!=='class')continue;
+      const node=record.target;
+      if(!(node instanceof Element)||!node.matches('#arena [data-slot]'))continue;
+      const key=node.getAttribute('data-slot');
+      if(!boardSlots.has(key))continue;
+      for(const type of ['hit','heal','summon']){
+        if(!node.classList.contains('fx-'+type))continue;
+        // Even multiple DOM writes in a single native frame are one visible effect.
+        const stamp=key+'|'+type,now=performance.now();
+        if(now-(recentFx.get(stamp)||-9999)<95)continue;
+        recentFx.set(stamp,now);
+        triggerNativeFx(type,key,now);
+      }
+    }
+  });
+  function triggerNativeFx(type,key,now){
+    const spot=boardSlots.get(key);
+    if(!spot||!Object.prototype.hasOwnProperty.call(effectColors,type))return;
+    const radius=type==='summon'?1.12:type==='heal'?.92:.78;
+    const colour=effectColors[type];
+    const group=new THREE.Group();
+    group.position.set(spot.x,.48,spot.z);
+    const ringGeo=new THREE.TorusGeometry(radius,.055,8,64);
+    const ringMat=new THREE.MeshBasicMaterial({color:colour,transparent:true,opacity:.88,depthWrite:false});
+    const ring=new THREE.Mesh(ringGeo,ringMat);
+    ring.rotation.x=-Math.PI/2;group.add(ring);
+    const sparkCount=type==='hit'?36:28;
+    const coords=new Float32Array(sparkCount*3),velocity=new Float32Array(sparkCount*3);
+    for(let i=0;i<sparkCount;i++){
+      const theta=i*2.39996323;
+      const spread=.5+.5*((i*29)%17)/16;
+      velocity[i*3]=Math.cos(theta)*spread*(type==='hit'?4.2:2.6);
+      velocity[i*3+1]=(type==='heal'?2.4:3.1)+((i*7)%11)*.24;
+      velocity[i*3+2]=Math.sin(theta)*spread*(type==='hit'?4.2:2.6);
+    }
+    const sparkGeo=new THREE.BufferGeometry();
+    sparkGeo.setAttribute('position',new THREE.BufferAttribute(coords,3));
+    const sparkMat=new THREE.PointsMaterial({color:colour,size:type==='hit'?.15:.13,
+      transparent:true,opacity:1,depthWrite:false});
+    group.add(new THREE.Points(sparkGeo,sparkMat));
+    const beaconGeo=new THREE.IcosahedronGeometry(type==='hit'?.40:.26,1);
+    const beaconMat=new THREE.MeshBasicMaterial({color:colour,transparent:true,opacity:.64,depthWrite:false});
+    const beacon=new THREE.Mesh(beaconGeo,beaconMat);
+    beacon.position.y=1.2;group.add(beacon);
+    scene.add(group);
+    const life=type==='summon'?1150:type==='heal'?1040:820;
+    liveEffects.push({type,key,group,ring,sparkGeo,sparkMat,beacon,
+      velocity,born:now,life,resources:[ringGeo,ringMat,sparkGeo,sparkMat,beaconGeo,beaconMat]});
+    effectsReceived[type]++;
+    events.onCombat?.({type,key,name:document.querySelector('#arena [data-slot="'+key+'"] .card-name')?.textContent?.trim()||'',at:now});
+    while(liveEffects.length>24)removeFx(liveEffects.shift());
+  }
+  function removeFx(fx){
+    scene.remove(fx.group);
+    for(const res of fx.resources)res.dispose();
+  }
+  function advanceEffects(now){
+    for(let i=liveEffects.length-1;i>=0;i--){
+      const f=liveEffects[i],p=Math.max(0,(now-f.born)/f.life);
+      if(p>=1){removeFx(f);liveEffects.splice(i,1);continue;}
+      const ease=Math.sin(Math.PI*p);
+      f.ring.scale.setScalar(.7+p*1.55);
+      f.ring.material.opacity=(1-p)*.9;
+      f.beacon.scale.setScalar(.7+ease*1.9);
+      f.beacon.material.opacity=(1-p)*.72;
+      const pos=f.sparkGeo.attributes.position;
+      for(let j=0;j<f.velocity.length/3;j++){
+        const ix=j*3;
+        pos.setXYZ(j,f.velocity[ix]*p,
+          f.velocity[ix+1]*p-3.3*p*p+1.2,f.velocity[ix+2]*p);
+      }
+      pos.needsUpdate=true;
+      f.sparkMat.opacity=(1-p)*.9;
+    }
+  }
   let cards=[],signature='',publicCardCount=0,lastSync=0;
   let hoveredKey=null,selectedKey=null,legalCount=0,attackTargetCount=0,statusSignature='';
   let pickMeshes=slotPickMeshes.slice(),cardIndex=new Map();
@@ -360,13 +443,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       c.group.scale.setScalar(hover?1.26:1);
       if(frozen)c.group.position.y=1.76+(hover?.78:0);
     }
+    advanceEffects(time);
     renderer.render(scene,camera);frames++;
   }
-  function start(){if(disposed)return;resize();sync();if(running)return;running=true;lastDraw=0;raf=requestAnimationFrame(tick);}
-  function stop(){running=false;cancelAnimationFrame(raf);}
+  function start(){if(disposed)return;resize();sync();if(running)return;
+    const arena=document.querySelector('#arena');
+    if(arena)fxObserver.observe(arena,{subtree:true,attributes:true,attributeFilter:['class']});
+    running=true;lastDraw=0;raf=requestAnimationFrame(tick);
+  }
+  function stop(){running=false;cancelAnimationFrame(raf);fxObserver.disconnect();}
   function resetCamera(){yaw=0;pitch=.77;distance=29;updateCamera();}
   function dispose(){
     if(disposed)return;stop();disposed=true;
+    for(const fx of liveEffects.splice(0))removeFx(fx);
+    recentFx.clear();
     for(const c of cards){c.face.material.map.dispose();c.face.material.dispose();}
     cards=[];for(const g of madeGeometry)g.dispose();
     for(const m of madeMaterials)m.dispose();
@@ -380,10 +470,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     renderer.dispose();renderer.domElement.remove();
   }
   return {start,stop,dispose,resize,resetCamera,sync,projectCard,projectSlot,
-    get state(){return {revision:47,projection:camera.type,frames,slotCount:boardSlots.size,
+    get state(){return {revision:48,projection:camera.type,frames,slotCount:boardSlots.size,
       publicCardCount,cardMeshCount:cards.length,shadows:renderer.shadowMap.enabled,
       rendererAlive:renderer.domElement.isConnected,yaw,pitch,distance,
-      hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length};}};
+      hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
+      nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,
+      fxSources:'native-slot-classes'};}};
 };
 window.MRRBattlefieldUIInit=function(loadThree){
   'use strict';
