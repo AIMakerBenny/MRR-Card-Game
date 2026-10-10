@@ -378,3 +378,25 @@ body.mcw-three-ready #arena .mcw35-hurt{color:#ffb08a}
   #mrr-battlefield-cardtip strong {font-size:12px}
   #mrr-battlefield-help {max-width:29%;left:5px;bottom:7px;font-size:8px}
 }
+
+/* Phase49: native-event cinematic HUD. Never captures game or raycast input. */
+#mrr-battlefield-combat-feed {
+  position:absolute;pointer-events:none;z-index:6;top:14px;left:50%;
+  transform:translate(-50%,-11px) scale(.96);opacity:0;
+  display:block;max-width:58%;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;padding:10px 24px;letter-spacing:2px;text-align:center;
+  background:linear-gradient(90deg,#121e2900,#1c3649e9 18%,#1c3649e9 82%,#121e2900);
+  color:#e5f7ff;font:600 17px 'Malgun Gothic',sans-serif;
+  border-top:1px solid #78b8ca;border-bottom:1px solid #78b8ca;
+  box-shadow:0 4px 24px #06131ecc;transition:transform .22s ease,opacity .22s ease;
+}
+#mrr-battlefield-combat-feed.active {transform:translate(-50%,0) scale(1);opacity:1}
+#mrr-battlefield-combat-feed[data-kind=hit] {border-color:#efad78;color:#ffdfb8;background:linear-gradient(90deg,#21150b00,#503022e9 18%,#503022e9 82%,#21150b00)}
+#mrr-battlefield-combat-feed[data-kind=heal] {border-color:#9eeac0;color:#bcfbd9;background:linear-gradient(90deg,#0b251300,#174937e9 18%,#174937e9 82%,#0b251300)}
+#mrr-battlefield-combat-feed[data-kind=summon] {border-color:#8cdef1;color:#c3f7ff}
+@media(max-width:700px) {
+  #mrr-battlefield-combat-feed {top:8px;left:35%;max-width:64%;font-size:11px;padding:6px 12px;letter-spacing:1px}
+}
+@media(prefers-reduced-motion:reduce) {
+  #mrr-battlefield-combat-feed {transition:none}
+}

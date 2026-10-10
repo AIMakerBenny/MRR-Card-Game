@@ -196,6 +196,43 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=4;
     madeTextures.push(texture);return texture;
   }
+  // Phase49: camera/lighting react only after a native FX transition.
+  // A target click can stage a trajectory but cannot itself trigger an impact.
+  const impactLamp=new THREE.PointLight(0xffffff,0,17,2);
+  impactLamp.position.set(0,2,0);scene.add(impactLamp);
+  let pendingStrike=null,cinemaImpact=null,confirmedStrikes=0,cinematicFrameCount=0;
+  let latestCombat=null;
+  function stageAttack(sourceKey,targetKey){
+    if(!boardSlots.has(sourceKey)||!boardSlots.has(targetKey)||sourceKey===targetKey)return false;
+    pendingStrike={sourceKey,targetKey,at:performance.now()};
+    return true;
+  }
+  function cinematicLight(type,key,at){
+    const spot=boardSlots.get(key);
+    impactLamp.position.set(spot.x,2.5,spot.z);
+    impactLamp.color.set(type==='hit'?0xffa775:type==='heal'?0x90ffca:0x7de4ff);
+    cinemaImpact={type,key,at};
+    latestCombat={type,key,at};
+  }
+  function advanceCinematics(now){
+    if(pendingStrike&&now-pendingStrike.at>2800)pendingStrike=null;
+    if(!cinemaImpact){impactLamp.intensity=0;return;}
+    const p=(now-cinemaImpact.at)/(cinemaImpact.type==='hit'?540:880);
+    if(p>=1){
+      cinemaImpact=null;impactLamp.intensity=0;updateCamera();return;
+    }
+    const envelope=Math.max(0,1-p);
+    impactLamp.intensity=(cinemaImpact.type==='hit'?110:75)*Math.pow(envelope,2);
+    if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
+      // This transient offset is never written into the camera orbit state.
+      updateCamera();
+      const shake=(cinemaImpact.type==='hit'?.21:.045)*envelope;
+      camera.position.x+=Math.sin(now*.119)*shake;
+      camera.position.y+=Math.cos(now*.151)*shake*.7;
+      camera.lookAt(0,.8,0);
+      cinematicFrameCount++;
+    }
+  }
   // Phase48: CSS effects are emitted by the unmodified original game.
   // Observe only real native fx-* class transitions, never compute damage or healing.
   const liveEffects=[],effectsReceived={hit:0,heal:0,summon:0};
@@ -249,11 +286,43 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const beacon=new THREE.Mesh(beaconGeo,beaconMat);
     beacon.position.y=1.2;group.add(beacon);
     scene.add(group);
+    cinematicLight(type,key,now);
+    // Attack vectors originate from the player's actual delegated selection.
+    // The beam is committed only when the original engine emits fx-hit.
+    const strike=type==='hit'&&pendingStrike?.targetKey===key &&
+      now-pendingStrike.at<2800?pendingStrike:null;
+    if(strike){
+      const source=boardSlots.get(strike.sourceKey),delta=new THREE.Vector3(source.x-spot.x,0,source.z-spot.z);
+      const origin=new THREE.Vector3(delta.x,1.3,delta.z),end=new THREE.Vector3(0,1.3,0);
+      const vec=new THREE.Vector3().subVectors(end,origin),length=vec.length();
+      for(const [width,alpha] of [[.19,.32],[.055,.9]]){
+        const beamGeo=new THREE.CylinderGeometry(width,width,length,10);
+        const beamMat=new THREE.MeshBasicMaterial({color:0xffddac,transparent:true,opacity:alpha,
+          blending:THREE.AdditiveBlending,depthWrite:false});
+        const beam=new THREE.Mesh(beamGeo,beamMat);
+        beam.position.copy(origin).add(end).multiplyScalar(.5);
+        beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),vec.normalize());
+        group.add(beam);
+        group.userData.beams||=[];group.userData.beams.push(beam);
+        group.userData.beamResources||=[];group.userData.beamResources.push(beamGeo,beamMat);
+      }
+      confirmedStrikes++;pendingStrike=null;
+    }
+    // Soft additive volumetric core creates readable summon/heal silhouettes.
+    const columnGeo=new THREE.CylinderGeometry(type==='hit'?.45:.16,
+      type==='hit'?.65:.34,type==='hit'?1.6:3.8,16,1,true);
+    const columnMat=new THREE.MeshBasicMaterial({color:colour,transparent:true,
+      opacity:type==='hit'?.42:.32,depthWrite:false,side:THREE.DoubleSide,
+      blending:THREE.AdditiveBlending});
+    const column=new THREE.Mesh(columnGeo,columnMat);
+    column.position.y=type==='hit'?.7:1.9;
+    group.add(column);group.userData.column=column;
+    group.userData.columnResources=[columnGeo,columnMat];
     const life=type==='summon'?1150:type==='heal'?1040:820;
     liveEffects.push({type,key,group,ring,sparkGeo,sparkMat,beacon,
-      velocity,born:now,life,resources:[ringGeo,ringMat,sparkGeo,sparkMat,beaconGeo,beaconMat]});
+      velocity,born:now,life,resources:[ringGeo,ringMat,sparkGeo,sparkMat,beaconGeo,beaconMat,...(group.userData.beamResources||[]),...(group.userData.columnResources||[])]});
     effectsReceived[type]++;
-    events.onCombat?.({type,key,name:document.querySelector('#arena [data-slot="'+key+'"] .card-name')?.textContent?.trim()||'',at:now});
+    events.onCombat?.({type,key,name:document.querySelector('#arena [data-slot="'+key+'"] .card-name')?.textContent?.trim()||'',at:now,confirmedStrike:!!strike});
     while(liveEffects.length>24)removeFx(liveEffects.shift());
   }
   function removeFx(fx){
@@ -266,6 +335,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(p>=1){removeFx(f);liveEffects.splice(i,1);continue;}
       const ease=Math.sin(Math.PI*p);
       f.ring.scale.setScalar(.7+p*1.55);
+      if(f.group.userData.column){
+        const column=f.group.userData.column;
+        column.material.opacity=(1-p)*(f.type==='hit'?.44:.36);
+        column.scale.x=column.scale.z=.65+Math.sin(Math.PI*p)*.58;
+        column.scale.y=.8+Math.sin(Math.PI*p)*.4;
+      }
       f.ring.material.opacity=(1-p)*.9;
       f.beacon.scale.setScalar(.7+ease*1.9);
       f.beacon.material.opacity=(1-p)*.72;
@@ -277,6 +352,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
       pos.needsUpdate=true;
       f.sparkMat.opacity=(1-p)*.9;
+      if(f.group.userData.beams)for(const beam of f.group.userData.beams){
+        beam.material.opacity=Math.max(0,1-p)*(beam.geometry.parameters.radiusTop>.1?.30:.92);
+        beam.scale.set(1+p*.22,1,1+p*.22);
+      }
     }
   }
   let cards=[],signature='',publicCardCount=0,lastSync=0;
@@ -444,6 +523,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(frozen)c.group.position.y=1.76+(hover?.78:0);
     }
     advanceEffects(time);
+    advanceCinematics(time);
     renderer.render(scene,camera);frames++;
   }
   function start(){if(disposed)return;resize();sync();if(running)return;
@@ -456,7 +536,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   function dispose(){
     if(disposed)return;stop();disposed=true;
     for(const fx of liveEffects.splice(0))removeFx(fx);
-    recentFx.clear();
+    recentFx.clear();pendingStrike=null;cinemaImpact=null;impactLamp.intensity=0;
     for(const c of cards){c.face.material.map.dispose();c.face.material.dispose();}
     cards=[];for(const g of madeGeometry)g.dispose();
     for(const m of madeMaterials)m.dispose();
@@ -469,13 +549,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     mount.removeEventListener('wheel',wheel);
     renderer.dispose();renderer.domElement.remove();
   }
-  return {start,stop,dispose,resize,resetCamera,sync,projectCard,projectSlot,
-    get state(){return {revision:48,projection:camera.type,frames,slotCount:boardSlots.size,
+  return {start,stop,dispose,resize,resetCamera,sync,projectCard,projectSlot,stageAttack,
+    refreshHover:(key)=>setHover(key,true),
+    get state(){return {revision:49,projection:camera.type,frames,slotCount:boardSlots.size,
       publicCardCount,cardMeshCount:cards.length,shadows:renderer.shadowMap.enabled,
       rendererAlive:renderer.domElement.isConnected,yaw,pitch,distance,
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
       nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,
-      fxSources:'native-slot-classes'};}};
+      fxSources:'native-slot-classes',cinematicRevision:49,
+      confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
+      combatEvent:latestCombat,stagedStrike:!!pendingStrike,
+      liveStrikeCount:liveEffects.filter(x=>(x.group.userData.beams||[]).length).length};}};
 };
 window.MRRBattlefieldUIInit=function(loadThree){
   'use strict';
@@ -517,6 +601,14 @@ window.MRRBattlefieldUIInit=function(loadThree){
       const cancelAction=document.createElement('button');cancelAction.id='mrr-battlefield-cancel';
       cancelAction.type='button';cancelAction.textContent='선택 취소';cancelAction.disabled=true;
       commands.append(attack,moveCard,cancelAction);
+      const combatFeed=document.createElement('div');combatFeed.id='mrr-battlefield-combat-feed';
+      combatFeed.setAttribute('role','status');combatFeed.setAttribute('aria-live','polite');
+      function onNativeCombat(event){
+        const label=event.type==='hit'?'피격':event.type==='heal'?'치유':'소환';
+        combatFeed.textContent=label+'  |  '+(event.name||'전장 슬롯');
+        combatFeed.dataset.kind=event.type;combatFeed.classList.add('active');
+        combatFeed.dataset.since=String(event.at);
+      }
       const cardTip=document.createElement('div');cardTip.id='mrr-battlefield-cardtip';
       cardTip.setAttribute('role','status');cardTip.setAttribute('aria-live','off');
       function runNativeAction(selector){
@@ -528,6 +620,7 @@ window.MRRBattlefieldUIInit=function(loadThree){
       moveCard.addEventListener('click',()=>runNativeAction('button[data-actor="move"]'));
       cancelAction.addEventListener('click',()=>runNativeAction('button[data-cancel-action]'));
       function updateCommands(info){
+        if(combatFeed.classList.contains('active')&&performance.now()-Number(combatFeed.dataset.since)>1650){combatFeed.classList.remove('active');}
         const inspect=Boolean(info.selectedKey);
         const nativeAttack=document.querySelector('#inspectBody button[data-actor="attack"]');
         const nativeMove=document.querySelector('#inspectBody button[data-actor="move"]');
@@ -544,10 +637,16 @@ window.MRRBattlefieldUIInit=function(loadThree){
         const actionable=node.querySelector('.board-card')||
           node.classList.contains('legal')||node.classList.contains('attack-target');
         if(!actionable)return;
+        if(node.classList.contains('attack-target')&&view.state.selectedKey){
+          view.stageAttack(view.state.selectedKey,key);
+        }
         // One delegated DOM click is the sole authority for all selection,
         // movement, summons and attacks. Never simulate a damage event.
         node.click();
         view.sync();
+        // Rendering can recreate slot DOM nodes; read the new card immediately
+        // instead of relying on a second pointer movement after the native click.
+        view.refreshHover(key);
       }
       function describeHover(key,profile){
         if(!key||!profile){cardTip.classList.remove('visible');cardTip.textContent='';return;}
@@ -562,11 +661,11 @@ window.MRRBattlefieldUIInit=function(loadThree){
       overlayHelp.textContent='카드 클릭 - 선택  |  공격 버튼 - 대상 지정  |  드래그 - 시점 회전  |  휠 - 확대·축소';
       const enemy=document.createElement('div');enemy.className='mrr-side-label enemy';enemy.textContent='OPPONENT TERRITORY';
       const friendly=document.createElement('div');friendly.className='mrr-side-label friendly';friendly.textContent='ALLIED TERRITORY';
-      stage.append(enemy,friendly,overlayHelp,commands,cardTip);
+      stage.append(enemy,friendly,overlayHelp,commands,cardTip,combatFeed);
       dialog.append(header,stage);layer.appendChild(dialog);document.body.appendChild(layer);
       layer.addEventListener('click',event=>{if(event.target===layer)close();});
       overlay=layer;view=window.MRRBattlefieldFactory(THREE,stage,{
-        onPick:pickNativeSlot,onHover:describeHover,onState:updateCommands
+        onPick:pickNativeSlot,onHover:describeHover,onState:updateCommands,onCombat:onNativeCombat
       });
       reset.addEventListener('click',()=>view?.resetCamera());
       view.start();
