@@ -56,13 +56,13 @@ try:
         i,cost:Number(e.querySelector('.cost-bubble')?.textContent||99),
         board:/type-(몬스터|시설|영웅유닛)/.test(e.querySelector('.card-ui')?.className||''),
         name:e.querySelector('.card-name')?.textContent?.trim()||'',
-        kind:e.querySelector('.card-kind')?.textContent?.trim()||''
+        kind:e.querySelector('.card-kind')?.textContent?.trim()||'',
+        cardId:e.querySelector('.card-ui')?.getAttribute('data-mrr-public-card-id')||null
       }))""")
-      candidates=[a for a in available if a['board'] and a['cost']<=2]
+      candidates=[a for a in available if a['board'] and a['cost']<=2 and a['cardId']]
       if candidates:
         chosen=candidates[0]
-        card_id=page.evaluate("""card=>
-          window.MRRCardArtRegistry.byPublicKey[JSON.stringify([card.name,card.kind])]||null""",chosen)
+        card_id=chosen['cardId']
         if card_id:break
         chosen=None
     assert chosen and card_id,"No unique public card ID resolved from visible hand"
@@ -92,6 +92,7 @@ try:
       page.get_by_role('button',name='이 손패로 시작').click()
       hand_item=page.locator('#hand .hand-slot').nth(chosen['i'])
       assert hand_item.locator('.card-name').inner_text().strip()==chosen['name']
+      assert hand_item.locator('.card-ui').get_attribute('data-mrr-public-card-id')==card_id
       before=page.evaluate("""() => {
         let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);
       }""")
@@ -111,6 +112,7 @@ try:
       page.wait_for_function("""key =>
         !!document.querySelector('#arena [data-slot="'+key+'"] .board-card')""",
         arg=key,timeout=9000)
+      assert page.locator('#arena [data-slot="'+key+'"] .card-ui').get_attribute('data-mrr-public-card-id')==card_id
       page.wait_for_function('MRRIntegrated.state.scene.artworkLoadedCount>=1',timeout=12000)
       assert page.evaluate('MRRIntegrated.state.scene.publicCardCount')>=1
       assert page.evaluate("""() => {
