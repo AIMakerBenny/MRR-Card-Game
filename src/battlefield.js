@@ -11,14 +11,14 @@ window.MRRBattlefieldFactory=function(THREE,mount){
   const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=1.30;
+  renderer.toneMappingExposure=1.47;
   renderer.shadowMap.enabled=true;
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   renderer.domElement.setAttribute('aria-label','실시간 공개 카드 3D 전장');
   renderer.domElement.style.cssText='width:100%;height:100%;display:block';
   mount.appendChild(renderer.domElement);
-  scene.add(new THREE.HemisphereLight(0x9cbddf,0x1a1014,1.35));
-  const sun=new THREE.DirectionalLight(0xf4d19c,3.4);
+  scene.add(new THREE.HemisphereLight(0xbad8e8,0x423440,2.0));
+  const sun=new THREE.DirectionalLight(0xffe2b1,4.2);
   sun.position.set(-8,18,13);sun.castShadow=true;
   sun.shadow.mapSize.set(2048,2048);
   sun.shadow.camera.left=-22;sun.shadow.camera.right=22;
@@ -35,12 +35,12 @@ window.MRRBattlefieldFactory=function(THREE,mount){
     madeMaterials.push(m);return m;
   };
   const geometry=g=>{madeGeometry.push(g);return g;};
-  const black=material({color:0x142330,metalness:.28,roughness:.76});
-  const stone=material({color:0x203642,metalness:.22,roughness:.81});
-  const bronze=material({color:0x9b7850,metalness:.83,roughness:.27,clearcoat:.4},true);
-  const gold=material({color:0xccaa71,metalness:.75,roughness:.24});
-  const red=material({color:0x934949,metalness:.47,roughness:.4,emissive:0x451617,emissiveIntensity:.24});
-  const blue=material({color:0x397f93,metalness:.51,roughness:.37,emissive:0x113d54,emissiveIntensity:.27});
+  const black=material({color:0x223746,metalness:.18,roughness:.72});
+  const stone=material({color:0x354957,metalness:.18,roughness:.71});
+  const bronze=material({color:0xc6a777,metalness:.68,roughness:.29,clearcoat:.4},true);
+  const gold=material({color:0xebc789,metalness:.58,roughness:.3});
+  const red=material({color:0xcf6c6a,metalness:.32,roughness:.39,emissive:0x7a2529,emissiveIntensity:.48});
+  const blue=material({color:0x64b9cc,metalness:.32,roughness:.36,emissive:0x0a647b,emissiveIntensity:.5});
   const tileGeo=geometry(new THREE.BoxGeometry(2.25,.15,2.45));
   const edgeGeo=geometry(new THREE.BoxGeometry(2.38,.08,2.58));
   const platformGeo=geometry(new THREE.BoxGeometry(22,.65,22.1));
@@ -59,7 +59,7 @@ window.MRRBattlefieldFactory=function(THREE,mount){
       post.position.y=1.9;post.castShadow=true;tower.add(post);
       const crown=new THREE.Mesh(geometry(new THREE.CylinderGeometry(.7,.47,.5,10)),bronze);
       crown.position.y=4.13;tower.add(crown);
-      const flame=new THREE.Mesh(geometry(new THREE.IcosahedronGeometry(.3,1)),
+      const flame=new THREE.Mesh(geometry(new THREE.ConeGeometry(.24,.67,9)),
         material({color:sz>0?0x72dff4:0xf08f70,emissive:sz>0?0x26a8de:0xea5548,emissiveIntensity:1.65,roughness:.2}));
       flame.position.y=4.56;tower.add(flame);
       scene.add(tower);
@@ -74,8 +74,8 @@ window.MRRBattlefieldFactory=function(THREE,mount){
     {owner:0,row:'terrace',z:8.38,label:'아군 시설'}
   ];
   const boardSlots=new Map();
-  const cardGeometry=geometry(new THREE.BoxGeometry(1.56,2.18,.18));
-  const cardFaceGeometry=geometry(new THREE.PlaneGeometry(1.46,2.06));
+  const cardGeometry=geometry(new THREE.BoxGeometry(2.08,2.84,.22));
+  const cardFaceGeometry=geometry(new THREE.PlaneGeometry(1.96,2.71));
   const stripGeo=geometry(new THREE.BoxGeometry(19.5,.025,.045));
   for(const lane of lanes){
     const laneMaterial=lane.owner===0?blue:red;
@@ -184,14 +184,14 @@ window.MRRBattlefieldFactory=function(THREE,mount){
       if(!p.name)continue;
       const slot=boardSlots.get(p.key);
       const group=new THREE.Group();
-      group.position.set(slot.x,1.46,slot.z);
-      group.rotation.x=-.09;
+      group.position.set(slot.x,1.76,slot.z);
+      group.rotation.x=-.74;
       const frame=new THREE.Mesh(cardGeometry,p.selected?gold:(slot.owner===0?blue:red));
       frame.castShadow=true;group.add(frame);
       const face=new THREE.Mesh(cardFaceGeometry,new THREE.MeshStandardMaterial({
         map:cardTexture(p,slot.owner===0),metalness:.05,roughness:.48
       }));
-      face.position.z=.095;group.add(face);
+      face.position.z=.116;group.add(face);
       const stand=new THREE.Mesh(cardGeometry,bronze);
       stand.position.z=-.065;stand.scale.set(1.055,1.05,.18);group.add(stand);
       scene.add(group);cards.push({group,face,slot});
@@ -235,7 +235,7 @@ window.MRRBattlefieldFactory=function(THREE,mount){
     const frozen=matchMedia('(prefers-reduced-motion: reduce)').matches;
     if(!frozen){
       sealCore.rotation.y=time*.00035;
-      for(const [i,c] of cards.entries())c.group.position.y=1.46+Math.sin(time*.0015+i*.67)*.035;
+      for(const [i,c] of cards.entries())c.group.position.y=1.76+Math.sin(time*.0015+i*.67)*.045;
     }
     renderer.render(scene,camera);frames++;
   }
