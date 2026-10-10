@@ -32,6 +32,6 @@ Artwork is supplied by the project owner. Do not generate replacement characters
 5. Valid artwork is base64-embedded into the standalone PC HTML on build. It requires no image server or runtime fetch. No artwork is supplied yet.
 6. Only publicly displayed cards in the PC integrated 3D arena consume the image. The 244-card data, battle rules, AI, save/load and original 2D user interface remain untouched. The standalone legacy 3D modal is likewise unchanged.
 7. The card face remains 512 x 704 px. Uploaded images fill x=56 through 455 and y=199 through 518, a 400 x 320 px 5:4 area, without distortion or automatic crop.
-8. Missing artwork keeps the established blank placeholder. Exact public card name and displayed type/faction are resolved against all 244 original IDs. Duplicate names cannot swap images.
+8. Missing artwork keeps the established blank placeholder. The original public card renderer carries its exact source ID as a data attribute. Names and type/faction never determine the artwork lookup, since certain common cards have identical visible labels.
 
 In this phase, the repository remains empty of user artwork. The test suite creates two-colour synthetic pixels only in a temporary QA fixture, not in the distributed build.
