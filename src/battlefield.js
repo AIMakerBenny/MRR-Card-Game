@@ -300,12 +300,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     camera.lookAt(0,.8,0);
   }
   function down(e){
-    if(e.button!==0)return;drag=true;moved=false;
+    if(e.button!==0||e.target.closest('#mrr-battlefield-commands'))return;
+    drag=true;moved=false;
     startX=lastX=e.clientX;startY=lastY=e.clientY;
     mount.setPointerCapture?.(e.pointerId);
   }
   function move(e){
-    if(!drag){setHover(publicHit(e));return;}
+    if(!drag){setHover(e.target.closest('#mrr-battlefield-commands')?null:publicHit(e));return;}
     if(Math.hypot(e.clientX-startX,e.clientY-startY)>6)moved=true;
     if(moved){
       yaw=Math.max(-.8,Math.min(.8,yaw+(e.clientX-lastX)*.004));
