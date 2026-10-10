@@ -197,7 +197,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     madeTextures.push(texture);return texture;
   }
   let cards=[],signature='',publicCardCount=0,lastSync=0;
-  let hoveredKey=null,selectedKey=null,legalCount=0,attackTargetCount=0;
+  let hoveredKey=null,selectedKey=null,legalCount=0,attackTargetCount=0,statusSignature='';
   let pickMeshes=slotPickMeshes.slice(),cardIndex=new Map();
   function publicHit(e){
     const rect=renderer.domElement.getBoundingClientRect();
@@ -224,8 +224,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   function sync(){
     const list=publicSnapshot();
+    const nextStatusSignature=JSON.stringify(list.map(p=>[p.key,p.selected,p.legal,p.attackTarget]));
+    const statusChanged=nextStatusSignature!==statusSignature;
+    statusSignature=nextStatusSignature;
     const cardsSignature=JSON.stringify(list.map(p=>[p.key,p.name,p.kind,p.cost,p.stats,p.sigil]));
-    if(cardsSignature!==signature){
+    const cardChanged=cardsSignature!==signature;
+    if(cardChanged){
       signature=cardsSignature;
       for(const c of cards){scene.remove(c.group);c.face.material.map?.dispose();c.face.material.dispose();}
       cards=[];madeTextures.length=0;cardIndex=new Map();pickMeshes=slotPickMeshes.slice();
@@ -274,9 +278,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       attackTip.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());
     }
     events.onState?.({selectedKey,hoveredKey,legalCount,attackTargetCount,publicCardCount});
+    if((cardChanged||statusChanged)&&hoveredKey)setHover(hoveredKey,true);
   }
-  function setHover(key){
-    if(hoveredKey===key)return;
+  function setHover(key,force=false){
+    if(hoveredKey===key&&!force)return;
     hoveredKey=key;
     const slot=document.querySelector('#arena [data-slot="'+(key||'')+'"]');
     const card=slot?.querySelector('.board-card .card-ui');
@@ -289,7 +294,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       target:slot.classList.contains('attack-target'),
       legal:slot.classList.contains('legal')
     }:slot?{name:slot.classList.contains('legal')?'배치 또는 이동 가능한 슬롯':'빈 슬롯',kind:'',stats:'',target:slot.classList.contains('attack-target'),legal:slot.classList.contains('legal')}:null);
-    sync();
+    if(!force)sync();
   }
   let yaw=0,pitch=.77,distance=29,drag=false,moved=false,lastX=0,lastY=0,startX=0,startY=0;
   function updateCamera(){
@@ -348,12 +353,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const frozen=matchMedia('(prefers-reduced-motion: reduce)').matches;
     if(!frozen){
       sealCore.rotation.y=time*.00035;
-      for(const [i,c] of cards.entries())c.group.position.y=1.76+(c.key===hoveredKey?.62:0)+Math.sin(time*.0015+i*.67)*.045;
+      for(const [i,c] of cards.entries())c.group.position.y=1.76+(c.key===hoveredKey ? .78 : 0)+Math.sin(time*.0015+i*.67)*.045;
     }
     for(const c of cards){
       const hover=c.key===hoveredKey;
-      c.group.scale.setScalar(hover?1.13:1);
-      if(frozen)c.group.position.y=1.76+(hover?.62:0);
+      c.group.scale.setScalar(hover?1.26:1);
+      if(frozen)c.group.position.y=1.76+(hover?.78:0);
     }
     renderer.render(scene,camera);frames++;
   }
