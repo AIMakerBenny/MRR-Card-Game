@@ -96,6 +96,7 @@ window.MRRIntegratedUIInit=function(loadThree){
           else help.textContent='손패 선택 → 전장 배치  ·  카드 선택 → 공격 / 이동';
         }
       });
+      view.setCameraPreset('tabletop'); // Higher desktop angle, room for hand and hero HUD.
       view.start();refresh(view.state);
       toggle.setAttribute('aria-pressed','true');toggle.textContent='3D 플레이 중';
       toggle.disabled=false;
