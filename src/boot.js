@@ -135,7 +135,13 @@
       console.warn('Cinematic 3D unavailable',err);modalClose();
     }finally{cinemaBusy=false;}
   });
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&cinemaModal){event.preventDefault();event.stopImmediatePropagation();modalClose();}},true);
+  // Register on the capture phase of window before the original game's
+  // document-level shortcuts. Escape always belongs to the topmost modal.
+  window.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&cinemaModal){
+      event.preventDefault();event.stopImmediatePropagation();modalClose();
+    }
+  },true);
   window.addEventListener('resize',()=>{if(cinemaModal)cinemaScene?.resize();});
   document.addEventListener('visibilitychange',()=>{
     if(!cinemaModal||!cinemaScene)return;
