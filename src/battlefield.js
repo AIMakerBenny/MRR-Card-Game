@@ -354,6 +354,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // Phase48: CSS effects are emitted by the unmodified original game.
   // Observe only real native fx-* class transitions, never compute damage or healing.
   const liveEffects=[],effectsReceived={hit:0,heal:0,summon:0};
+  let peakLiveFxCount=0;
   const recentFx=new Map();
   const effectColors={hit:0xffa96e,heal:0x7affbd,summon:0x69d8ef};
   const fxObserver=new MutationObserver(records=>{
@@ -439,6 +440,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const life=type==='summon'?1150:type==='heal'?1040:820;
     liveEffects.push({type,key,group,ring,sparkGeo,sparkMat,beacon,
       velocity,born:now,life,resources:[ringGeo,ringMat,sparkGeo,sparkMat,beaconGeo,beaconMat,...(group.userData.beamResources||[]),...(group.userData.columnResources||[])]});
+    peakLiveFxCount=Math.max(peakLiveFxCount,liveEffects.length);
     effectsReceived[type]++;
     const combatEntry={type,key,name:document.querySelector('#arena [data-slot="'+key+'"] .card-name')?.textContent?.trim()||'',at:now,confirmedStrike:!!strike};
     nativeCombatEvents.push(combatEntry);
@@ -499,6 +501,24 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const r=renderer.domElement.getBoundingClientRect();
     return {x:r.left+(point.x+1)*r.width/2,y:r.top+(1-point.y)*r.height/2};
   }
+  // Phase53: render the exact card-face canvas already shown on the public
+  // WebGL mesh. No second artwork catalogue or hidden-game data.
+  function getCardPreview(key){
+    const item=cardIndex.get(key);
+    if(!item)return null;
+    if(!item.previewUrl){
+      const canvas=item.face.material.map?.image;
+      if(!(canvas instanceof HTMLCanvasElement))return null;
+      item.previewUrl=canvas.toDataURL('image/png');
+    }
+    const node=document.querySelector('#arena [data-slot="'+key+'"] .card-ui');
+    return {key,artData:item.previewUrl,
+      name:node?.querySelector('.card-name')?.textContent?.trim()||'',
+      kind:node?.querySelector('.card-kind')?.textContent?.trim()||'',
+      stats:node?.querySelector('.card-stats')?.textContent?.trim()||'',
+      cost:node?.querySelector('.cost-bubble')?.textContent?.trim()||''};
+  }
+  function hasCard(key){return cardIndex.has(key);}
   function projectSlot(key){
     const c=boardSlots.get(key);
     if(!c)return null;
@@ -706,18 +726,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     mount.removeEventListener('wheel',wheel);
     renderer.dispose();renderer.domElement.remove();
   }
-  return {start,stop,dispose,resize,resetCamera,setCameraPreset,sync,projectCard,projectSlot,stageAttack,
+  return {start,stop,dispose,resize,resetCamera,setCameraPreset,sync,projectCard,projectSlot,stageAttack,getCardPreview,hasCard,
     refreshHover:(key)=>setHover(key,true),
     get state(){return {revision:49,projection:camera.type,frames,slotCount:boardSlots.size,
       publicCardCount,cardMeshCount:cards.length,shadows:renderer.shadowMap.enabled,
       rendererAlive:renderer.domElement.isConnected,yaw,pitch,distance,
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
-      nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,
+      nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,peakLiveFxCount,
       fxSources:'native-slot-classes',cinematicRevision:49,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       realCombatQaRevision:50,nativeCombatEvents:nativeCombatEvents.slice(),
       visualArtRevision:51,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
       healthHudRevision:52,healthIndicatorCount,cardHealth:Object.fromEntries(cardHealth),
+      previewRevision:53,previewReadyCards:cardIndex.size,
       combatEvent:latestCombat,stagedStrike:!!pendingStrike,
       liveStrikeCount:liveEffects.filter(x=>(x.group.userData.beams||[]).length).length};}};
 };
@@ -760,7 +781,11 @@ window.MRRBattlefieldUIInit=function(loadThree){
       moveCard.type='button';moveCard.textContent='인접 이동';moveCard.disabled=true;
       const cancelAction=document.createElement('button');cancelAction.id='mrr-battlefield-cancel';
       cancelAction.type='button';cancelAction.textContent='선택 취소';cancelAction.disabled=true;
-      commands.append(attack,moveCard,cancelAction);
+      const pinPreview=document.createElement('button');
+      pinPreview.id='mrr-battlefield-preview-pin';pinPreview.type='button';
+      pinPreview.textContent='확대 고정';pinPreview.disabled=true;
+      pinPreview.setAttribute('aria-pressed','false');
+      commands.append(attack,moveCard,cancelAction,pinPreview);
       const combatFeed=document.createElement('div');combatFeed.id='mrr-battlefield-combat-feed';
       combatFeed.setAttribute('role','status');combatFeed.setAttribute('aria-live','polite');
       function onNativeCombat(event){
@@ -769,6 +794,39 @@ window.MRRBattlefieldUIInit=function(loadThree){
         combatFeed.dataset.kind=event.type;combatFeed.classList.add('active');
         combatFeed.dataset.since=String(event.at);
       }
+      const zoomPane=document.createElement('aside');zoomPane.id='mrr-battlefield-zoom-pane';
+      zoomPane.setAttribute('role','region');zoomPane.setAttribute('aria-label','공개 카드 확대 미리보기');
+      const zoomImage=document.createElement('img');zoomImage.id='mrr-battlefield-zoom-image';
+      zoomImage.alt='공개 카드 일러스트 확대';
+      const zoomCaption=document.createElement('div');zoomCaption.id='mrr-battlefield-zoom-caption';
+      zoomPane.append(zoomImage,zoomCaption);
+      let pinnedKey=null,previewKey=null,shownImage='';
+      function renderZoom(key){
+        if(pinnedKey)key=pinnedKey;
+        const info=key?view?.getCardPreview(key):null;
+        if(!info||!info.name){
+          previewKey=null;shownImage='';zoomPane.classList.remove('visible');
+          zoomImage.removeAttribute('src');zoomCaption.textContent='';
+          return;
+        }
+        previewKey=info.key;
+        if(shownImage!==info.artData){shownImage=info.artData;zoomImage.src=info.artData;}
+        zoomImage.alt=info.name+' 카드 확대';
+        zoomCaption.textContent=[info.name,info.kind,info.stats].filter(Boolean).join(' · ');
+        zoomPane.classList.add('visible');
+      }
+      pinPreview.addEventListener('click',()=>{
+        if(pinnedKey){
+          pinnedKey=null;pinPreview.setAttribute('aria-pressed','false');
+          pinPreview.textContent='확대 고정';
+          renderZoom(view?.state.hoveredKey||view?.state.selectedKey||previewKey);
+        }else{
+          const key=view?.state.hoveredKey||view?.state.selectedKey||previewKey;
+          if(!key||!view?.hasCard(key))return;
+          pinnedKey=key;pinPreview.setAttribute('aria-pressed','true');
+          pinPreview.textContent='고정 해제';renderZoom(key);
+        }
+      });
       const cardTip=document.createElement('div');cardTip.id='mrr-battlefield-cardtip';
       cardTip.setAttribute('role','status');cardTip.setAttribute('aria-live','off');
       function runNativeAction(selector){
@@ -780,6 +838,15 @@ window.MRRBattlefieldUIInit=function(loadThree){
       moveCard.addEventListener('click',()=>runNativeAction('button[data-actor="move"]'));
       cancelAction.addEventListener('click',()=>runNativeAction('button[data-cancel-action]'));
       function updateCommands(info){
+        if(previewKey&&!view?.hasCard(previewKey))renderZoom(null);
+        if(pinnedKey&&!view?.hasCard(pinnedKey)){
+          pinnedKey=null;pinPreview.setAttribute('aria-pressed','false');
+          pinPreview.textContent='확대 고정';
+        }
+        pinPreview.disabled=!(pinnedKey||view?.hasCard(info.hoveredKey)||view?.hasCard(info.selectedKey)||view?.hasCard(previewKey));
+        if(!pinnedKey&&(info.hoveredKey||info.selectedKey)&&(info.hoveredKey||info.selectedKey)!==previewKey){
+          renderZoom(info.hoveredKey||info.selectedKey);
+        }
         if(combatFeed.classList.contains('active')&&performance.now()-Number(combatFeed.dataset.since)>1650){combatFeed.classList.remove('active');}
         const inspect=Boolean(info.selectedKey);
         const nativeAttack=document.querySelector('#inspectBody button[data-actor="attack"]');
@@ -810,6 +877,7 @@ window.MRRBattlefieldUIInit=function(loadThree){
         view.refreshHover(key);
       }
       function describeHover(key,profile){
+        if(!pinnedKey&&(view?.hasCard(key)||view?.hasCard(view?.state.selectedKey)))renderZoom(view?.hasCard(key)?key:view?.state.selectedKey);
         if(!key||!profile){cardTip.classList.remove('visible');cardTip.textContent='';return;}
         const legal=profile.target?'공격 가능 대상':profile.legal?'합법적 대상 또는 위치':'';
         cardTip.replaceChildren();
@@ -822,7 +890,7 @@ window.MRRBattlefieldUIInit=function(loadThree){
       overlayHelp.textContent='카드 클릭 - 선택  |  공격 버튼 - 대상 지정  |  드래그 - 시점 회전  |  휠 - 확대·축소';
       const enemy=document.createElement('div');enemy.className='mrr-side-label enemy';enemy.textContent='OPPONENT TERRITORY';
       const friendly=document.createElement('div');friendly.className='mrr-side-label friendly';friendly.textContent='ALLIED TERRITORY';
-      stage.append(enemy,friendly,overlayHelp,commands,cardTip,combatFeed);
+      stage.append(enemy,friendly,overlayHelp,commands,cardTip,combatFeed,zoomPane);
       dialog.append(header,stage);layer.appendChild(dialog);document.body.appendChild(layer);
       layer.addEventListener('click',event=>{if(event.target===layer)close();});
       overlay=layer;view=window.MRRBattlefieldFactory(THREE,stage,{

@@ -24,7 +24,7 @@ try:
       let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;
       Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
     }''')
-    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase52_3D_Prototype.html'
+    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase53_3D_Prototype.html'
     for seed in range(198704,198728):
       page.goto(url+f'?qa_seed={seed}')
       page.locator('#newGame').click();page.locator('#launchGame').click()
@@ -49,7 +49,7 @@ try:
     page.mouse.click(location['x'],location['y'])
     page.wait_for_function('MRRBattlefield.state.scene.fxReceived.summon>=1',timeout=8000)
     assert page.locator('#arena [data-slot="'+key+'"] .board-card').count()==1
-    assert page.evaluate('MRRBattlefield.state.scene.liveFxCount')>=1
+    assert page.evaluate('MRRBattlefield.state.scene.peakLiveFxCount')>=1
     page.screenshot(path=str(ROOT/'tests/phase48_real_native_summon_fhd.png'))
     page.wait_for_function('MRRBattlefield.state.scene.liveFxCount===0',timeout=7000)
     before=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s)}''')
@@ -61,7 +61,7 @@ try:
         visual(event,Number(owner),row,Number(col));
       }''',[event,key])
       page.wait_for_function('(kind)=>MRRBattlefield.state.scene.fxReceived[kind]>=1',arg=event,timeout=7000)
-      assert page.evaluate('MRRBattlefield.state.scene.liveFxCount')>=1
+      assert page.evaluate('MRRBattlefield.state.scene.peakLiveFxCount')>=1
       page.screenshot(path=str(ROOT/f'tests/phase48_{event}_signal_fixture.png'))
       page.wait_for_function('MRRBattlefield.state.scene.liveFxCount===0',timeout=7000)
     assert before==page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s)}''')

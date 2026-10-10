@@ -430,3 +430,40 @@ body.mcw-three-ready #arena .mcw35-hurt{color:#ffb08a}
   #mrr-battlefield-viewpoints button{font-size:9px;min-height:26px;padding:3px 5px}
   #mrr-battlefield-cardtip{top:95px}
 }
+
+
+/* Phase53: opt-in pinned card magnifier uses the very same public WebGL
+   texture source as the 3D field card, never hides other card meshes. */
+#mrr-battlefield-zoom-pane {
+  position:absolute;z-index:4;right:15px;top:142px;
+  width:clamp(190px,22%,290px);max-height:calc(100% - 240px);
+  display:none;flex-direction:column;gap:8px;pointer-events:none;
+  padding:10px;border:1px solid #c4a477bd;border-radius:8px;
+  background:linear-gradient(155deg,#112838ef,#081420df);
+  box-shadow:0 12px 44px #0009,0 0 25px #b9975b20;
+}
+#mrr-battlefield-zoom-pane.visible {display:flex}
+#mrr-battlefield-zoom-image {
+  width:100%;min-height:0;max-height:100%;object-fit:contain;
+  aspect-ratio:512/704;border:1px solid #e0c48e7a;border-radius:5px;
+  box-shadow:0 5px 16px #000b;
+}
+#mrr-battlefield-zoom-caption {
+  font:12px/1.45 'Malgun Gothic',sans-serif;
+  text-align:center;color:#f4e2bd;max-height:4em;overflow:hidden;
+}
+#mrr-battlefield-preview-pin[aria-pressed="true"] {
+  background:linear-gradient(145deg,#947149,#493728);
+  border-color:#f0c078;color:#fff8d8;
+}
+@media(max-width:700px) {
+  #mrr-battlefield-zoom-pane {
+    right:5px;top:148px;width:44%;max-width:190px;
+    max-height:calc(100% - 290px);padding:5px;gap:4px;
+  }
+  #mrr-battlefield-zoom-caption{font-size:9px;max-height:3.6em}
+  #mrr-battlefield-commands button {min-height:27px}
+}
+@media(max-height:650px) {
+  #mrr-battlefield-zoom-pane {top:105px;max-height:calc(100% - 170px);width:min(190px,24%)}
+}
