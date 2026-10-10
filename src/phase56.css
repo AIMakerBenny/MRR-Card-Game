@@ -41,6 +41,10 @@
     bottom:calc(clamp(154px,17.2vh,234px) - var(--fc-hand-h))!important;
     width:min(980px,72vw)!important;
     z-index:90!important;
+    pointer-events:none!important; /* transparent arc must not cover 3D slot hit targets */
+  }
+  body.mrr-integrated-active #hand .hand-slot{
+    pointer-events:auto!important; /* native card input remains interactive */
   }
   body.mrr-integrated-active #hand .hand-slot .card-ui{
     box-shadow:0 12px 19px #160b08e0,0 0 0 1px #f1d5a447!important;
