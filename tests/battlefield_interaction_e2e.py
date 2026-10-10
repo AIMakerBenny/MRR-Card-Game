@@ -66,8 +66,17 @@ try:
     assert before_3d!=after_placement,'Native game was not advanced by legal 3D click'
     pt=page.evaluate('(key)=>MRRBattlefield.scene.projectCard(key)',target_key)
     assert pt
-    page.mouse.move(pt['x'],pt['y'])
-    page.wait_for_function('(key)=>MRRBattlefield.state.scene.hoveredKey===key',arg=target_key,timeout=6000)
+    # Perspective overlap can put a neighboring hit mesh at the projected
+    # center on some SwiftShader frames. Probe actual nearby pointer pixels.
+    hit=False
+    for dx,dy in [(0,0),(0,-12),(-12,0),(12,0),(0,12),(-8,-8),(8,-8)]:
+      page.mouse.move(pt['x']+dx,pt['y']+dy)
+      page.wait_for_timeout(100)
+      if page.evaluate('(key)=>MRRBattlefield.state.scene.hoveredKey===key',target_key):
+        hit=True
+        pt={'x':pt['x']+dx,'y':pt['y']+dy}
+        break
+    assert hit,'Raycaster did not register any pixel around the real public card'
     assert page.locator('#mrr-battlefield-cardtip.visible').count()==1
     assert page.evaluate('MRRBattlefield.state.scene.cardMeshCount')==1
     assert after_placement==page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s)}'''),'Hover caused game mutation'
