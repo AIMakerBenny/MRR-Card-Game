@@ -26,7 +26,7 @@ try:
       let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;
       Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
     }''')
-    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase51_3D_Prototype.html'
+    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase52_3D_Prototype.html'
     success=False
     for seed in range(198704,198760):
       page.goto(url+f'?qa_seed={seed}',wait_until='domcontentloaded')
@@ -78,6 +78,12 @@ try:
         return {hp:c?.hp,turn:G.turn,attacker:G.players[0].front.some(x=>x&&x.acted)};
       }''',enemy_key)
       assert initial['hp']>0
+      before_hud=page.evaluate('(key)=>MRRBattlefield.state.scene.cardHealth[key]',enemy_key)
+      assert page.evaluate('MRRBattlefield.state.scene.healthHudRevision')==52
+      assert before_hud and before_hud['ratio']>0,before_hud
+      def native_ratio(key):
+        return page.evaluate('''key=>{const el=document.querySelector('#arena [data-slot="'+key+'"] .hpbar > div');return el?Math.max(0,Math.min(1,parseFloat(el.style.width)/100)):null}''',key)
+      assert abs(before_hud['ratio']-native_ratio(enemy_key))<.015
       page.locator('#mrr-battlefield-attack').click()
       page.wait_for_function('MRRBattlefield.state.scene.attackTargetCount>0',timeout=5000)
       assert page.locator('#arena [data-slot="'+enemy_key+'"].attack-target').count()==1
@@ -92,6 +98,13 @@ try:
         return {hp:c?.hp||0,acted:G.players[0].front.some(x=>x&&x.acted)};
       }''',enemy_key)
       assert after['hp']<initial['hp'],'A real attack animation without game damage is not verified'
+      page.wait_for_function('key=>{const el=document.querySelector("#arena [data-slot=\\""+key+"\\"] .hpbar > div");const m=MRRBattlefield.state.scene.cardHealth[key];return !el?!m:!!m&&Math.abs(m.ratio-parseFloat(el.style.width)/100)<.015}',arg=enemy_key,timeout=6000)
+      after_hud=page.evaluate('(key)=>MRRBattlefield.state.scene.cardHealth[key]||null',enemy_key)
+      if after_hud:
+        assert after_hud['ratio']<before_hud['ratio'],(before_hud,after_hud)
+      else:
+        assert page.locator('#arena [data-slot="'+enemy_key+'"] .board-card').count()==0
+      assert page.evaluate('MRRBattlefield.state.scene.healthIndicatorCount')==page.locator('#arena .board-card .hpbar').count()
       assert after['acted'],'Native attacker did not consume its actual action'
       assert page.evaluate('MRRBattlefield.state.scene.confirmedStrikes')==1
       assert page.locator('#mrr-battlefield-combat-feed[data-kind="hit"]').count()==1
