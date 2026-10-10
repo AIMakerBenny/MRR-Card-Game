@@ -142,6 +142,7 @@ window.MRRCinemaFactory=function(THREE,mount){
     if(value!=='front'&&value!=='back')return;
     viewMode=value;
   }
+  let lastDraw=0;
   let frame=0,raf=0,running=false,disposed=false,startAt=0,profile={name:'MARORONG',kind:'CARD WAR',cost:'',stats:''};
   function artwork(p){
     const cvs=document.createElement('canvas');cvs.width=640;cvs.height=900;
@@ -216,11 +217,17 @@ window.MRRCinemaFactory=function(THREE,mount){
     if(disposed)return;
     const w=Math.max(200,mount.clientWidth||800),h=Math.max(200,mount.clientHeight||520);
     camera.aspect=w/h;camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.setSize(w,h,false);
+    const cap=w<620?1:1.5;
+    renderer.setPixelRatio(Math.min(Math.max(.75,devicePixelRatio||1),cap));
+    renderer.setSize(w,h,false);
   }
   function tick(t){
     if(!running||disposed)return;
-    raf=requestAnimationFrame(tick);const sec=(t-startAt)/1000;
+    raf=requestAnimationFrame(tick);
+    const frameInterval=mount.clientWidth<620?48:32;
+    if(t-lastDraw<frameInterval)return;
+    lastDraw=t;
+    const sec=(t-startAt)/1000;
     const slow=matchMedia('(prefers-reduced-motion: reduce)').matches;
     card.rotation.y=(viewMode==='back'?Math.PI:0)+(slow?-.19:Math.sin(sec*.63)*.18-.13);
     card.rotation.x=slow?-.06:-.075+Math.sin(sec*.53)*.055;
@@ -229,7 +236,7 @@ window.MRRCinemaFactory=function(THREE,mount){
     for(let i=0;i<rings.length;i++)rings[i].rotation.z=slow?0:Math.sin(sec*.18+i*.8)*.038;
     renderer.render(scene,camera);frame++;
   }
-  function start(){if(disposed)return;resize();if(running)return;running=true;startAt=performance.now();raf=requestAnimationFrame(tick);}
+  function start(){if(disposed)return;resize();if(running)return;running=true;lastDraw=0;startAt=performance.now();raf=requestAnimationFrame(tick);}
   function stop(){running=false;cancelAnimationFrame(raf);}
   function dispose(){
     if(disposed)return;stop();disposed=true;
@@ -245,6 +252,9 @@ window.MRRCinemaFactory=function(THREE,mount){
   return {start,stop,dispose,resize,setCard,setView,get state(){return {running,projection:camera.type,frameCount:frame,profile:{...profile},
       cardFlipRevision:40,viewMode,
       cardBackRevision:41,cardBackTextureReady:!!back.material.map?.image,
+      cinematicLifecycleRevision:42,
+      renderPixelRatio:renderer.getPixelRatio(),
+      frameIntervalMs:mount.clientWidth<620?48:32,
       stageRevision:38,cardBindingRevision:39,stageMeshCount:stageObjects.length,
       castShadows:renderer.shadowMap.enabled,lightCount:5,
       meshes:6+rails.length+stageObjects.length,hasCanvas:renderer.domElement.isConnected};}};

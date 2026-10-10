@@ -74,8 +74,10 @@
     }).filter(Boolean);
   }
   function modalClose(){
-    cinemaScene?.stop();cinemaModal?.remove();cinemaModal=null;
+    cinemaScene?.dispose();cinemaScene=null;
+    cinemaModal?.remove();cinemaModal=null;
     cinemaCards=[];cinemaIndex=0;cinemaButton.disabled=false;
+    if(document.contains(cinemaButton))cinemaButton.focus({preventScroll:true});
   }
   cinemaButton.addEventListener('click',async()=>{
     if(cinemaBusy||cinemaModal)return;
@@ -106,8 +108,8 @@
       document.body.appendChild(overlay);
       overlay.addEventListener('click',event=>{if(event.target===overlay)modalClose();});
       cinemaModal=overlay;
-      if(!cinemaScene)cinemaScene=window.MRRCinemaFactory(THREE,stage);
-      else{cinemaScene.dispose();cinemaScene=window.MRRCinemaFactory(THREE,stage);}
+      // Every modal owns and releases exactly one renderer.
+      cinemaScene=window.MRRCinemaFactory(THREE,stage);
       cinemaCards=publicFieldCards();
       cinemaIndex=Math.max(0,cinemaCards.findIndex(card=>card.selected));
       function show(){
@@ -135,6 +137,10 @@
   });
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&cinemaModal){event.preventDefault();event.stopImmediatePropagation();modalClose();}},true);
   window.addEventListener('resize',()=>{if(cinemaModal)cinemaScene?.resize();});
+  document.addEventListener('visibilitychange',()=>{
+    if(!cinemaModal||!cinemaScene)return;
+    if(document.hidden)cinemaScene.stop();else cinemaScene.start();
+  });
   window.addEventListener('beforeunload',()=>cinemaScene?.dispose());
   window.MRRCinema={get status(){return {open:!!cinemaModal,renderer:cinemaModal?'three':'closed',
       publicCardCount:cinemaCards.length,selectedIndex:cinemaIndex};},
