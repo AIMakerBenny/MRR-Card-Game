@@ -98,7 +98,7 @@ try:
         return {hp:c?.hp||0,acted:G.players[0].front.some(x=>x&&x.acted)};
       }''',enemy_key)
       assert after['hp']<initial['hp'],'A real attack animation without game damage is not verified'
-      page.wait_for_function('key=>{const el=document.querySelector("#arena [data-slot=\\""+key+"\\"] .hpbar > div");const m=MRRBattlefield.state.scene.cardHealth[key];return !el?!m:!!m&&Math.abs(m.ratio-parseFloat(el.style.width)/100)<.015}',arg=enemy_key,timeout=6000)
+      page.wait_for_function("""key=>{const el=document.querySelector('#arena [data-slot="'+key+'"] .hpbar > div');const m=MRRBattlefield.state.scene.cardHealth[key];return !el?!m:!!m&&Math.abs(m.ratio-parseFloat(el.style.width)/100)<.015}""",arg=enemy_key,timeout=6000)
       after_hud=page.evaluate('(key)=>MRRBattlefield.state.scene.cardHealth[key]||null',enemy_key)
       if after_hud:
         assert after_hud['ratio']<before_hud['ratio'],(before_hud,after_hud)
