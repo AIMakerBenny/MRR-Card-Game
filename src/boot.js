@@ -148,6 +148,8 @@
       console.warn('Cinematic 3D unavailable',err);modalClose();
     }finally{cinemaBusy=false;}
   });
+  // Phase46 uses the same pinned loader; the original game remains authoritative.
+  window.MRRBattlefieldUIInit?.(loadThree);
   // Phase21 captures Escape keydown first at window level and stops its
   // propagation. The modal therefore closes on keyup, without modifying or
   // overriding the original game's shortcut handling.
