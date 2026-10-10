@@ -65,6 +65,13 @@ try:
     key=legal.first.get_attribute('data-slot')
     pt=page.evaluate('(key)=>MRRIntegrated.scene.projectSlot(key)',key)
     assert pt and 0<pt['x']<1920 and 0<pt['y']<1080,pt
+    # Phase56 regression diagnosis: identify the actual click recipient in WebGL space.
+    hit=page.evaluate("""p=>{const e=document.elementFromPoint(p.x,p.y);
+      const r=e?.getBoundingClientRect();return {tag:e?.tagName,id:e?.id,
+      classes:e?.className?.toString().slice(0,100),rect:r?{x:r.x,y:r.y,w:r.width,h:r.height}:null,
+      point:p,legal:document.querySelectorAll('#arena .slot.legal').length};}""",pt)
+    print('PHASE56_NATIVE_CLICK_TARGET',hit,flush=True)
+    page.screenshot(path=str(ROOT/'tests/phase56_click_target_before.png'))
     page.mouse.click(pt['x'],pt['y'])
     page.wait_for_function('(key)=>document.querySelector(\'#arena [data-slot="'+key+'"] .board-card\')!==null',arg=key,timeout=8000)
     assert page.locator('#hand .hand-slot').count()==native_hand-1
