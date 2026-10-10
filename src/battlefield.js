@@ -123,8 +123,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const woodSurface=tabletop?material({map:tabletopTexture('wood'),color:0xffffff,roughness:.83}):null;
   const parchmentSurface=tabletop?material({map:tabletopTexture('parchment'),color:0xffffff,roughness:.98}):null;
   const woodEdge=tabletop?material({color:0x51301d,roughness:.82}):null;
-  const parchmentSlot=tabletop?material({color:0xd7bd90,roughness:.94,transparent:true,opacity:.38}):null;
-  const parchmentInk=tabletop?material({color:0x80603b,roughness:.9,transparent:true,opacity:.56}):null;
+  const parchmentSlot=tabletop?material({color:0xd7bd90,roughness:.94,transparent:true,opacity:.16}):null;
+  const parchmentInk=tabletop?material({color:0x80603b,roughness:.9,transparent:true,opacity:.34}):null;
   const softZone=tabletop?material({color:0x9a7150,metalness:.25,roughness:.77}):null;
 
   const black=material({color:0x223746,metalness:.18,roughness:.72});
@@ -133,8 +133,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const gold=material({color:0xebc789,metalness:.58,roughness:.3});
   const red=material({color:0xcf6c6a,metalness:.32,roughness:.39,emissive:0x7a2529,emissiveIntensity:.48});
   const blue=material({color:0x64b9cc,metalness:.32,roughness:.36,emissive:0x0a647b,emissiveIntensity:.5});
-  const tileGeo=geometry(new THREE.BoxGeometry(2.25,.15,2.45));
-  const edgeGeo=geometry(new THREE.BoxGeometry(2.38,.08,2.58));
+  const tileGeo=geometry(new THREE.BoxGeometry(2.25,tabletop?.025:.15,2.45));
+  const edgeGeo=geometry(new THREE.BoxGeometry(2.38,tabletop?.023:.08,2.58));
   const platformGeo=geometry(new THREE.BoxGeometry(22,.65,22.1));
   const floor=new THREE.Mesh(geometry(new THREE.PlaneGeometry(180,180)),tabletop?woodSurface:black);
   floor.rotation.x=-Math.PI/2;floor.position.y=-.52;floor.receiveShadow=true;scene.add(floor);
@@ -173,6 +173,43 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       scene.add(tower);
     }
   }
+  // Small dimensional tabletop props fill the unused PC desktop margins.
+  // Purely decorative; they never enter the board raycaster or game state.
+  if(tabletop){
+    const leather=material({color:0x533022,roughness:.75,metalness:.08});
+    const paper=material({color:0xe3c9a0,roughness:.95});
+    const ink=material({color:0x242622,roughness:.26,metalness:.35});
+    for(let i=0;i<3;i++){
+      const book=new THREE.Group();
+      book.position.set(-15+i*.12,-.12+i*.28,-1.8-i*.12);
+      book.rotation.y=-.17+i*.085;
+      const cover=new THREE.Mesh(geometry(new THREE.BoxGeometry(4.3,.22,5.5)),leather);
+      cover.castShadow=true;book.add(cover);
+      const pages=new THREE.Mesh(geometry(new THREE.BoxGeometry(4,.14,5.14)),paper);
+      pages.position.y=.16;pages.castShadow=true;book.add(pages);
+      const spine=new THREE.Mesh(geometry(new THREE.BoxGeometry(.25,.27,5.6)),bronze);
+      spine.position.set(-2.04,.09,0);book.add(spine);
+      scene.add(book);
+    }
+    const inkwell=new THREE.Group();
+    inkwell.position.set(15.5,.1,2.35);
+    const cup=new THREE.Mesh(geometry(new THREE.CylinderGeometry(.64,.73,1.12,22)),ink);
+    cup.position.y=.46;cup.castShadow=true;inkwell.add(cup);
+    const rim=new THREE.Mesh(geometry(new THREE.TorusGeometry(.62,.1,10,30)),bronze);
+    rim.rotation.x=-Math.PI/2;rim.position.y=1.04;inkwell.add(rim);
+    const quill=new THREE.Mesh(geometry(new THREE.CylinderGeometry(.017,.065,3.0,8)),
+      material({color:0xd3b78b,roughness:.62}));
+    quill.position.set(.39,1.88,-.06);quill.rotation.z=-.36;
+    inkwell.add(quill);scene.add(inkwell);
+    const compass=new THREE.Group();compass.position.set(16.0,.2,-4.2);
+    const compassBase=new THREE.Mesh(geometry(new THREE.CylinderGeometry(.96,.96,.13,36)),bronze);
+    compass.add(compassBase);
+    const dial=new THREE.Mesh(geometry(new THREE.CylinderGeometry(.81,.81,.14,36)),paper);
+    dial.position.y=.13;compass.add(dial);
+    const needle=new THREE.Mesh(geometry(new THREE.BoxGeometry(.13,.08,1.27)),leather);
+    needle.position.y=.24;needle.rotation.y=.55;compass.add(needle);
+    scene.add(compass);
+  }
   const lanes=[
     {owner:1,row:'terrace',z:-8.38,label:'적 시설'},
     {owner:1,row:'rear',z:-5.5,label:'적 후열'},
@@ -207,20 +244,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   for(const lane of lanes){
     const laneMaterial=tabletop?softZone:(lane.owner===0?blue:red);
     const laneBorder=new THREE.Mesh(stripGeo,laneMaterial);
-    laneBorder.position.set(0,.17,lane.z-1.36);scene.add(laneBorder);
+    laneBorder.position.set(0,tabletop?.15:.17,lane.z-1.36);scene.add(laneBorder);
     for(let col=0;col<5;col++){
       const x=(col-2)*3.37;
-      const inset=new THREE.Mesh(edgeGeo,tabletop?parchmentInk:bronze);inset.position.set(x,.15,lane.z);
+      const inset=new THREE.Mesh(edgeGeo,tabletop?parchmentInk:bronze);inset.position.set(x,tabletop?.134:.15,lane.z);
       inset.receiveShadow=true;scene.add(inset);
-      const base=new THREE.Mesh(tileGeo,tabletop?parchmentSlot:black);base.position.set(x,.23,lane.z);
+      const base=new THREE.Mesh(tileGeo,tabletop?parchmentSlot:black);base.position.set(x,tabletop?.156:.23,lane.z);
       base.receiveShadow=true;scene.add(base);
       const key=lane.owner+':'+lane.row+':'+col;
       base.userData.mrrSlotKey=key;slotPickMeshes.push(base);
       const halo=new THREE.Mesh(glowGeo,legalGlow);
-      halo.rotation.x=-Math.PI/2;halo.position.set(x,.38,lane.z);
+      halo.rotation.x=-Math.PI/2;halo.position.set(x,tabletop?.24:.38,lane.z);
       halo.visible=false;scene.add(halo);
       const crest=new THREE.Mesh(geometry(new THREE.TorusGeometry(.5,.035,7,32)),tabletop?parchmentInk:laneMaterial);
-      crest.rotation.x=-Math.PI/2;crest.position.set(x,.32,lane.z);scene.add(crest);
+      crest.rotation.x=-Math.PI/2;crest.position.set(x,tabletop?.175:.32,lane.z);scene.add(crest);
       boardSlots.set(key,{x,z:lane.z,owner:lane.owner,row:lane.row,col,base,halo});
     }
   }
@@ -814,7 +851,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const slot=target?boardSlots.get(target):null;
     focusX=slot?.x||0;
     focusZ=slot?.z||(preset==='ally'?5.6:preset==='enemy'?-5.6:0);
-    distance=preset==='tabletop'?34.5:preset==='all'?29:preset==='selected'?11.5:18.5;
+    distance=preset==='tabletop'?31.8:preset==='all'?29:preset==='selected'?11.5:18.5;
     updateCamera();return true;
   }
   function resetCamera(){setCameraPreset('all');}
