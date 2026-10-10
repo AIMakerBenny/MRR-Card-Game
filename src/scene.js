@@ -152,8 +152,15 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     if(/자원|보급|광산|수정|보물|교역/.test(s))return 'crystal';
     return 'warrior';
   }
+  // Phase31 stable portrait variation uses only the already-public card label.
+  // Identical cards render identically, different names get recognizable accents.
+  function artIdentity(info){
+    let h=2166136261;
+    for(const c of info.name+'|'+info.kind)h=Math.imul(h^c.charCodeAt(0),16777619)>>>0;
+    return {motif:h%8,light:(h>>>8)%4,sigil:(h>>>16)%5,tint:(h>>>21)%4};
+  }
   function paintIllustration(c,info,accent){
-    const category=illustrationKind(info);
+    const category=illustrationKind(info),identity=artIdentity(info);
     let seed=2166136261;
     for(const v of info.name+'|'+info.kind){seed=Math.imul(seed^v.charCodeAt(0),16777619)>>>0;}
     const random=()=>{seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;return (seed>>>0)/4294967296;};
@@ -162,9 +169,15 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       category==='citadel'?['#292935','#585b61','#1b2c30']:
       category==='arcane'?['#211b40','#574985','#141d39']:
       category==='crystal'?['#153343','#34746b','#172b31']:['#3e2b34','#83634f','#1a2931'];
-    const sky=c.createLinearGradient(35,116,300,361);
+    const sky=c.createLinearGradient(identity.light%2?320:35,116,identity.light%2?65:300,361);
     sky.addColorStop(0,tones[0]);sky.addColorStop(.56,tones[1]);sky.addColorStop(1,tones[2]);
     c.fillStyle=sky;c.fillRect(38,116,308,245);
+    // One of four asymmetrical sky/ground illumination directions per portrait.
+    const sunX=identity.light<2?92:282;
+    const glow=c.createRadialGradient(sunX,176,3,sunX,176,195);
+    glow.addColorStop(0,identity.tint%2?'#e9cdb454':'#a7d9e947');
+    glow.addColorStop(1,'#00000000');
+    c.fillStyle=glow;c.fillRect(38,116,308,245);
     c.save();c.globalAlpha=.55;c.fillStyle=category==='arcane'?'#bdc4f1':'#f6dca7';
     c.beginPath();c.arc(262+random()*26,164+random()*18,31+random()*15,0,Math.PI*2);c.fill();c.restore();
     for(let j=0;j<18;j++){
@@ -211,6 +224,37 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       c.strokeStyle='#eee0b0';c.stroke();
     }
     c.restore();
+    // Distinct heraldic geometry and miniature banner; placed below card text.
+    c.save();
+    const side=identity.motif%2===0?1:-1;
+    const hx=192+side*118,hy=identity.motif>3?311:186;
+    c.translate(hx,hy);
+    c.globalAlpha=.78;c.fillStyle=identity.tint%2?'#34566a':'#514653';
+    c.strokeStyle=accent;c.lineWidth=2.5;
+    if(identity.motif%3===0){
+      c.beginPath();c.moveTo(-21,-26);c.lineTo(21,-26);c.lineTo(26,12);
+      c.lineTo(0,37);c.lineTo(-26,12);c.closePath();
+    }else if(identity.motif%3===1){
+      c.beginPath();c.moveTo(0,-34);c.lineTo(28,-7);c.lineTo(17,26);
+      c.lineTo(-17,26);c.lineTo(-28,-7);c.closePath();
+    }else{
+      c.beginPath();c.arc(0,0,27,0,Math.PI*2);
+    }
+    c.fill();c.stroke();
+    c.strokeStyle='#f4d9ab';c.lineWidth=3;
+    for(let j=0;j<identity.sigil+2;j++){
+      const xx=(j-(identity.sigil+1)/2)*7;
+      c.beginPath();c.moveTo(xx,-13);c.lineTo(xx+side*(4+(j%2)*3),14);c.stroke();
+    }
+    c.restore();
+    // Eight deterministic banner configurations with silhouettes varied by card.
+    c.save();c.globalAlpha=.48;c.fillStyle=accent;
+    const bx=identity.motif%2===0?43:338;
+    const bw=identity.motif%4===0?21:13;
+    c.beginPath();c.moveTo(bx-bw/2,121);c.lineTo(bx+bw/2,121);
+    c.lineTo(bx+bw/2,190+identity.motif*6);
+    c.lineTo(bx,178+identity.motif*6);
+    c.lineTo(bx-bw/2,190+identity.motif*6);c.closePath();c.fill();c.restore();
     c.globalAlpha=.75;c.strokeStyle=accent;c.lineWidth=2;
     c.beginPath();c.moveTo(45,351);c.lineTo(338,351);c.stroke();
     c.restore();
@@ -538,10 +582,13 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   return {start,stop,pause,resume,resize,dispose,get state(){
     const active=Array.from(entries.values()).filter(e=>e.hasCard);
     return {running,paused,cardCount:active.length,slotCount:entries.size,
-      illustrationRevision:29,
+      illustrationRevision:29,artIdentityRevision:31,
       proceduralArtCards:active.filter(e=>e.front.material.map?.image&&e.signature).length,
       visibleDomArtCards:active.filter(e=>e.artWell&&e.artWell.isConnected).length,
-      proceduralArtProfiles:active.filter(e=>e.hasCard).map(e=>({slot:e.id,profile:illustrationKind(cardInfo(document.querySelector('[data-slot="'+e.id+'"]'))||{kind:'',name:''})})),
+      proceduralArtProfiles:active.filter(e=>e.hasCard).map(e=>{
+        const info=cardInfo(document.querySelector('[data-slot="'+e.id+'"]'))||{kind:'',name:''};
+        return {slot:e.id,profile:illustrationKind(info),identity:artIdentity(info)};
+      }),
       hoveredCardCount:active.filter(e=>e.hovered).length,
       liftedCardCount:active.filter(e=>e.lift>3).length,
       maxLift:active.reduce((max,e)=>Math.max(max,e.lift),0),

@@ -13,7 +13,7 @@ assert (ROOT/'vendor/three.module.js').exists(), 'Three.js is not vendored: run 
 handler=partial(SimpleHTTPRequestHandler,directory=str(ROOT))
 server=ThreadingHTTPServer(('127.0.0.1',0),handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
-url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase30_3D_Prototype.html'
+url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase31_3D_Prototype.html'
 try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
@@ -63,6 +63,7 @@ try:
         assert page.evaluate("MCW3D.scene.state.healthMeterRevision === 27")
         assert len(shown)==1 and abs(shown[0]['ratio']-dom_ratio)<.001,(shown,dom_ratio)
         assert page.evaluate("MCW3D.scene.state.illustrationRevision === 29 && MCW3D.scene.state.proceduralArtCards === 1 && MCW3D.scene.state.visibleDomArtCards === 1"), 'Procedural card art is not visible on the original card'
+        assert page.evaluate("MCW3D.scene.state.artIdentityRevision===31 && MCW3D.scene.state.proceduralArtProfiles.length===1 && MCW3D.scene.state.proceduralArtProfiles[0].identity.motif>=0 && MCW3D.scene.state.proceduralArtProfiles[0].identity.motif<8"),'Phase31 unique heraldic art identity missing'
         assert page.locator('.slot:has(.board-card) .art-well').first.evaluate(
             "el => getComputedStyle(el).backgroundImage.includes('data:image/png')"
         ),'Original visible art well does not contain the new generated painting'
