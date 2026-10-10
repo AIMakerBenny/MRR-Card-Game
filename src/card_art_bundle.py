@@ -58,13 +58,8 @@ def bundle(root, art_dir=None):
     by_id={c["id"]:c for c in cards}
     if len(cards)!=244 or len(rows)!=244 or set(by_id)!={r["card_id"] for r in rows}:
         raise ValueError("card-index and original catalog do not match 244 IDs")
-    by_public_key={}
-    for c in cards:
-        kind=f'{c["type"]} · {("공용" if c.get("source") == "공용" else c["faction"])}'
-        key=json.dumps([c["name"],kind],ensure_ascii=False,separators=(",",":"))
-        if key in by_public_key:
-            raise ValueError("ambiguous visible card key: "+key)
-        by_public_key[key]=c["id"]
+    # Every source ID is authoritative. Names are NOT reliable: some common
+    # cards have identical visible labels across several factions.
     artwork={}
     supported=set(by_id)
     if folder.exists():
@@ -85,7 +80,7 @@ def bundle(root, art_dir=None):
             if actual!=MASTER_SIZE:
                 raise ValueError(f"{item.name}: expected 1200x960, got {actual[0]}x{actual[1]}")
             artwork[item.stem]="data:"+EXTENSIONS[ext]+";base64,"+base64.b64encode(data_bytes).decode("ascii")
-    registry={"byPublicKey":by_public_key,"assets":artwork}
+    registry={"knownIds":sorted(by_id),"assets":artwork}
     script="window.MRRCardArtRegistry="+json.dumps(registry,ensure_ascii=False,separators=(",",":"))+";\n"
     if "</script" in script.lower():
         raise ValueError("unsafe inline art registry")
