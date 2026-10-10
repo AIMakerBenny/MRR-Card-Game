@@ -44,7 +44,7 @@ try:
         }).filter(x=>x.front&&x.cost<=2&&x.attack>0)''')
       mine=affordable()
       if not mine:continue
-      page.locator('.hand-slot').nth(mine[0]['i']).click()
+      page.locator('.hand-slot').nth(mine[0]['i']).evaluate('(el)=>el.click()')
       front=page.locator('#arena [data-slot^="0:front:"].legal')
       if front.count()==0:continue
       my_key=front.first.get_attribute('data-slot')
@@ -55,7 +55,7 @@ try:
       page.locator('#passContinue').click()
       theirs=affordable()
       if not theirs:continue
-      page.locator('.hand-slot').nth(theirs[0]['i']).click()
+      page.locator('.hand-slot').nth(theirs[0]['i']).evaluate('(el)=>el.click()')
       enemy_front=page.locator('#arena [data-slot^="1:front:"].legal')
       if enemy_front.count()==0:continue
       enemy_key=enemy_front.first.get_attribute('data-slot')
