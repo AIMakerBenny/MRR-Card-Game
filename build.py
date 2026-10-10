@@ -15,10 +15,10 @@ assert '</script' not in scene.lower() and '</script' not in boot.lower()
 source = source.replace('<title>MARORONG CARD WAR · Phase 21 UI Fixed</title>', '<title>MARORONG CARD WAR · Phase 27 3D Prototype</title>')
 source = source.replace('</head>',f'<style id="mcw3d-extension-css">\n{css}\n</style>\n</head>')
 source = source.replace('</body>', f'<script type="module" id="mcw3d-extension-js">\n{scene}\n{boot}\n</script>\n</body>')
-output = ROOT/'Marorong_Card_War_Phase28_3D_Prototype.html'
+output = ROOT/'Marorong_Card_War_Phase30_3D_Prototype.html'
 output.write_text(source, encoding='utf-8')
 manifest = {
-    'build': 'Phase28 Hand Card Presentation 01',
+    'build': 'Phase30 Arena Medallions 01',
     'source': 'Phase21_UI_Fixed',
     'source_sha256': sha,
     'output_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),

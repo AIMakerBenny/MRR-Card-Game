@@ -54,6 +54,45 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,opacity:.58,side:THREE.DoubleSide}));
     m.position.z=-72;arenaTrim.add(m);lightPools.push(m);
   }
+
+  // Phase30: four small corner medallions, away from logical card slots.
+  // Canvas-based, optional visuals only; no game-state access or hit targets.
+  let ornamentHost=null;
+  function mountOrnaments(){
+    const arena=document.querySelector('#arena');
+    if(!arena||ornamentHost?.parentElement===arena)return;
+    ornamentHost?.remove();
+    ornamentHost=document.createElement('div');
+    ornamentHost.id='mcw30-arena-ornaments';
+    ornamentHost.setAttribute('aria-hidden','true');
+    for(let i=0;i<4;i++){
+      const el=document.createElement('i');
+      el.className='mcw30-corner mcw30-corner-'+i;
+      ornamentHost.appendChild(el);
+    }
+    arena.appendChild(ornamentHost);
+  }
+  function clearOrnaments(){ornamentHost?.remove();ornamentHost=null;}
+  const arenaMedallions=[];
+  for(let i=0;i<4;i++){
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=128;
+    const g=canvas.getContext('2d');
+    const tone=i<2?'#bf9c69':'#83cbc8';
+    g.translate(64,64);g.strokeStyle=tone;g.globalAlpha=.9;
+    g.lineWidth=4;g.beginPath();g.arc(0,0,37,0,Math.PI*2);g.stroke();
+    g.lineWidth=1.5;g.beginPath();g.arc(0,0,29,0,Math.PI*2);g.stroke();
+    for(let j=0;j<8;j++){
+      g.save();g.rotate(Math.PI*j/4);
+      g.beginPath();g.moveTo(0,-42);g.lineTo(0,-48);g.stroke();g.restore();
+    }
+    g.beginPath();g.moveTo(0,-23);g.lineTo(10,-8);g.lineTo(23,0);
+    g.lineTo(10,8);g.lineTo(0,23);g.lineTo(-10,8);
+    g.lineTo(-23,0);g.lineTo(-10,-8);g.closePath();g.stroke();
+    const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+    const mesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+      new THREE.MeshBasicMaterial({map:texture,transparent:true,opacity:.55,depthWrite:false,side:THREE.DoubleSide}));
+    arenaTrim.add(mesh);arenaMedallions.push(mesh);
+  }
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   let observer=null,dirty=true,failed=false;
   function rectOf(node){const r=node.getBoundingClientRect();return {x:r.left+r.width/2,y:height-r.top-r.height/2,w:r.width,h:r.height};}
@@ -102,6 +141,81 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     if(/자원|보급/.test(info.kind))return '◇';
     return '⚔';
   }
+
+  // Phase29 procedural artwork. Uses a public card name/type as a stable seed;
+  // does not fetch images, inspect hidden information or change card definitions.
+  function illustrationKind(info){
+    const s=info.kind+' '+info.name;
+    if(/함선|배|해군|항해|선박|해적/.test(s))return 'ship';
+    if(/시설|요새|성벽|탑|관문|포탈|성채/.test(s))return 'citadel';
+    if(/마법|의식|마도|주술|정령|사제|치유/.test(s))return 'arcane';
+    if(/자원|보급|광산|수정|보물|교역/.test(s))return 'crystal';
+    return 'warrior';
+  }
+  function paintIllustration(c,info,accent){
+    const category=illustrationKind(info);
+    let seed=2166136261;
+    for(const v of info.name+'|'+info.kind){seed=Math.imul(seed^v.charCodeAt(0),16777619)>>>0;}
+    const random=()=>{seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;return (seed>>>0)/4294967296;};
+    c.save();rounded(c,38,116,308,245,8);c.clip();
+    const tones=category==='ship'?['#0d253d','#286078','#172d36']:
+      category==='citadel'?['#292935','#585b61','#1b2c30']:
+      category==='arcane'?['#211b40','#574985','#141d39']:
+      category==='crystal'?['#153343','#34746b','#172b31']:['#3e2b34','#83634f','#1a2931'];
+    const sky=c.createLinearGradient(35,116,300,361);
+    sky.addColorStop(0,tones[0]);sky.addColorStop(.56,tones[1]);sky.addColorStop(1,tones[2]);
+    c.fillStyle=sky;c.fillRect(38,116,308,245);
+    c.save();c.globalAlpha=.55;c.fillStyle=category==='arcane'?'#bdc4f1':'#f6dca7';
+    c.beginPath();c.arc(262+random()*26,164+random()*18,31+random()*15,0,Math.PI*2);c.fill();c.restore();
+    for(let j=0;j<18;j++){
+      c.globalAlpha=.15+random()*.42;c.fillStyle='#f9ebcc';
+      c.fillRect(46+random()*285,125+random()*115,1.2+random()*1.7,1.2+random()*1.6);
+    }
+    c.globalAlpha=1;
+    const mountains=(base,shade,top)=>{c.fillStyle=shade;c.beginPath();c.moveTo(38,363);
+      for(let x=38;x<360;x+=27)c.lineTo(x,base-random()*top);
+      c.lineTo(346,363);c.closePath();c.fill();};
+    mountains(308,'#14242c',45);mountains(342,'#0d1b25',35);
+    c.save();c.translate(187+random()*14,255+random()*14);
+    c.fillStyle='#101925';c.strokeStyle=accent;c.lineWidth=3;
+    if(category==='citadel'){
+      c.fillRect(-70,-45,140,105);c.fillRect(-95,-68,42,128);c.fillRect(53,-68,42,128);
+      c.fillRect(-34,-104,68,164);
+      for(const x of [-86,-67,-28,-8,13,62,82])c.fillRect(x,-118+(Math.abs(x)>40?45:0),13,15);
+      c.fillStyle='#d6ac6c';c.fillRect(-8,-62,17,24);c.fillRect(-71,-43,9,20);c.fillRect(61,-43,9,20);
+      c.fillStyle='#080f17';c.beginPath();c.arc(0,60,22,Math.PI,0);c.fill();
+    }else if(category==='ship'){
+      c.fillStyle='#182a34';c.beginPath();c.moveTo(-126,12);c.lineTo(115,12);c.lineTo(78,59);c.lineTo(-83,59);c.closePath();c.fill();
+      c.fillStyle='#ded1b2';c.beginPath();c.moveTo(-6,-116);c.lineTo(-4,4);c.lineTo(74,4);c.closePath();c.fill();
+      c.fillStyle='#d4b28d';c.beginPath();c.moveTo(-13,-108);c.lineTo(-16,6);c.lineTo(-99,6);c.closePath();c.fill();
+      c.strokeStyle='#c7ab79';c.beginPath();c.moveTo(-8,-126);c.lineTo(-8,20);c.stroke();
+      c.strokeStyle='#a9d9dd';for(let w=0;w<3;w++){c.beginPath();c.moveTo(-110,69+w*8);c.quadraticCurveTo(0,58+w*8,106,70+w*8);c.stroke();}
+    }else if(category==='arcane'){
+      c.strokeStyle='#d8c1ff';c.lineWidth=6;c.beginPath();c.moveTo(0,-100);c.lineTo(0,62);c.stroke();
+      c.strokeStyle='#a4e9ed';c.lineWidth=4;
+      for(let i=0;i<3;i++){c.beginPath();c.ellipse(0,-77,44+i*15,17+i*8,i*.5,0,Math.PI*2);c.stroke();}
+      c.fillStyle='#c9c0ff';c.beginPath();c.moveTo(0,-139);c.lineTo(35,-101);c.lineTo(0,-58);c.lineTo(-35,-101);c.closePath();c.fill();
+      c.fillStyle='#17192b';c.beginPath();c.moveTo(-67,55);c.lineTo(-39,-47);c.lineTo(0,-83);c.lineTo(40,-47);c.lineTo(68,55);c.closePath();c.fill();
+    }else if(category==='crystal'){
+      for(let i=-2;i<=2;i++){const dx=i*37,h=67+random()*58;
+        c.fillStyle=i%2?'#4eaa9e':'#a2ded1';c.beginPath();c.moveTo(dx,-h);c.lineTo(dx+23,-h*.62);c.lineTo(dx+28,48);c.lineTo(dx-26,48);c.lineTo(dx-20,-h*.62);c.closePath();c.fill();
+        c.fillStyle='#173b50';c.beginPath();c.moveTo(dx,-h);c.lineTo(dx+23,-h*.62);c.lineTo(dx+28,48);c.closePath();c.fill();
+      }
+    }else{
+      // Helmet, shield and sword silhouettes that remain legible at thumbnail size.
+      c.fillStyle='#1c2730';c.beginPath();c.moveTo(-70,65);c.lineTo(-64,-10);c.lineTo(-33,-45);c.lineTo(39,-45);c.lineTo(68,-5);c.lineTo(72,65);c.closePath();c.fill();
+      c.fillStyle='#e4d0a0';c.beginPath();c.arc(0,-56,37,Math.PI,0);c.lineTo(35,-40);c.lineTo(-35,-40);c.closePath();c.fill();
+      c.fillStyle='#172027';c.fillRect(-39,-45,78,23);
+      c.strokeStyle='#d9c99d';c.lineWidth=5;c.beginPath();c.moveTo(65,-113);c.lineTo(65,75);c.stroke();
+      c.fillStyle='#ad8e67';c.beginPath();c.moveTo(-85,-15);c.lineTo(-20,3);c.lineTo(-30,74);c.lineTo(-88,42);c.closePath();c.fill();
+      c.strokeStyle='#eee0b0';c.stroke();
+    }
+    c.restore();
+    c.globalAlpha=.75;c.strokeStyle=accent;c.lineWidth=2;
+    c.beginPath();c.moveTo(45,351);c.lineTo(338,351);c.stroke();
+    c.restore();
+    return category;
+  }
   function textureFor(info){
     const cvs=document.createElement('canvas');cvs.width=384;cvs.height=538;
     const c=cvs.getContext('2d');const accent=colorOf(info.kind);
@@ -116,23 +230,14 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     c.strokeStyle='#e8d4aa';c.lineWidth=3;c.stroke();c.fillStyle='#fff4db';c.font='bold 30px sans-serif';c.fillText(info.cost||'0',46,54);
     const art=c.createLinearGradient(0,117,0,370);art.addColorStop(0,'#293e43');art.addColorStop(.56,'#304c4a');art.addColorStop(1,'#0c1c25');
     c.fillStyle=art;rounded(c,35,113,314,251,10);c.fill();c.strokeStyle=accent;c.lineWidth=2;c.stroke();
-    c.save();c.translate(192,238);c.strokeStyle=accent;c.globalAlpha=.46;c.lineWidth=2;
-    for(let k=0;k<3;k++){c.beginPath();c.ellipse(0,0,80+k*26,100+k*18,0,0,Math.PI*2);c.stroke();}
-    c.globalAlpha=.6;c.beginPath();c.moveTo(-80,80);c.lineTo(0,-100);c.lineTo(80,80);c.closePath();c.stroke();
-    c.restore();
-    // Layered ink, distinct category crest and restrained metallic etching.
-    c.save();
-    c.translate(192,239);
-    for(let i=0;i<12;i++){
-      c.rotate(Math.PI/6);c.strokeStyle=i%2?'#dabf8660':'#9ad3cc45';c.lineWidth=2;
-      c.beginPath();c.moveTo(0,-103);c.lineTo(0,-125);c.stroke();
-    }
-    c.strokeStyle=accent;c.lineWidth=5;c.beginPath();c.arc(0,0,104,0,Math.PI*2);c.stroke();
-    c.strokeStyle='#f3e3b3';c.lineWidth=1.7;c.beginPath();c.arc(0,0,96,0,Math.PI*2);c.stroke();
-    c.fillStyle='#0c1c25';c.beginPath();c.arc(0,0,79,0,Math.PI*2);c.fill();
-    c.fillStyle=accent;c.font='bold 116px Georgia,serif';c.textAlign='center';c.fillText(sealFor(info),0,13);
-    c.fillStyle='#ffeac2';c.font='bold 54px Georgia,serif';c.fillText(info.sigil||'',0,76);
-    c.restore();
+    // Unique source-free battlefield illustrations. No third-party media/license dependencies.
+    paintIllustration(c,info,accent);
+    // Small stamped heraldry remains visible without hiding the scene painting.
+    c.save();c.globalAlpha=.88;
+    c.fillStyle='#14232a';c.beginPath();c.arc(302,328,21,0,Math.PI*2);c.fill();
+    c.strokeStyle=accent;c.lineWidth=3;c.stroke();
+    c.fillStyle='#f3dfae';c.font='bold 21px Georgia,serif';c.textAlign='center';
+    c.fillText(sealFor(info),302,329);c.restore();
     // Four inset filigree corners keep the card visually distinct at small sizes.
     c.save();c.strokeStyle='#d4b984af';c.lineWidth=3;
     for(const [x,y,dx,dy] of [[48,125,1,1],[336,125,-1,1],[48,351,1,-1],[336,351,-1,-1]]){
@@ -146,7 +251,38 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     c.fillStyle='#edd5a8';c.font='bold 14px sans-serif';c.fillText('MARORONG',192,507);
     if(info.status){c.fillStyle='#283a4b';rounded(c,231,105,120,28,7);c.fill();c.fillStyle='#fff2bd';c.font='bold 15px sans-serif';c.fillText(info.status.slice(0,12),291,119);}
     const texture=new THREE.CanvasTexture(cvs);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+
+    // Crop only the illustrated panel, never overlay name, cost or stat text.
+    const artCrop=document.createElement('canvas');artCrop.width=308;artCrop.height=245;
+    artCrop.getContext('2d').drawImage(cvs,35,113,314,251,0,0,308,245);
+    texture.userData.artUrl=artCrop.toDataURL('image/png');
     return texture;
+  }
+  function restoreArt(e){
+    if(!e.artWell)return;
+    e.artWell.style.backgroundImage=e.artOriginal.backgroundImage;
+    e.artWell.style.backgroundSize=e.artOriginal.backgroundSize;
+    e.artWell.style.backgroundPosition=e.artOriginal.backgroundPosition;
+    e.artWell.style.removeProperty('--mcw-procedural-paint');
+    e.artWell.classList.remove('mcw-art-painted');
+    e.artWell=null;e.artOriginal=null;e.artURL=null;
+  }
+  function exposeArt(e,card){
+    const well=card?.querySelector('.art-well');
+    // Existing real illustrations are never replaced.
+    if(!well||well.querySelector('img,video,picture,canvas')){restoreArt(e);return;}
+    if(e.artWell!==well){
+      restoreArt(e);
+      e.artWell=well;
+      e.artOriginal={backgroundImage:well.style.backgroundImage,
+        backgroundSize:well.style.backgroundSize,backgroundPosition:well.style.backgroundPosition};
+    }
+    const art=e.front.material.map?.userData?.artUrl;
+    if(art&&e.artURL!==art){
+      well.style.setProperty('--mcw-procedural-paint','url("'+art+'")');
+      well.classList.add('mcw-art-painted');
+      e.artURL=art;
+    }
   }
   function makeEntry(id){
     const group=new THREE.Group();scene.add(group);
@@ -179,11 +315,12 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       new THREE.MeshBasicMaterial({color:0xffe3a0,transparent:true,opacity:.68,side:THREE.DoubleSide,depthWrite:false}));
     halo.position.z=12.6;halo.visible=false;group.add(halo);
     const entry={id,group,plate,edge,front,shadow,halo,meterBg,meterFill,hpRatio:null,
-      signature:null,hasCard:false,prevEffect:'',
+      artWell:null,artOriginal:null,artURL:null,signature:null,hasCard:false,prevEffect:'',
       position:new THREE.Vector3(),lift:0,targetLift:0,hovered:false,selected:false};
     entries.set(id,entry);return entry;
   }
   function removeEntry(id){const e=entries.get(id);if(!e)return;
+    restoreArt(e);
     e.front.material.map?.dispose();e.front.material.dispose();e.front.geometry.dispose();
     e.plate.material.dispose();e.edge.material.forEach(m=>m.dispose());
     e.shadow.material.dispose();e.shadow.geometry.dispose();
@@ -223,7 +360,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     const node=document.querySelector('#arena');
     const r=node?.getBoundingClientRect();
     if(!r||r.width<160||r.height<100){arenaTrim.visible=false;return;}
-    arenaTrim.visible=true;
+    arenaTrim.visible=true;mountOrnaments();
     const cx=r.left+r.width/2,cy=height-r.top-r.height/2;
     const w=Math.max(0,r.width-24),h=Math.max(0,r.height-24);
     arenaTrim.position.set(cx,cy,-60);
@@ -234,6 +371,14 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     lightPools[0].position.set(0,-h*.23,0);
     lightPools[1].position.set(0,h*.23,0);
     for(const p of lightPools)p.scale.set(w*.85,h*.58,1);
+    // Corner ornaments live inside the clipped arena, never in the HUD.
+    for(let i=0;i<arenaMedallions.length;i++){
+      const m=arenaMedallions[i];
+      const right=(i%2===1),top=(i<2);
+      m.visible=w>490&&h>360;
+      m.position.set((right?1:-1)*(w/2-13),(top?1:-1)*(h/2-13),2);
+      m.scale.set(30,30,1);
+    }
   }
   function sync(){
     if(!running)return;
@@ -279,6 +424,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
           for(const idx of [0,1,2])e.edge.material[idx].color.copy(accent);
           e.halo.material.color.copy(accent);
         }
+        exposeArt(e,card);
         const active=slot.classList.contains('selected-slot')||slot.classList.contains('attack-target');
         const hovered=slot.matches(':hover');
         e.hovered=hovered;e.selected=active;e.targetLift=hovered?18:active?10:0;
@@ -286,6 +432,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
         e.halo.scale.set(cw*.75,ch*.75,1);
         e.halo.material.color.set(slot.classList.contains('attack-target')?0xffb66e:hovered?0xffdfa7:0x93e9d6);
       }else{
+        restoreArt(e);
         e.signature=null;e.hasCard=false;e.edge.visible=e.front.visible=e.shadow.visible=false;
         e.lift=e.targetLift=0;e.hovered=e.selected=false;e.halo.visible=false;
         e.meterBg.visible=e.meterFill.visible=false;e.hpRatio=null;
@@ -305,6 +452,12 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     if(innerWidth!==width||innerHeight!==height)resize();
     // Client rects can change on hover/scroll without mutating the slot subtree.
     sync();
+    // Quiet alternating illumination; no flicker for reduced-motion users.
+    if(arenaTrim.visible){
+      const drift=reduced.matches?0:Math.sin(t*.00085)*.05;
+      lightPools[0].material.opacity=.52+drift;
+      lightPools[1].material.opacity=.52-drift;
+    }
     // Ease only the selected / hovered card out of the tabletop.
     // The DOM cards and every other 3D card keep their original slots.
     for(const e of entries.values()){
@@ -364,7 +517,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     }
     raf=requestAnimationFrame(frame);
   }
-  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;
+  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;clearOrnaments();
     for(const id of Array.from(entries.keys()))removeEntry(id);
     for(const fx of effects){scene.remove(fx.mesh);fx.mesh.geometry.dispose();fx.mesh.material.dispose();}effects.length=0;
     renderer.clear();
@@ -374,6 +527,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   function dispose(){
     stop();
     for(const p of lightPools){p.geometry.dispose();p.material.map.dispose();p.material.dispose();}
+    for(const m of arenaMedallions){m.geometry.dispose();m.material.map.dispose();m.material.dispose();}
     rimGeo.dispose();rimMat.dispose();renderer.dispose();renderer.domElement.remove();
   }
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();stop();
@@ -384,6 +538,10 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   return {start,stop,pause,resume,resize,dispose,get state(){
     const active=Array.from(entries.values()).filter(e=>e.hasCard);
     return {running,paused,cardCount:active.length,slotCount:entries.size,
+      illustrationRevision:29,
+      proceduralArtCards:active.filter(e=>e.front.material.map?.image&&e.signature).length,
+      visibleDomArtCards:active.filter(e=>e.artWell&&e.artWell.isConnected).length,
+      proceduralArtProfiles:active.filter(e=>e.hasCard).map(e=>({slot:e.id,profile:illustrationKind(cardInfo(document.querySelector('[data-slot="'+e.id+'"]'))||{kind:'',name:''})})),
       hoveredCardCount:active.filter(e=>e.hovered).length,
       liftedCardCount:active.filter(e=>e.lift>3).length,
       maxLift:active.reduce((max,e)=>Math.max(max,e.lift),0),
@@ -394,6 +552,9 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       visibleHealthRatios:active.filter(e=>e.meterFill.visible).map(e=>({slot:e.id,ratio:e.hpRatio})),
       healthMeterRevision:27,
       frameRevision:24,battlefieldRevision:25,
+      arenaRevision:30,decorativeDomCount:ornamentHost?.children.length||0,
+      visibleArenaMedallions:arenaTrim.visible?arenaMedallions.filter(x=>x.visible).length:0,
+      cornerArtworkSources:arenaMedallions.length,
       battlefieldTrimCount:arenaTrim.visible?rimParts.length:0,
       battlefieldLightPoolCount:arenaTrim.visible?lightPools.length:0,
       visualFxRevision:26,visualFxTriggered:effectsTriggered,

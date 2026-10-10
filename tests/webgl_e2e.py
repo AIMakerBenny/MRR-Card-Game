@@ -13,7 +13,7 @@ assert (ROOT/'vendor/three.module.js').exists(), 'Three.js is not vendored: run 
 handler=partial(SimpleHTTPRequestHandler,directory=str(ROOT))
 server=ThreadingHTTPServer(('127.0.0.1',0),handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
-url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase28_3D_Prototype.html'
+url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase30_3D_Prototype.html'
 try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
@@ -62,6 +62,11 @@ try:
         shown=page.evaluate("MCW3D.scene.state.visibleHealthRatios")
         assert page.evaluate("MCW3D.scene.state.healthMeterRevision === 27")
         assert len(shown)==1 and abs(shown[0]['ratio']-dom_ratio)<.001,(shown,dom_ratio)
+        assert page.evaluate("MCW3D.scene.state.illustrationRevision === 29 && MCW3D.scene.state.proceduralArtCards === 1 && MCW3D.scene.state.visibleDomArtCards === 1"), 'Procedural card art is not visible on the original card'
+        assert page.locator('.slot:has(.board-card) .art-well').first.evaluate(
+            "el => getComputedStyle(el).backgroundImage.includes('data:image/png')"
+        ),'Original visible art well does not contain the new generated painting'
+        assert page.evaluate("['warrior','ship','citadel','arcane','crystal'].includes(MCW3D.scene.state.proceduralArtProfiles[0].profile)"), 'Unexpected illustration profile'
         # The selected card must remain actually visible in WebGL mode.
         assert page.locator('.slot:has(.board-card) .card-ui').first.evaluate(
             "el => Number(getComputedStyle(el).opacity) > 0.9"
@@ -69,6 +74,9 @@ try:
         assert page.evaluate('MCW3D.scene.state.frameRevision === 24 && MCW3D.scene.state.decoratedCards === 1'), 'Card face texture and metal trim missing'
         assert page.evaluate('MCW3D.scene.state.battlefieldRevision === 25 && MCW3D.scene.state.battlefieldTrimCount === 4 && MCW3D.scene.state.battlefieldLightPoolCount === 2'), 'Arena rim/light pools missing'
         assert page.locator('#mcw3d-canvas-host').evaluate("e => getComputedStyle(e).pointerEvents === 'none'"), 'WebGL scene steals mouse input'
+        assert page.evaluate("MCW3D.scene.state.arenaRevision===30 && MCW3D.scene.state.cornerArtworkSources===4 && MCW3D.scene.state.visibleArenaMedallions===4 && MCW3D.scene.state.decorativeDomCount===4"),'Phase30 arena corner decorations missing'
+        assert page.locator('#mcw30-arena-ornaments .mcw30-corner').count()==4
+        assert page.locator('#mcw30-arena-ornaments').evaluate("e=>getComputedStyle(e).pointerEvents==='none'"),'Arena accents intercept clicks'
         before_focus=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         # Newly placed cards may remain selected. Their idle height is 10,
         # whereas a true hover must raise only that card to height 18.
@@ -117,7 +125,14 @@ try:
         assert page.evaluate('MCW3D.scene.state.activeVisualMeshes === 0'), 'VFX meshes failed to release'
         after_fx=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         assert before_focus==after_fx,'Decorative combat effects changed gameplay data'
+        page.screenshot(path=str(ROOT/'tests/phase30_arena.png'))
         page.screenshot(path=str(ROOT/'tests/webgl_1920x1080.png'))
+        page.locator('#mcw3d-toggle').click()
+        page.wait_for_function("MCW3D.status.renderer === 'legacy'")
+        assert page.locator('#mcw30-arena-ornaments').count()==0,'Arena ornaments not removed with WebGL'
+        assert not page.locator('.slot:has(.board-card) .art-well').first.evaluate(
+            "el => getComputedStyle(el).backgroundImage.includes('data:image/png')"
+        ),'Turning off Three.js left behind generated art'
         print('WEBGL PHASE23 PASS - local Three.js, 30 slots, hover lift, return, game state unchanged.')
         browser.close()
 finally:
