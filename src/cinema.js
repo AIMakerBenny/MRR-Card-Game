@@ -31,6 +31,59 @@ window.MRRCinemaFactory=function(THREE,mount){
   const back=new THREE.Mesh(new THREE.PlaneGeometry(2.84,4.15),
     new THREE.MeshStandardMaterial({color:0x1d3142,metalness:.22,roughness:.47,side:THREE.DoubleSide}));
   back.position.z=-.166;back.rotation.y=Math.PI;card.add(back);
+
+  // Phase41: locally authored full-bleed card-back art, no external assets.
+  function paintCardBack(){
+    const canvas=document.createElement('canvas');canvas.width=512;canvas.height=720;
+    const c=canvas.getContext('2d');
+    const bg=c.createLinearGradient(20,10,490,710);
+    bg.addColorStop(0,'#30485b');bg.addColorStop(.32,'#0f2631');
+    bg.addColorStop(.7,'#162b34');bg.addColorStop(1,'#533d31');
+    c.fillStyle=bg;c.fillRect(0,0,512,720);
+    c.strokeStyle='#cba569';c.lineWidth=20;c.strokeRect(15,15,482,690);
+    c.strokeStyle='#f3d49b';c.lineWidth=2.5;c.strokeRect(34,34,444,652);
+    c.strokeStyle='#786b55';c.lineWidth=4;c.strokeRect(46,46,420,628);
+    const g=c.createRadialGradient(256,342,16,256,342,214);
+    g.addColorStop(0,'#a4d8c258');g.addColorStop(.52,'#497d8348');g.addColorStop(1,'#0b1b2600');
+    c.fillStyle=g;c.fillRect(48,70,416,570);
+    c.save();c.translate(256,345);
+    for(let k=0;k<16;k++){c.save();c.rotate(k*Math.PI/8);
+      c.strokeStyle=k%2?'#deb77899':'#a7daca77';c.lineWidth=k%2?3:2;
+      c.beginPath();c.moveTo(0,-193);c.lineTo(0,-221);c.stroke();
+      c.beginPath();c.moveTo(-7,-178);c.lineTo(0,-165);c.lineTo(7,-178);c.stroke();
+      c.restore();}
+    c.strokeStyle='#e0c391';c.lineWidth=9;
+    c.beginPath();c.arc(0,0,158,0,Math.PI*2);c.stroke();
+    c.lineWidth=2.5;c.strokeStyle='#9fd6d1';
+    c.beginPath();c.arc(0,0,133,0,Math.PI*2);c.stroke();
+    c.save();c.rotate(Math.PI/4);
+    c.strokeStyle='#d7b985';c.strokeRect(-81,-81,162,162);
+    c.restore();
+    c.fillStyle='#0e2630';c.beginPath();c.arc(0,0,110,0,Math.PI*2);c.fill();
+    c.strokeStyle='#e5c98b';c.lineWidth=5;
+    c.beginPath();c.moveTo(-61,64);c.lineTo(-61,-64);c.lineTo(0,16);
+    c.lineTo(61,-64);c.lineTo(61,64);c.stroke();
+    c.fillStyle='#d7c291';c.beginPath();c.moveTo(0,-108);
+    c.lineTo(13,-91);c.lineTo(0,-75);c.lineTo(-13,-91);c.closePath();c.fill();
+    c.restore();
+    c.textAlign='center';c.textBaseline='middle';
+    c.fillStyle='#f1dbad';c.font='bold 28px Georgia,serif';
+    c.fillText('MARORONG',256,92);
+    c.font='bold 24px Georgia,serif';c.fillText('CARD WAR',256,636);
+    for(const [x,y,sx,sy] of [[70,89,1,1],[442,89,-1,1],[70,634,1,-1],[442,634,-1,-1]]){
+      c.save();c.translate(x,y);c.scale(sx,sy);
+      c.strokeStyle='#d1ae76';c.lineWidth=4;c.beginPath();
+      c.moveTo(0,38);c.lineTo(0,0);c.lineTo(38,0);c.stroke();
+      c.restore();
+    }
+    const map=new THREE.CanvasTexture(canvas);
+    map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=4;
+    return map;
+  }
+  const backTexture=paintCardBack();
+  back.material.color.set(0xffffff);
+  back.material.map=backTexture;
+  back.material.needsUpdate=true;
   const railGeometry=new THREE.BoxGeometry(.04,4.08,.06);
   const rails=[];
   for(const side of [-1,1]){const x=new THREE.Mesh(railGeometry,gold);x.position.set(side*1.39,0,.19);card.add(x);rails.push(x);}
@@ -180,7 +233,8 @@ window.MRRCinemaFactory=function(THREE,mount){
   function stop(){running=false;cancelAnimationFrame(raf);}
   function dispose(){
     if(disposed)return;stop();disposed=true;
-    frontMaterial.map?.dispose();frontMaterial.dispose();back.material.dispose();
+    frontMaterial.map?.dispose();frontMaterial.dispose();
+    back.material.map?.dispose();back.material.dispose();
     for(const m of [bevel,core,front,back,gem,...rails])m.geometry.dispose();
     gold.dispose();core.material.dispose();gem.material.dispose();
     for(const g of stageGeometries)g.dispose();
@@ -190,6 +244,7 @@ window.MRRCinemaFactory=function(THREE,mount){
   setCard(profile);
   return {start,stop,dispose,resize,setCard,setView,get state(){return {running,projection:camera.type,frameCount:frame,profile:{...profile},
       cardFlipRevision:40,viewMode,
+      cardBackRevision:41,cardBackTextureReady:!!back.material.map?.image,
       stageRevision:38,cardBindingRevision:39,stageMeshCount:stageObjects.length,
       castShadows:renderer.shadowMap.enabled,lightCount:5,
       meshes:6+rails.length+stageObjects.length,hasCanvas:renderer.domElement.isConnected};}};
