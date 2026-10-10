@@ -263,3 +263,7 @@ body.mcw-three-ready #arena .mcw35-hurt{color:#ffb08a}
  #mcw-cinema-close{grid-column:2;grid-row:2;padding:6px 10px;min-width:55px;
   font-size:13px;white-space:nowrap;word-break:keep-all;writing-mode:horizontal-tb;}
 }
+
+/* Phase40 - explicit public 3D card flip with no game-state mutations. */
+#mcw-cinema-flip{border-color:#d4a567!important;color:#ffebc5!important;}
+#mcw-cinema-flip[aria-pressed="true"]{background:#5b4a32!important;}

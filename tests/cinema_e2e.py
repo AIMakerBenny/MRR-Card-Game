@@ -18,7 +18,7 @@ try:
       let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;
       Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
     }''')
-    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase39_3D_Prototype.html'
+    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase40_3D_Prototype.html'
     legal=[]
     for seed in range(198704,198728):
       page.goto(url+f'?qa_seed={seed}')
@@ -47,6 +47,14 @@ try:
     assert page.locator('#mcw-cinema-next').count()==1
     assert page.locator('#mcw-cinema-prev').count()==1
     assert page.locator('#mcw-cinema-stage canvas').count()==1
+    assert page.evaluate("MRRCinema.scene.state.cardFlipRevision===40 && MRRCinema.scene.state.viewMode==='front'")
+    page.locator('#mcw-cinema-flip').click()
+    page.wait_for_function("MRRCinema.scene.state.viewMode==='back'")
+    assert page.locator('#mcw-cinema-flip').get_attribute('aria-pressed')=='true'
+    page.screenshot(path=str(ROOT/'tests/phase40_card_back.png'))
+    page.locator('#mcw-cinema-flip').click()
+    page.wait_for_function("MRRCinema.scene.state.viewMode==='front'")
+    assert page.locator('#mcw-cinema-flip').get_attribute('aria-pressed')=='false'
     assert page.locator('[data-slot]').count()==30
     assert not errors,errors
     page.screenshot(path=str(ROOT/'tests/phase39_live_card.png'))
