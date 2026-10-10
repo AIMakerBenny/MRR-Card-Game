@@ -57,6 +57,8 @@ try:
     page.mouse.click(pt['x'],pt['y'])
     page.wait_for_function('MRRBattlefield.state.scene.publicCardCount>=1',timeout=7000)
     assert page.locator('#arena [data-slot="'+target_key+'"] .board-card').count()==1,'Raycast target failed to issue one legal native placement'
+    displayed_name=page.locator('#arena [data-slot="'+target_key+'"] .card-name').inner_text().strip()
+    page.wait_for_function('(name)=>document.querySelector("#mrr-battlefield-cardtip strong")?.textContent===name',arg=displayed_name,timeout=5000)
     assert page.locator('.hand-slot').count()==hand_before-1,'Native placement not processed exactly once'
     assert page.locator('#arena .board-card').count()==1,'Duplicate placement during 3D selection'
     assert page.evaluate('MRRBattlefield.state.scene.legalCount')==0
