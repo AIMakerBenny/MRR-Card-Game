@@ -66,7 +66,7 @@ def bundle(root, art_dir=None):
         for item in sorted(folder.iterdir()):
             if item.is_dir():
                 raise ValueError("only files allowed in card-art: "+item.name)
-            if item.name == ".gitkeep":
+            if item.name in (".gitkeep", "README.md"):
                 continue
             ext=item.suffix.lower()
             if ext not in EXTENSIONS or item.stem not in supported:
