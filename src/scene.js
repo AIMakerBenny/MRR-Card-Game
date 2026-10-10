@@ -469,6 +469,27 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       position:new THREE.Vector3(),lift:0,targetLift:0,hovered:false,selected:false};
     entries.set(id,entry);return entry;
   }
+  // Phase35 visual feedback reads only the public HP bar percentage.
+  // Percentage point delta is NOT a claim about actual damage or healing units.
+  const hpPopups=[];let hpChangeFxCount=0;
+  function clearHealthPopups(){for(const p of hpPopups)p.el.remove();hpPopups.length=0;}
+  function healthFeedback(e,slot,before,after){
+    if(before===null||after===null||Math.abs(after-before)<.006)return;
+    const arena=document.querySelector('#arena'),box=arena?.getBoundingClientRect();
+    const rect=slot.getBoundingClientRect();
+    if(!box||rect.width<5||rect.height<5)return;
+    const delta=Math.round((after-before)*100);
+    if(delta===0)return;
+    const div=document.createElement('div');
+    div.className='mcw35-health-change '+(delta>0?'mcw35-heal':'mcw35-hurt');
+    div.setAttribute('aria-hidden','true');div.dataset.slot=e.id;
+    div.textContent='체력 '+(delta>0?'+':'')+delta+'%p';
+    div.style.left=Math.round(rect.left+rect.width/2-box.left)+'px';
+    div.style.top=Math.round(rect.top+rect.height*.16-box.top)+'px';
+    arena.appendChild(div);
+    hpPopups.push({el:div,born:performance.now()});hpChangeFxCount++;
+    while(hpPopups.length>12)hpPopups.shift().el.remove();
+  }
   function removeEntry(id){const e=entries.get(id);if(!e)return;
     restoreArt(e);
     e.front.material.map?.dispose();e.front.material.dispose();e.front.geometry.dispose();
@@ -553,6 +574,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
         const cr=rectOf(card);const cw=Math.max(26,cr.w),ch=Math.max(38,cr.h);
         e.hasCard=true;e.edge.visible=e.front.visible=e.shadow.visible=true;
         e.edge.scale.set(cw,ch,6);e.front.scale.set(cw-6,ch-7,1);e.shadow.scale.set(cw,ch,1);
+        if(e.hasCard&&e.signature===info.signature)healthFeedback(e,slot,e.hpRatio,info.hpRatio);
         e.hpRatio=info.hpRatio;
         const showMeter=info.hpRatio!==null;
         e.meterBg.visible=e.meterFill.visible=showMeter;
@@ -607,6 +629,12 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       const drift=reduced.matches?0:Math.sin(t*.00085)*.05;
       lightPools[0].material.opacity=.52+drift;
       lightPools[1].material.opacity=.52-drift;
+    }
+    // Release completed health feedback overlays. No delayed callback can
+    // resurrect UI after the 3D scene is disabled.
+    for(let i=hpPopups.length-1;i>=0;i--){
+      const p=hpPopups[i];
+      if(!p.el.isConnected||t-p.born>=1000){p.el.remove();hpPopups.splice(i,1);}
     }
     // Ease only the selected / hovered card out of the tabletop.
     // The DOM cards and every other 3D card keep their original slots.
@@ -667,7 +695,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     }
     raf=requestAnimationFrame(frame);
   }
-  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;clearOrnaments();clearLanes();clearAim();
+  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;clearOrnaments();clearLanes();clearAim();clearHealthPopups();
     for(const id of Array.from(entries.keys()))removeEntry(id);
     for(const fx of effects){scene.remove(fx.mesh);fx.mesh.geometry.dispose();fx.mesh.material.dispose();}effects.length=0;
     renderer.clear();
@@ -708,6 +736,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       healthMeterRevision:27,
       frameRevision:24,battlefieldRevision:25,
       targetingRevision:33,targetReticleRevision:34,targetGuideActive:aimActive,
+      healthFeedbackRevision:35,healthChangeFxCount,activeHealthPopups:hpPopups.length,
       targetGuidePath:aimPath?.getAttribute('d')||null,
       arenaRevision:30,laneRevision:32,visibleLaneCount:laneCount,visibleLaneMeshes:laneMeshes.filter(m=>m.visible).length,
       decorativeDomCount:ornamentHost?.children.length||0,

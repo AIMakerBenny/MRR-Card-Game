@@ -13,7 +13,7 @@ assert (ROOT/'vendor/three.module.js').exists(), 'Three.js is not vendored: run 
 handler=partial(SimpleHTTPRequestHandler,directory=str(ROOT))
 server=ThreadingHTTPServer(('127.0.0.1',0),handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
-url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase34_3D_Prototype.html'
+url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase35_3D_Prototype.html'
 try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
@@ -137,6 +137,24 @@ try:
         assert abs(clip['x']-max(0,arena['x']))<=2, (clip,arena)
         assert abs(clip['w']-min(1920-arena['x'],arena['width']))<=3,(clip,arena)
         assert page.locator('#mcw3d-canvas-host canvas').evaluate("e => getComputedStyle(e).pointerEvents === 'none'")
+        # Verify both visual directions from observed public HP bar change.
+        # This only changes DOM presentation, never damage, card data or G.
+        bar=node.locator('.hpbar > div')
+        old_width=bar.evaluate("el=>el.style.width")
+        ratio=float(old_width.replace('%','')) if '%' in old_width else dom_ratio*100
+        assert ratio>=25,ratio
+        start_count=page.evaluate('MCW3D.scene.state.healthChangeFxCount')
+        bar.evaluate("(el,v)=>el.style.width=v",[str(ratio-20)+'%'])
+        page.wait_for_function("old=>MCW3D.scene.state.healthChangeFxCount>old && MCW3D.scene.state.activeHealthPopups>0",arg=start_count,timeout=7000)
+        assert page.locator('#arena .mcw35-hurt').count()==1
+        assert page.locator('#arena .mcw35-hurt').first.evaluate("e=>getComputedStyle(e).pointerEvents==='none'")
+        page.screenshot(path=str(ROOT/'tests/phase35_hp_feedback.png'))
+        bar.evaluate("(el,v)=>el.style.width=v",[old_width])
+        page.wait_for_function("old=>MCW3D.scene.state.healthChangeFxCount>=old+2",arg=start_count,timeout=7000)
+        assert page.locator('#arena .mcw35-heal').count()==1
+        page.wait_for_function("MCW3D.scene.state.activeHealthPopups===0",timeout=7000)
+        assert page.evaluate('MCW3D.scene.state.healthFeedbackRevision===35')
+        assert before_focus==page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}'''), 'Presentation health effect altered game state'
         assert page.evaluate('MCW3D.scene.state.visualFxRevision === 26')
         # Trigger an established visual marker. This touches only presentation;
         # it is not a simulated gameplay attack or a balance change.
