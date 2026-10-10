@@ -344,3 +344,37 @@ body.mcw-three-ready #arena .mcw35-hurt{color:#ffb08a}
   #mrr-battlefield-help{bottom:4px;font-size:9px;max-width:92%;white-space:normal}
   #mrr-battlefield-stage .mrr-side-label{left:7px;font-size:9px}
 }
+
+
+/* Phase47: 3D hit targets and contextual commands remain inside WebGL modal. */
+#mrr-battlefield-commands {
+  position:absolute;z-index:5;right:16px;bottom:13px;
+  display:flex;flex-wrap:wrap;justify-content:flex-end;gap:7px;
+  max-width:58%;background:#071525d9;padding:8px;
+  border:1px solid #957b52a6;border-radius:6px;
+}
+#mrr-battlefield-commands button {
+  padding:7px 11px;min-height:32px;border:1px solid #b08a5a;
+  background:linear-gradient(135deg,#4c3928,#172f3f);color:#f4dab0;
+  cursor:pointer;font:12px 'Malgun Gothic',sans-serif;border-radius:4px;
+}
+#mrr-battlefield-commands button:disabled {opacity:.32;cursor:not-allowed}
+#mrr-battlefield-cardtip {
+  position:absolute;z-index:5;top:52px;right:14px;
+  max-width:min(330px,45%);display:none;pointer-events:none;
+  padding:12px 15px;background:#071825e8;color:#f5ddaf;
+  border:1px solid #c6a575;border-radius:6px;
+  box-shadow:0 8px 26px #030b16ad;
+  font:13px/1.5 'Malgun Gothic',sans-serif;
+}
+#mrr-battlefield-cardtip.visible {display:grid;gap:4px}
+#mrr-battlefield-cardtip strong {font-size:16px;color:#fff4cf}
+#mrr-battlefield-cardtip span {color:#d5dad2}
+#mrr-battlefield-help {left:14px;bottom:17px;transform:none;max-width:38%;white-space:normal;text-align:left}
+@media(max-width:700px){
+  #mrr-battlefield-commands {right:6px;bottom:7px;max-width:70%;gap:4px;padding:5px}
+  #mrr-battlefield-commands button {padding:5px 6px;font-size:10px;min-height:28px}
+  #mrr-battlefield-cardtip {top:13px;right:5px;max-width:65%;font-size:10px;padding:7px}
+  #mrr-battlefield-cardtip strong {font-size:12px}
+  #mrr-battlefield-help {max-width:29%;left:5px;bottom:7px;font-size:8px}
+}
