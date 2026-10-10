@@ -323,7 +323,7 @@ body.mcw-three-ready #arena .mcw35-hurt{color:#ffb08a}
   position:absolute;bottom:13px;left:50%;transform:translateX(-50%);
   color:#c4d1d9;background:rgba(4,13,24,.77);
   border:1px solid #826b4d66;border-radius:5px;
-  padding:7px 15px;white-space:nowrap;pointer-events:none;
+  padding:7px 15px;white-space:nowrap;pointer-events:none;z-index:2;
   font:12px sans-serif;text-align:center;
 }
 #mrr-battlefield-stage .mrr-side-label {
