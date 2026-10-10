@@ -215,3 +215,51 @@ body.mcw-three-ready #arena .mcw35-hurt{color:#ffb08a}
     animation:none;opacity:.92;transform:translate(-50%,-50%);
   }
 }
+
+
+/* Cinematic viewer is opt-in and never changes the game's underlying board. */
+#mcw-cinema-open{min-height:36px;padding:5px 11px;border:1px solid #c7a36b;
+  border-radius:5px;color:#f5e1bd;background:linear-gradient(140deg,#314653,#15232d);cursor:pointer;}
+#mcw-cinema-view{position:fixed;inset:0;z-index:10010;display:none;
+  align-items:center;justify-content:center;background:rgba(2,8,15,.88);isolation:isolate;}
+#mcw-cinema-view.mcw-active{display:flex}
+#mcw-cinema-dialog{position:relative;width:min(1100px,96vw);height:min(780px,93vh);
+  display:flex;flex-direction:column;background:#0c1420;border:2px solid #b68b50;border-radius:14px;
+  box-shadow:0 28px 100px #000,0 0 46px #d4a25a36;overflow:hidden;}
+#mcw-cinema-header{position:relative;z-index:1;display:flex;align-items:center;gap:16px;
+  padding:12px 18px;background:linear-gradient(100deg,#1b303c,#0d1722);
+  border-bottom:1px solid #9d7848;color:#f1dcaa;font:20px 'Malgun Gothic',sans-serif;}
+#mcw-cinema-close{margin-left:auto;padding:7px 14px;cursor:pointer;color:#f7deb8;
+  background:#263846;border:1px solid #d4aa71;border-radius:6px;font:16px sans-serif;}
+#mcw-cinema-stage{position:relative;flex:1;min-height:0;overflow:hidden;
+  background:radial-gradient(circle at 50% 34%,#25485a,#080f1b 68%);}
+#mcw-cinema-stage canvas{display:block;width:100%;height:100%;}
+#mcw-cinema-footer{padding:10px 18px;color:#b8d2d5;background:#14212b;
+  border-top:1px solid #66543f;font:14px sans-serif;}
+@media(max-width:760px){#mcw-cinema-open{font-size:11px;min-height:30px;padding:3px 6px}
+ #mcw-cinema-header{font-size:15px;padding:8px 11px}
+ #mcw-cinema-dialog{height:min(700px,94vh)}}
+
+/* Phase39: navigation lives in the deliberate modal, not in the game board. */
+#mcw-cinema-controls{display:flex;align-items:center;gap:9px;margin-left:auto;
+  font:13px sans-serif;color:#bcd9d8;white-space:nowrap;}
+#mcw-cinema-controls button{background:#244455;border:1px solid #698d99;border-radius:4px;
+  color:#f0e1be;padding:7px 9px;cursor:pointer;}
+#mcw-cinema-controls button:disabled{opacity:.35;cursor:default;}
+#mcw-cinema-current{max-width:270px;overflow:hidden;text-overflow:ellipsis;}
+#mcw-cinema-close{margin-left:0;}
+@media(max-width:760px){#mcw-cinema-controls{font-size:10px;gap:4px}
+  #mcw-cinema-controls button{padding:4px;}
+  #mcw-cinema-current{max-width:100px}}
+
+/* Phase39 mobile QA correction: use two clear header rows and keep
+   the close control horizontal rather than collapsing Korean text. */
+@media(max-width:760px){
+ #mcw-cinema-header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:9px 12px;}
+ #mcw-cinema-header>span{grid-column:1/-1;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+ #mcw-cinema-controls{grid-column:1;min-width:0;justify-content:flex-start;gap:5px;margin:0;}
+ #mcw-cinema-controls button{font-size:10px;padding:5px;}
+ #mcw-cinema-current{max-width:95px;overflow:hidden;text-overflow:ellipsis;}
+ #mcw-cinema-close{grid-column:2;grid-row:2;padding:6px 10px;min-width:55px;
+  font-size:13px;white-space:nowrap;word-break:keep-all;writing-mode:horizontal-tb;}
+}

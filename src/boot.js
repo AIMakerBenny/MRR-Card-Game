@@ -51,6 +51,86 @@
       console.warn('MCW3D graphics fallback:',String(err));
     }finally{busy=false;button.disabled=false;}
   });
+
+  // Phase37: explicit cinematic viewer, isolated from all gameplay controls.
+  const cinemaButton=document.createElement('button');
+  cinemaButton.id='mcw-cinema-open';cinemaButton.type='button';cinemaButton.textContent='3D 카드 감상';
+  cinemaButton.title='원근감이 있는 독립적인 3D 카드 뷰어';
+  bar.insertBefore(cinemaButton,button.nextSibling);
+  let cinemaModal=null,cinemaScene=null,cinemaBusy=false,cinemaCards=[],cinemaIndex=0;
+  // Only public face-up field cards; never read either player's hidden hand,
+  // deck, game engine internals or stored state.
+  function publicFieldCards(){
+    return Array.from(document.querySelectorAll('#arena .slot:has(.board-card)')).map(slot=>{
+      const node=slot.querySelector('.board-card .card-ui');
+      if(!node||node.getBoundingClientRect().width<10)return null;
+      const value=q=>node.querySelector(q)?.textContent?.trim()||'';
+      const artWell=node.querySelector('.art-well');
+      const artStyle=artWell?.style.getPropertyValue('--mcw-procedural-paint')||'';
+      const match=artStyle.match(/data:image\/png;base64,[A-Za-z0-9+/=]+/);
+      return {name:value('.card-name')||'이름 없는 카드',kind:value('.card-kind')||node.className,
+        cost:value('.cost-bubble'),stats:value('.card-stats'),artData:match?match[0]:null,
+        selected:slot.classList.contains('selected-slot')};
+    }).filter(Boolean);
+  }
+  function modalClose(){
+    cinemaScene?.stop();cinemaModal?.remove();cinemaModal=null;
+    cinemaCards=[];cinemaIndex=0;cinemaButton.disabled=false;
+  }
+  cinemaButton.addEventListener('click',async()=>{
+    if(cinemaBusy||cinemaModal)return;
+    cinemaBusy=true;cinemaButton.disabled=true;
+    try{
+      const THREE=await loadThree();
+      const overlay=document.createElement('div');overlay.id='mcw-cinema-view';overlay.className='mcw-active';
+      const dialog=document.createElement('section');dialog.id='mcw-cinema-dialog';
+      dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');
+      dialog.setAttribute('aria-label','3D 카드 시네마틱');
+      const header=document.createElement('div');header.id='mcw-cinema-header';
+      const title=document.createElement('span');title.textContent='MARORONG CARD WAR - CINEMATIC 3D';
+      const controls=document.createElement('nav');controls.id='mcw-cinema-controls';
+      const prev=document.createElement('button');prev.id='mcw-cinema-prev';prev.type='button';
+      prev.textContent='이전 카드';
+      const current=document.createElement('span');current.id='mcw-cinema-current';
+      const next=document.createElement('button');next.id='mcw-cinema-next';next.type='button';
+      next.textContent='다음 카드';
+      controls.append(prev,current,next);
+      const close=document.createElement('button');close.id='mcw-cinema-close';close.type='button';close.textContent='닫기';
+      close.addEventListener('click',modalClose);header.append(title,controls,close);
+      const stage=document.createElement('div');stage.id='mcw-cinema-stage';
+      const footer=document.createElement('div');footer.id='mcw-cinema-footer';
+      footer.textContent='실제 원근 카메라와 조명을 사용하는 시각 품질 시제품입니다. 게임 규칙은 원본 그대로 유지됩니다.';
+      dialog.append(header,stage,footer);overlay.appendChild(dialog);
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click',event=>{if(event.target===overlay)modalClose();});
+      cinemaModal=overlay;
+      if(!cinemaScene)cinemaScene=window.MRRCinemaFactory(THREE,stage);
+      else{cinemaScene.dispose();cinemaScene=window.MRRCinemaFactory(THREE,stage);}
+      cinemaCards=publicFieldCards();
+      cinemaIndex=Math.max(0,cinemaCards.findIndex(card=>card.selected));
+      function show(){
+        const p=cinemaCards[cinemaIndex]||{name:'MARORONG',kind:'CARD WAR',cost:'',stats:''};
+        cinemaScene.setCard(p);
+        current.textContent=cinemaCards.length?
+          (cinemaIndex+1)+' / '+cinemaCards.length+' - '+p.name:'미배치 - 시연 카드';
+        prev.disabled=next.disabled=cinemaCards.length<2;
+        footer.textContent=cinemaCards.length?
+          '현재 공개 카드: '+p.name+' | '+p.kind+' | 비용 '+(p.cost||'0')+' | '+String(p.stats||'공개 카드').replace(/([가-힣]+)(\d+)/g,'$1 $2 '):
+          '전장에 카드가 없으므로 시연 카드입니다. 기존 게임 기능은 변경되지 않습니다.';
+      }
+      prev.addEventListener('click',()=>{cinemaIndex=(cinemaIndex+cinemaCards.length-1)%cinemaCards.length;show();});
+      next.addEventListener('click',()=>{cinemaIndex=(cinemaIndex+1)%cinemaCards.length;show();});
+      show();cinemaScene.start();close.focus();
+    }catch(err){
+      console.warn('Cinematic 3D unavailable',err);modalClose();
+    }finally{cinemaBusy=false;}
+  });
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&cinemaModal){event.preventDefault();event.stopImmediatePropagation();modalClose();}},true);
+  window.addEventListener('resize',()=>{if(cinemaModal)cinemaScene?.resize();});
+  window.addEventListener('beforeunload',()=>cinemaScene?.dispose());
+  window.MRRCinema={get status(){return {open:!!cinemaModal,renderer:cinemaModal?'three':'closed',
+      publicCardCount:cinemaCards.length,selectedIndex:cinemaIndex};},
+    get scene(){return cinemaScene;},close:modalClose};
   document.addEventListener('visibilitychange',()=>{if(sceneApi&&enabled){if(document.hidden)sceneApi.pause();else sceneApi.resume();}});
   window.addEventListener('beforeunload',()=>sceneApi?.dispose());
   window.MCW3D={get status(){return {enabled,renderer:document.body.classList.contains('mcw-three-ready')?'three':enabled?'css':'legacy'};},
