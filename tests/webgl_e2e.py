@@ -193,7 +193,6 @@ try:
             assert clip['x']+clip['w']<=W and clip['y']+clip['h']<=H,(W,H,clip)
             assert page.locator('[data-slot]').count()==30
             assert page.locator('.board-card').count()>=1
-            assert page.evaluate('MCW3D.scene.state.renderPixelRatio <= (1.25 if False else 999)') if False else True
             quality=page.evaluate('MCW3D.scene.state')
             assert quality['renderPixelRatio']<= (1.25 if W<760 else 1.5)+.001,quality
             assert quality['graphicsFrameIntervalMs']==(48 if W<760 else 32)
