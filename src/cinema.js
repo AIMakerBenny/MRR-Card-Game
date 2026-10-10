@@ -123,7 +123,7 @@ window.MRRCinemaFactory=function(THREE,mount){
       c.fillRect(70+rnd()*500,215+rnd()*370,2+rnd()*3,2+rnd()*3);}
     c.globalAlpha=1;c.fillStyle='#0e1c2a';c.fillRect(52,692,536,140);
     c.strokeStyle='#9e8455';c.lineWidth=2;c.strokeRect(54,693,532,138);
-    c.fillStyle='#eddaa8';c.font='bold 27px sans-serif';c.fillText((p.stats||'3D CINEMATIC CARD').slice(0,45),320,748,495);
+    c.fillStyle='#eddaa8';c.font='bold 27px sans-serif';c.fillText(String(p.stats||'3D CINEMATIC CARD').replace(/([가-힣]+)(\d+)/g,'$1 $2 ').slice(0,45),320,748,495);
     c.font='18px sans-serif';c.fillStyle='#b7d8d7';c.fillText('MARORONG CARD WAR',320,797);
     if(p.cost){
       c.fillStyle='#193b52';c.beginPath();c.arc(555,205,36,0,Math.PI*2);c.fill();

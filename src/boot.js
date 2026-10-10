@@ -115,7 +115,7 @@
           (cinemaIndex+1)+' / '+cinemaCards.length+' - '+p.name:'미배치 - 시연 카드';
         prev.disabled=next.disabled=cinemaCards.length<2;
         footer.textContent=cinemaCards.length?
-          p.kind+' | '+(p.stats||'공개 카드')+' | 실제 게임의 공개 필드 카드 표시':
+          '현재 공개 카드: '+p.name+' | '+p.kind+' | 비용 '+(p.cost||'0')+' | '+String(p.stats||'공개 카드').replace(/([가-힣]+)(\d+)/g,'$1 $2 '):
           '전장에 카드가 없으므로 시연 카드입니다. 기존 게임 기능은 변경되지 않습니다.';
       }
       prev.addEventListener('click',()=>{cinemaIndex=(cinemaIndex+cinemaCards.length-1)%cinemaCards.length;show();});

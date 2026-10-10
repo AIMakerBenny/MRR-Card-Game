@@ -251,3 +251,15 @@ body.mcw-three-ready #arena .mcw35-hurt{color:#ffb08a}
 @media(max-width:760px){#mcw-cinema-controls{font-size:10px;gap:4px}
   #mcw-cinema-controls button{padding:4px;}
   #mcw-cinema-current{max-width:100px}}
+
+/* Phase39 mobile QA correction: use two clear header rows and keep
+   the close control horizontal rather than collapsing Korean text. */
+@media(max-width:760px){
+ #mcw-cinema-header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:9px 12px;}
+ #mcw-cinema-header>span{grid-column:1/-1;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+ #mcw-cinema-controls{grid-column:1;min-width:0;justify-content:flex-start;gap:5px;margin:0;}
+ #mcw-cinema-controls button{font-size:10px;padding:5px;}
+ #mcw-cinema-current{max-width:95px;overflow:hidden;text-overflow:ellipsis;}
+ #mcw-cinema-close{grid-column:2;grid-row:2;padding:6px 10px;min-width:55px;
+  font-size:13px;white-space:nowrap;word-break:keep-all;writing-mode:horizontal-tb;}
+}
