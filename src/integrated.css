@@ -1,0 +1,131 @@
+/* Phase54: an in-game, full-bleed 3D viewport rather than a framed
+   modal. The native Phase21 hand, hero portraits and turn button stay live. */
+#mrr-integrated-open{
+  width:auto!important;min-width:92px;padding:0 11px!important;
+  color:#fff0c7!important;font:600 12px 'Malgun Gothic',sans-serif!important;
+  border:1px solid #d5ac66!important;
+  background:linear-gradient(140deg,#725029,#263e49)!important;
+  white-space:nowrap;
+}
+body.mrr-integrated-active #gameScreen{isolation:isolate}
+body.mrr-integrated-active #gameScreen #arena,
+body.mrr-integrated-active #gameScreen #inspector,
+body.mrr-integrated-active #gameScreen #areaRail{
+  opacity:0!important;pointer-events:none!important;visibility:hidden!important;
+}
+body.mrr-integrated-active #gameScreen.mrr-integrated-inspector-open #inspector,
+body.mrr-integrated-active #gameScreen.mrr-integrated-rail-open #areaRail{
+  opacity:1!important;pointer-events:auto!important;visibility:visible!important;
+  position:fixed!important;z-index:100!important;
+  right:12px!important;left:auto!important;top:105px!important;bottom:115px!important;
+  width:min(330px,90vw)!important;height:auto!important;max-height:calc(100dvh - 230px)!important;
+  overflow-y:auto;background:#101d27f5!important;border:1px solid #c5a472!important;
+  box-shadow:0 18px 50px #000d!important;
+}
+body.mrr-integrated-active #gameScreen.mrr-integrated-rail-open #areaRail{
+  left:12px!important;right:auto!important;display:flex!important;width:min(220px,72vw)!important;
+}
+body.mrr-integrated-active #gameScreen.mrr-integrated-inspector-open #inspector{
+  display:flex!important;
+}
+body.mrr-integrated-active #gameScreen .hand-wrap{
+  z-index:90!important;pointer-events:auto!important;
+}
+body.mrr-integrated-active #gameScreen .combat-top,
+body.mrr-integrated-active #gameScreen #turnDock,
+body.mrr-integrated-active #gameScreen #myPortrait,
+body.mrr-integrated-active #gameScreen .mcw-top-controls{
+  z-index:92!important;
+}
+#mrr-integrated-stage{
+  position:absolute;inset:0;z-index:35;
+  overflow:hidden;touch-action:none;
+  background:radial-gradient(ellipse at 50% 40%,#46504a,#111b24 72%,#080d13);
+}
+#mrr-integrated-stage canvas{
+  position:absolute!important;inset:0!important;width:100%!important;height:100%!important;
+  z-index:0;
+}
+#mrr-integrated-stage .mrr-integrated-vignette{
+  position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 47%,transparent 38%,#090a1155 78%,#02060ecc),
+    linear-gradient(0deg,#050e1b99 0%,transparent 23%,transparent 78%,#080b1899 100%);
+}
+#mrr-integrated-stage .mrr-integrated-heading{
+  position:absolute;top:75px;left:50%;transform:translateX(-50%);
+  z-index:2;pointer-events:none;white-space:nowrap;
+  color:#dfc18a;text-shadow:0 2px 8px #000b,0 0 14px #dbad5b5e;
+  font:600 clamp(11px,1.2vw,15px) Georgia,serif;letter-spacing:.2em;
+}
+#mrr-integrated-status{
+  position:absolute;left:50%;top:103px;transform:translateX(-50%);
+  z-index:2;pointer-events:none;white-space:nowrap;color:#bed7db;
+  font:11px 'Malgun Gothic',sans-serif;text-shadow:0 2px 8px #000;
+}
+#mrr-integrated-hint{
+  position:absolute;left:50%;bottom:143px;transform:translateX(-50%);
+  z-index:4;pointer-events:none;max-width:55%;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+  background:linear-gradient(90deg,transparent,#111c29bd 16%,#111c29bd 84%,transparent);
+  padding:5px 25px;color:#f1dbad;font:11px 'Malgun Gothic',sans-serif;
+  text-shadow:0 2px 8px #000;
+}
+#mrr-integrated-actions{
+  position:absolute;right:18px;bottom:112px;z-index:6;
+  display:flex;flex-direction:column;align-items:stretch;gap:5px;
+  pointer-events:auto;
+}
+#mrr-integrated-actions button{
+  min-height:30px;height:30px;min-width:100px;padding:4px 9px;
+  border:1px solid #a48c6599;border-radius:18px;
+  color:#f7e8c9;font:600 11px 'Malgun Gothic',sans-serif;
+  background:linear-gradient(95deg,#101e2dd9,#3d3b31e8);
+  box-shadow:0 3px 9px #05070b99;backdrop-filter:blur(5px);
+}
+#mrr-integrated-actions button:disabled{opacity:.35}
+#mrr-integrated-actions button[aria-pressed="true"]{
+  border-color:#e9bc77;background:#58442edc;
+}
+#mrr-integrated-actions #mrr-integrated-exit{
+  background:#162c39d9;border-color:#78c5d6;
+}
+@media(max-width:760px){
+  #mrr-integrated-open{min-width:52px!important;width:auto!important;font-size:10px!important;padding:0 5px!important}
+  #mrr-integrated-stage .mrr-integrated-heading{top:79px;font-size:10px;letter-spacing:.09em}
+  #mrr-integrated-status{top:96px;font-size:9px}
+  #mrr-integrated-hint{bottom:103px;font-size:9px;max-width:65%;left:49%}
+  #mrr-integrated-actions{right:5px;bottom:103px;gap:3px}
+  #mrr-integrated-actions button{min-width:75px;min-height:27px;height:27px;padding:3px 5px;font-size:9px}
+  body.mrr-integrated-active #gameScreen.mrr-integrated-inspector-open #inspector,
+  body.mrr-integrated-active #gameScreen.mrr-integrated-rail-open #areaRail{
+    top:120px!important;bottom:135px!important;max-height:calc(100dvh - 270px)!important
+  }
+}
+
+/* Visual screenshot review: retire obsolete prototype buttons in the live game
+   surface, but restore them without mutation as soon as 2D view is selected. */
+body.mrr-integrated-active #gameScreen .mcw-top-controls > :is(
+  #mcw3d-toggle,#mcw-cinema-open,#mrr-battlefield-open
+){display:none!important}
+body.mrr-integrated-active #gameScreen .mcw-top-controls{gap:6px}
+body.mrr-integrated-active #gameScreen #mrr-integrated-open{
+  min-width:100px!important;width:auto!important;
+  border-radius:22px!important;
+  box-shadow:0 4px 15px #000b,inset 0 1px 0 #e9d1a144;
+}
+body.mrr-integrated-active #mrr-integrated-actions button:disabled{display:none}
+body.mrr-integrated-active #contextActions{
+  background:transparent!important;border:0!important;box-shadow:none!important;
+}
+body.mrr-integrated-active #contextActions button{
+  border-radius:18px!important;background:#172735e9!important;
+  border-color:#b9a170!important;box-shadow:0 3px 12px #000a!important;
+}
+@media(max-width:760px){
+  body.mrr-integrated-active #gameScreen .mcw-top-controls{right:7px;gap:4px}
+  body.mrr-integrated-active #gameScreen #mrr-integrated-open{
+    min-width:82px!important;width:auto!important;font-size:10px!important;
+  }
+  #mrr-integrated-stage .mrr-integrated-heading{top:94px}
+  #mrr-integrated-status{top:111px}
+}

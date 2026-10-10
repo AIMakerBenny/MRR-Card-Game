@@ -19,7 +19,7 @@ try:
       let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;
       Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
     }''')
-    base=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase53_3D_Prototype.html'
+    base=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase54_3D_Prototype.html'
     options=[]
     for seed in range(198704,198730):
       page.goto(base+f'?qa_seed={seed}')

@@ -15,18 +15,22 @@ try:
     browser=pw.chromium.launch(**opts)
     page=browser.new_page(viewport={'width':1920,'height':1080})
     errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-    page.add_init_script('''() => {
-      let seed=198704;Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
-    }''')
-    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase53_3D_Prototype.html'
-    page.goto(url)
-    page.locator('#newGame').click();page.locator('#launchGame').click()
-    page.get_by_role('button',name='이 손패로 시작').click()
-    choices=page.locator('.hand-slot').evaluate_all('''els=>els.map((e,i)=>({
-      i,cost:Number(e.querySelector('.cost-bubble')?.textContent||99),
-      unit:/type-(몬스터|시설|영웅유닛)/.test(e.querySelector('.card-ui')?.className||'')
-    }))''')
-    affordable=[v for v in choices if v['unit'] and v['cost']<=2]
+    page.add_init_script('''(() => {
+      let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;
+      Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
+    })();''')
+    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase54_3D_Prototype.html'
+    affordable=[]
+    for seed in range(198704,198744):
+      page.goto(url+'?qa_seed='+str(seed))
+      page.locator('#newGame').click();page.locator('#launchGame').click()
+      page.get_by_role('button',name='이 손패로 시작').click()
+      choices=page.locator('.hand-slot').evaluate_all('''els=>els.map((e,i)=>({
+        i,cost:Number(e.querySelector('.cost-bubble')?.textContent||99),
+        unit:/type-(몬스터|시설|영웅유닛)/.test(e.querySelector('.card-ui')?.className||'')
+      }))''')
+      affordable=[v for v in choices if v['unit'] and v['cost']<=2]
+      if affordable:break
     assert affordable,'No affordable unit in seeded hand'
     page.locator('.hand-slot').nth(affordable[0]['i']).evaluate('(e)=>e.click()')
     key=page.locator('#arena .slot.legal').first.get_attribute('data-slot')
