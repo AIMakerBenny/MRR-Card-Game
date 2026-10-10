@@ -39,7 +39,7 @@ try:
           const node=e.querySelector('.card-ui'),kind=node?.querySelector('.card-kind')?.textContent||'';
           const cost=Number(node?.querySelector('.cost-bubble')?.textContent||99);
           const stats=node?.querySelector('.card-stats')?.textContent||'';
-          const attack=Number(stats.match(/공\s*(\d+)/)?.[1]||0);
+          const attack=Number(stats.match(/[검공]\s*(\d+)/)?.[1]||0);
           return {i,cost,attack,kind,front:/몬스터/.test(kind)};
         }).filter(x=>x.front&&x.cost<=2&&x.attack>0)''')
       mine=affordable()
