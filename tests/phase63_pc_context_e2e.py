@@ -55,6 +55,8 @@ try:
     page.locator('#mrr-integrated-open').click()
     page.wait_for_function('MRRIntegrated.state.open && MRRIntegrated.state.scene.frames>3',timeout=25000)
     assert page.locator('#mrr-integrated-context').count()==1
+    assert page.evaluate('MRRIntegrated.state.scene.pcLegibilityRevision')==64
+    assert page.evaluate('MRRIntegrated.state.scene.pcCardScale')==1.16
     # No new gameplay action until the native deployed card is selected.
     before=page.evaluate("""() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}""")
     target=page.evaluate('(key)=>MRRIntegrated.scene.projectCard(key)',my_key)
