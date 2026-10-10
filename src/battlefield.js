@@ -331,7 +331,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const shake=(cinemaImpact.type==='hit'?.21:.045)*envelope;
       camera.position.x+=Math.sin(now*.119)*shake;
       camera.position.y+=Math.cos(now*.151)*shake*.7;
-      camera.lookAt(0,.8,0);
+      camera.lookAt(focusX,.8,focusZ);
       cinematicFrameCount++;
     }
   }
@@ -573,13 +573,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     camera.lookAt(focusX,.8,focusZ);
   }
   function down(e){
-    if(e.button!==0||e.target.closest('#mrr-battlefield-commands'))return;
+    if(e.button!==0||e.target!==renderer.domElement)return;
     drag=true;moved=false;
     startX=lastX=e.clientX;startY=lastY=e.clientY;
     mount.setPointerCapture?.(e.pointerId);
   }
   function move(e){
-    if(!drag){setHover(e.target.closest('#mrr-battlefield-commands')?null:publicHit(e));return;}
+    if(!drag){setHover(e.target===renderer.domElement?publicHit(e):null);return;}
     if(Math.hypot(e.clientX-startX,e.clientY-startY)>6)moved=true;
     if(moved){
       yaw=Math.max(-.8,Math.min(.8,yaw+(e.clientX-lastX)*.004));
