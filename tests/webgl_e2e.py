@@ -13,7 +13,7 @@ assert (ROOT/'vendor/three.module.js').exists(), 'Three.js is not vendored: run 
 handler=partial(SimpleHTTPRequestHandler,directory=str(ROOT))
 server=ThreadingHTTPServer(('127.0.0.1',0),handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
-url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase35_3D_Prototype.html'
+url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase36_3D_Prototype.html'
 try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
@@ -181,6 +181,28 @@ try:
         assert page.evaluate('MCW3D.scene.state.activeVisualMeshes === 0'), 'VFX meshes failed to release'
         after_fx=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         assert before_focus==after_fx,'Decorative combat effects changed gameplay data'
+        # Phase36: actual responsive Chromium viewport changes must not
+        # mutate the source-of-truth game, break the 30 slots or intercept input.
+        assert page.evaluate('MCW3D.scene.state.renderQualityRevision===36')
+        for W,H in [(1366,768),(390,844)]:
+            page.set_viewport_size({'width':W,'height':H})
+            page.wait_for_function('w=>MCW3D.scene.state.viewportWidth===w',arg=W,timeout=8000)
+            clip=page.evaluate('MCW3D.scene.state.renderClip')
+            assert clip is not None and clip['w']>0 and clip['h']>0,(W,H,clip)
+            assert clip['x']>=0 and clip['y']>=0
+            assert clip['x']+clip['w']<=W and clip['y']+clip['h']<=H,(W,H,clip)
+            assert page.locator('[data-slot]').count()==30
+            assert page.locator('.board-card').count()>=1
+            assert page.evaluate('MCW3D.scene.state.renderPixelRatio <= (1.25 if False else 999)') if False else True
+            quality=page.evaluate('MCW3D.scene.state')
+            assert quality['renderPixelRatio']<= (1.25 if W<760 else 1.5)+.001,quality
+            assert quality['graphicsFrameIntervalMs']==(48 if W<760 else 32)
+            assert page.locator('#mcw3d-canvas-host').evaluate("e=>getComputedStyle(e).pointerEvents==='none'")
+            assert before_focus==page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
+            page.screenshot(path=str(ROOT/f'tests/phase36_responsive_{W}x{H}.png'))
+        page.set_viewport_size({'width':1920,'height':1080})
+        page.wait_for_function('MCW3D.scene.state.viewportWidth===1920',timeout=8000)
+        page.wait_for_timeout(300)
         page.screenshot(path=str(ROOT/'tests/phase30_arena.png'))
         page.screenshot(path=str(ROOT/'tests/webgl_1920x1080.png'))
         page.locator('#mcw3d-toggle').click()

@@ -621,7 +621,9 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   function frame(t){
     if(!running||paused)return;
     raf=requestAnimationFrame(frame);
-    if(t-last<32)return;last=t;
+    // Phase36: reduce GPU pressure on narrow viewports without touching the
+    // original game's timers, frame scheduling, physics or card decisions.
+    if(t-last<(width<760?48:32))return;last=t;
     if(innerWidth!==width||innerHeight!==height)resize();
     // Client rects can change on hover/scroll without mutating the slot subtree.
     sync();
@@ -683,7 +685,9 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     camera.left=0;camera.right=width;camera.top=height;camera.bottom=0;
     camera.position.set(width/2,height/2,1100);camera.lookAt(width/2,height/2,0);camera.updateProjectionMatrix();
     key.position.set(width*.19,height*.96,650);fill.position.set(width*.82,height*.42,200);
-    renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.setSize(width,height,false);dirty=true;
+    const pixelCap=reduced.matches?1:width<760?1.25:1.5;
+    renderer.setPixelRatio(Math.min(Math.max(.75,devicePixelRatio||1),pixelCap));
+    renderer.setSize(width,height,false);dirty=true;
   }
   function start(){
     if(running){paused=false;return;}
@@ -738,6 +742,8 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       frameRevision:24,battlefieldRevision:25,
       targetingRevision:33,targetReticleRevision:34,targetGuideActive:aimActive,
       healthFeedbackRevision:35,healthChangeFxCount,activeHealthPopups:hpPopups.length,
+      renderQualityRevision:36,renderPixelRatio:renderer.getPixelRatio(),
+      graphicsFrameIntervalMs:width<760?48:32,viewportWidth:width,viewportHeight:height,
       targetGuidePath:aimPath?.getAttribute('d')||null,
       arenaRevision:30,laneRevision:32,visibleLaneCount:laneCount,visibleLaneMeshes:laneMeshes.filter(m=>m.visible).length,
       decorativeDomCount:ornamentHost?.children.length||0,
