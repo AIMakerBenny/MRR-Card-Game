@@ -550,6 +550,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     renderer.dispose();renderer.domElement.remove();
   }
   return {start,stop,dispose,resize,resetCamera,sync,projectCard,projectSlot,stageAttack,
+    refreshHover:(key)=>setHover(key,true),
     get state(){return {revision:49,projection:camera.type,frames,slotCount:boardSlots.size,
       publicCardCount,cardMeshCount:cards.length,shadows:renderer.shadowMap.enabled,
       rendererAlive:renderer.domElement.isConnected,yaw,pitch,distance,
@@ -643,6 +644,9 @@ window.MRRBattlefieldUIInit=function(loadThree){
         // movement, summons and attacks. Never simulate a damage event.
         node.click();
         view.sync();
+        // Rendering can recreate slot DOM nodes; read the new card immediately
+        // instead of relying on a second pointer movement after the native click.
+        view.refreshHover(key);
       }
       function describeHover(key,profile){
         if(!key||!profile){cardTip.classList.remove('visible');cardTip.textContent='';return;}
