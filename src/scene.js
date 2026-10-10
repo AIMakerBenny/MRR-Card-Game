@@ -464,7 +464,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     const halo=new THREE.Mesh(new THREE.RingGeometry(.68,.77,48),
       new THREE.MeshBasicMaterial({color:0xffe3a0,transparent:true,opacity:.68,side:THREE.DoubleSide,depthWrite:false}));
     halo.position.z=12.6;halo.visible=false;group.add(halo);
-    const entry={id,group,plate,edge,front,shadow,halo,meterBg,meterFill,hpRatio:null,
+    const entry={id,group,plate,edge,front,shadow,halo,meterBg,meterFill,hpRatio:null,hpCardKey:null,
       artWell:null,artOriginal:null,artURL:null,signature:null,hasCard:false,prevEffect:'',
       position:new THREE.Vector3(),lift:0,targetLift:0,hovered:false,selected:false};
     entries.set(id,entry);return entry;
@@ -574,8 +574,9 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
         const cr=rectOf(card);const cw=Math.max(26,cr.w),ch=Math.max(38,cr.h);
         e.hasCard=true;e.edge.visible=e.front.visible=e.shadow.visible=true;
         e.edge.scale.set(cw,ch,6);e.front.scale.set(cw-6,ch-7,1);e.shadow.scale.set(cw,ch,1);
-        if(e.hasCard&&e.signature===info.signature)healthFeedback(e,slot,e.hpRatio,info.hpRatio);
-        e.hpRatio=info.hpRatio;
+        const hpCardKey=info.name+'|'+info.kind+'|'+info.cost;
+        if(e.hasCard&&e.hpCardKey===hpCardKey)healthFeedback(e,slot,e.hpRatio,info.hpRatio);
+        e.hpCardKey=hpCardKey;e.hpRatio=info.hpRatio;
         const showMeter=info.hpRatio!==null;
         e.meterBg.visible=e.meterFill.visible=showMeter;
         if(showMeter){
@@ -607,7 +608,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
         restoreArt(e);
         e.signature=null;e.hasCard=false;e.edge.visible=e.front.visible=e.shadow.visible=false;
         e.lift=e.targetLift=0;e.hovered=e.selected=false;e.halo.visible=false;
-        e.meterBg.visible=e.meterFill.visible=false;e.hpRatio=null;
+        e.meterBg.visible=e.meterFill.visible=false;e.hpRatio=null;e.hpCardKey=null;
         e.plate.position.set(0,0,0);e.group.position.set(r.x,r.y,3);
       }
       const fx=['fx-hit','fx-heal','fx-summon'].find(x=>slot.classList.contains(x))||'';
