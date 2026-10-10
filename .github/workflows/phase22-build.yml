@@ -33,6 +33,12 @@ jobs:
           python tests/parity_smoke.py
           python tests/browser_smoke.py
           python tests/placement_smoke.py
+      - name: Phase55 integrated full-screen native game Chromium QA
+        run: python tests/integrated_gameplay_e2e.py
+      - name: Phase55 desktop tabletop art Chromium WebGL QA
+        run: python tests/desktop_tabletop_e2e.py
+      - name: Phase56 PC composition real Chromium 3-resolution capture and gameplay QA
+        run: python tests/pc_composition_e2e.py
       - name: Hand interaction and enemy-back visual regression
         run: python tests/hand_visual_e2e.py
       - name: Strict real WebGL rendering test
@@ -55,12 +61,6 @@ jobs:
         run: python tests/health_hud_e2e.py
       - name: Phase55 actual public-card magnifier Chromium QA
         run: python tests/card_magnifier_e2e.py
-      - name: Phase55 integrated full-screen native game Chromium QA
-        run: python tests/integrated_gameplay_e2e.py
-      - name: Phase55 desktop tabletop art Chromium WebGL QA
-        run: python tests/desktop_tabletop_e2e.py
-      - name: Phase56 PC composition real Chromium 3-resolution capture and gameplay QA
-        run: python tests/pc_composition_e2e.py
       - name: Collect downloadable build
         run: |
           mkdir -p dist
