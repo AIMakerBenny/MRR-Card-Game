@@ -91,6 +91,7 @@ try:
         before_target=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         possible=page.locator('#fieldTable .slot').first
         assert possible.count()==1
+        was_selected=node.evaluate("el=>el.classList.contains('selected-slot')")
         node.evaluate("el=>el.classList.add('selected-slot')")
         possible.evaluate("el=>el.classList.add('attack-target')")
         possible.hover()
@@ -102,7 +103,8 @@ try:
         page.wait_for_function("MCW3D.scene.state.targetGuideActive===false",timeout=9000)
         assert page.locator('#mcw33-target-guide').count()==0
         possible.evaluate("el=>el.classList.remove('attack-target')")
-        node.evaluate("el=>el.classList.remove('selected-slot')")
+        if not was_selected:
+            node.evaluate("el=>el.classList.remove('selected-slot')")
         after_target=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         assert before_target==after_target,'Decorative targeting guide changed game state'
         node.hover()
