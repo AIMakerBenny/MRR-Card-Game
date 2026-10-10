@@ -94,7 +94,9 @@
       const current=document.createElement('span');current.id='mcw-cinema-current';
       const next=document.createElement('button');next.id='mcw-cinema-next';next.type='button';
       next.textContent='다음 카드';
-      controls.append(prev,current,next);
+      const flip=document.createElement('button');flip.id='mcw-cinema-flip';flip.type='button';
+      flip.textContent='카드 뒤집기';flip.setAttribute('aria-pressed','false');
+      controls.append(prev,current,next,flip);
       const close=document.createElement('button');close.id='mcw-cinema-close';close.type='button';close.textContent='닫기';
       close.addEventListener('click',modalClose);header.append(title,controls,close);
       const stage=document.createElement('div');stage.id='mcw-cinema-stage';
@@ -109,6 +111,7 @@
       cinemaCards=publicFieldCards();
       cinemaIndex=Math.max(0,cinemaCards.findIndex(card=>card.selected));
       function show(){
+        cinemaScene.setView('front');flip.setAttribute('aria-pressed','false');flip.textContent='카드 뒤집기';
         const p=cinemaCards[cinemaIndex]||{name:'MARORONG',kind:'CARD WAR',cost:'',stats:''};
         cinemaScene.setCard(p);
         current.textContent=cinemaCards.length?
@@ -120,6 +123,11 @@
       }
       prev.addEventListener('click',()=>{cinemaIndex=(cinemaIndex+cinemaCards.length-1)%cinemaCards.length;show();});
       next.addEventListener('click',()=>{cinemaIndex=(cinemaIndex+1)%cinemaCards.length;show();});
+      flip.addEventListener('click',()=>{
+        const nextView=cinemaScene.state.viewMode==='front'?'back':'front';
+        cinemaScene.setView(nextView);flip.setAttribute('aria-pressed',String(nextView==='back'));
+        flip.textContent=nextView==='back'?'카드 앞면':'카드 뒤집기';
+      });
       show();cinemaScene.start();close.focus();
     }catch(err){
       console.warn('Cinematic 3D unavailable',err);modalClose();

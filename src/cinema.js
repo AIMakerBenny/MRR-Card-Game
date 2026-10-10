@@ -83,7 +83,12 @@ window.MRRCinemaFactory=function(THREE,mount){
     new THREE.MeshBasicMaterial({color:0xf2d293}));
   stageGeometries.push(portraitGlow.geometry);stageMats.push(portraitGlow.material);
   portraitGlow.position.set(0,4.7,-1.1);stage.add(portraitGlow);
-  let cardToken=0;
+  let cardToken=0,viewMode='front';
+  function setView(value){
+    if(disposed)return;
+    if(value!=='front'&&value!=='back')return;
+    viewMode=value;
+  }
   let frame=0,raf=0,running=false,disposed=false,startAt=0,profile={name:'MARORONG',kind:'CARD WAR',cost:'',stats:''};
   function artwork(p){
     const cvs=document.createElement('canvas');cvs.width=640;cvs.height=900;
@@ -164,7 +169,7 @@ window.MRRCinemaFactory=function(THREE,mount){
     if(!running||disposed)return;
     raf=requestAnimationFrame(tick);const sec=(t-startAt)/1000;
     const slow=matchMedia('(prefers-reduced-motion: reduce)').matches;
-    card.rotation.y=slow?-.19:Math.sin(sec*.63)*.31-.13;
+    card.rotation.y=(viewMode==='back'?Math.PI:0)+(slow?-.19:Math.sin(sec*.63)*.18-.13);
     card.rotation.x=slow?-.06:-.075+Math.sin(sec*.53)*.055;
     card.position.y=2.15+(slow?0:Math.sin(sec*1.45)*.105);
     gem.rotation.y=sec*.9;
@@ -183,7 +188,8 @@ window.MRRCinemaFactory=function(THREE,mount){
     renderer.dispose();renderer.domElement.remove();
   }
   setCard(profile);
-  return {start,stop,dispose,resize,setCard,get state(){return {running,projection:camera.type,frameCount:frame,profile:{...profile},
+  return {start,stop,dispose,resize,setCard,setView,get state(){return {running,projection:camera.type,frameCount:frame,profile:{...profile},
+      cardFlipRevision:40,viewMode,
       stageRevision:38,cardBindingRevision:39,stageMeshCount:stageObjects.length,
       castShadows:renderer.shadowMap.enabled,lightCount:5,
       meshes:6+rails.length+stageObjects.length,hasCanvas:renderer.domElement.isConnected};}};
