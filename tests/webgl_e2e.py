@@ -74,7 +74,9 @@ try:
         assert page.evaluate('MCW3D.scene.state.frameRevision === 24 && MCW3D.scene.state.decoratedCards === 1'), 'Card face texture and metal trim missing'
         assert page.evaluate('MCW3D.scene.state.battlefieldRevision === 25 && MCW3D.scene.state.battlefieldTrimCount === 4 && MCW3D.scene.state.battlefieldLightPoolCount === 2'), 'Arena rim/light pools missing'
         assert page.locator('#mcw3d-canvas-host').evaluate("e => getComputedStyle(e).pointerEvents === 'none'"), 'WebGL scene steals mouse input'
-        assert page.evaluate("MCW3D.scene.state.arenaRevision===30 && MCW3D.scene.state.cornerArtworkSources===4 && MCW3D.scene.state.visibleArenaMedallions===4"),'Phase30 arena corner decorations missing'
+        assert page.evaluate("MCW3D.scene.state.arenaRevision===30 && MCW3D.scene.state.cornerArtworkSources===4 && MCW3D.scene.state.visibleArenaMedallions===4 && MCW3D.scene.state.decorativeDomCount===4"),'Phase30 arena corner decorations missing'
+        assert page.locator('#mcw30-arena-ornaments .mcw30-corner').count()==4
+        assert page.locator('#mcw30-arena-ornaments').evaluate("e=>getComputedStyle(e).pointerEvents==='none'"),'Arena accents intercept clicks'
         before_focus=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         # Newly placed cards may remain selected. Their idle height is 10,
         # whereas a true hover must raise only that card to height 18.
@@ -127,6 +129,7 @@ try:
         page.screenshot(path=str(ROOT/'tests/webgl_1920x1080.png'))
         page.locator('#mcw3d-toggle').click()
         page.wait_for_function("MCW3D.status.renderer === 'legacy'")
+        assert page.locator('#mcw30-arena-ornaments').count()==0,'Arena ornaments not removed with WebGL'
         assert not page.locator('.slot:has(.board-card) .art-well').first.evaluate(
             "el => getComputedStyle(el).backgroundImage.includes('data:image/png')"
         ),'Turning off Three.js left behind generated art'

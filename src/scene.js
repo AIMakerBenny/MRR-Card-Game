@@ -57,6 +57,22 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
 
   // Phase30: four small corner medallions, away from logical card slots.
   // Canvas-based, optional visuals only; no game-state access or hit targets.
+  let ornamentHost=null;
+  function mountOrnaments(){
+    const arena=document.querySelector('#arena');
+    if(!arena||ornamentHost?.parentElement===arena)return;
+    ornamentHost?.remove();
+    ornamentHost=document.createElement('div');
+    ornamentHost.id='mcw30-arena-ornaments';
+    ornamentHost.setAttribute('aria-hidden','true');
+    for(let i=0;i<4;i++){
+      const el=document.createElement('i');
+      el.className='mcw30-corner mcw30-corner-'+i;
+      ornamentHost.appendChild(el);
+    }
+    arena.appendChild(ornamentHost);
+  }
+  function clearOrnaments(){ornamentHost?.remove();ornamentHost=null;}
   const arenaMedallions=[];
   for(let i=0;i<4;i++){
     const canvas=document.createElement('canvas');canvas.width=canvas.height=128;
@@ -344,7 +360,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     const node=document.querySelector('#arena');
     const r=node?.getBoundingClientRect();
     if(!r||r.width<160||r.height<100){arenaTrim.visible=false;return;}
-    arenaTrim.visible=true;
+    arenaTrim.visible=true;mountOrnaments();
     const cx=r.left+r.width/2,cy=height-r.top-r.height/2;
     const w=Math.max(0,r.width-24),h=Math.max(0,r.height-24);
     arenaTrim.position.set(cx,cy,-60);
@@ -501,7 +517,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     }
     raf=requestAnimationFrame(frame);
   }
-  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;
+  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;clearOrnaments();
     for(const id of Array.from(entries.keys()))removeEntry(id);
     for(const fx of effects){scene.remove(fx.mesh);fx.mesh.geometry.dispose();fx.mesh.material.dispose();}effects.length=0;
     renderer.clear();
@@ -536,7 +552,8 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       visibleHealthRatios:active.filter(e=>e.meterFill.visible).map(e=>({slot:e.id,ratio:e.hpRatio})),
       healthMeterRevision:27,
       frameRevision:24,battlefieldRevision:25,
-      arenaRevision:30,visibleArenaMedallions:arenaTrim.visible?arenaMedallions.filter(x=>x.visible).length:0,
+      arenaRevision:30,decorativeDomCount:ornamentHost?.children.length||0,
+      visibleArenaMedallions:arenaTrim.visible?arenaMedallions.filter(x=>x.visible).length:0,
       cornerArtworkSources:arenaMedallions.length,
       battlefieldTrimCount:arenaTrim.visible?rimParts.length:0,
       battlefieldLightPoolCount:arenaTrim.visible?lightPools.length:0,
