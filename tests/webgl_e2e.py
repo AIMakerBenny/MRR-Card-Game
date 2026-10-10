@@ -13,7 +13,7 @@ assert (ROOT/'vendor/three.module.js').exists(), 'Three.js is not vendored: run 
 handler=partial(SimpleHTTPRequestHandler,directory=str(ROOT))
 server=ThreadingHTTPServer(('127.0.0.1',0),handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
-url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase30_3D_Prototype.html'
+url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase33_3D_Prototype.html'
 try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
@@ -63,6 +63,7 @@ try:
         assert page.evaluate("MCW3D.scene.state.healthMeterRevision === 27")
         assert len(shown)==1 and abs(shown[0]['ratio']-dom_ratio)<.001,(shown,dom_ratio)
         assert page.evaluate("MCW3D.scene.state.illustrationRevision === 29 && MCW3D.scene.state.proceduralArtCards === 1 && MCW3D.scene.state.visibleDomArtCards === 1"), 'Procedural card art is not visible on the original card'
+        assert page.evaluate("MCW3D.scene.state.artIdentityRevision===31 && MCW3D.scene.state.proceduralArtProfiles.length===1 && MCW3D.scene.state.proceduralArtProfiles[0].identity.motif>=0 && MCW3D.scene.state.proceduralArtProfiles[0].identity.motif<8"),'Phase31 unique heraldic art identity missing'
         assert page.locator('.slot:has(.board-card) .art-well').first.evaluate(
             "el => getComputedStyle(el).backgroundImage.includes('data:image/png')"
         ),'Original visible art well does not contain the new generated painting'
@@ -77,12 +78,35 @@ try:
         assert page.evaluate("MCW3D.scene.state.arenaRevision===30 && MCW3D.scene.state.cornerArtworkSources===4 && MCW3D.scene.state.visibleArenaMedallions===4 && MCW3D.scene.state.decorativeDomCount===4"),'Phase30 arena corner decorations missing'
         assert page.locator('#mcw30-arena-ornaments .mcw30-corner').count()==4
         assert page.locator('#mcw30-arena-ornaments').evaluate("e=>getComputedStyle(e).pointerEvents==='none'"),'Arena accents intercept clicks'
+        assert page.evaluate("MCW3D.scene.state.laneRevision===32 && MCW3D.scene.state.visibleLaneCount>0 && MCW3D.scene.state.visibleLaneCount===MCW3D.scene.state.visibleLaneMeshes"),'Phase32 battlefield lane inlays missing'
+        assert page.locator('#mcw32-lane-inlays').evaluate("e=>getComputedStyle(e).pointerEvents==='none'"),'Lane inlays intercept input'
         before_focus=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         # Newly placed cards may remain selected. Their idle height is 10,
         # whereas a true hover must raise only that card to height 18.
         idle_target=page.evaluate('MCW3D.scene.state.maxTargetLift')
         assert idle_target in (0,10),f'Unexpected idle focus lift: {idle_target}'
         node=page.locator('.slot:has(.board-card)').first
+        # Phase33: test only a visual marker, not an actual attack dispatch.
+        assert page.evaluate('MCW3D.scene.state.targetingRevision===33')
+        before_target=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
+        possible=page.locator('#fieldTable .slot').first
+        assert possible.count()==1
+        was_selected=node.evaluate("el=>el.classList.contains('selected-slot')")
+        node.evaluate("el=>el.classList.add('selected-slot')")
+        possible.evaluate("el=>el.classList.add('attack-target')")
+        possible.hover()
+        page.wait_for_function("MCW3D.scene.state.targetGuideActive && !!MCW3D.scene.state.targetGuidePath",timeout=9000)
+        assert page.locator('#mcw33-target-guide path[stroke]').count()==1
+        assert page.locator('#mcw33-target-guide').evaluate("e=>getComputedStyle(e).pointerEvents==='none'")
+        page.screenshot(path=str(ROOT/'tests/phase33_target_arrow.png'))
+        page.mouse.move(0,0)
+        page.wait_for_function("MCW3D.scene.state.targetGuideActive===false",timeout=9000)
+        assert page.locator('#mcw33-target-guide').count()==0
+        possible.evaluate("el=>el.classList.remove('attack-target')")
+        if not was_selected:
+            node.evaluate("el=>el.classList.remove('selected-slot')")
+        after_target=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
+        assert before_target==after_target,'Decorative targeting guide changed game state'
         node.hover()
         page.wait_for_function('MCW3D.scene.state.hoveredCardCount === 1 && MCW3D.scene.state.maxTargetLift === 18 && MCW3D.scene.state.maxLift > 15',timeout=8000)
         assert page.locator('[data-slot]').count()==30
@@ -130,6 +154,8 @@ try:
         page.locator('#mcw3d-toggle').click()
         page.wait_for_function("MCW3D.status.renderer === 'legacy'")
         assert page.locator('#mcw30-arena-ornaments').count()==0,'Arena ornaments not removed with WebGL'
+        assert page.locator('#mcw32-lane-inlays').count()==0,'Lane inlays not removed with WebGL'
+        assert page.locator('#mcw33-target-guide').count()==0,'Target guide not removed with WebGL'
         assert not page.locator('.slot:has(.board-card) .art-well').first.evaluate(
             "el => getComputedStyle(el).backgroundImage.includes('data:image/png')"
         ),'Turning off Three.js left behind generated art'

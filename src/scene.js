@@ -57,6 +57,101 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
 
   // Phase30: four small corner medallions, away from logical card slots.
   // Canvas-based, optional visuals only; no game-state access or hit targets.
+  // Phase32 floor inlays follow the four visible combat rows.
+  // Decoration-only DOM and Three.js meshes never become input surfaces.
+  const laneMaterial=new THREE.MeshBasicMaterial({color:0xc9a66a,transparent:true,opacity:.18,depthWrite:false,side:THREE.DoubleSide});
+  const laneGeometry=new THREE.PlaneGeometry(1,1);
+  const laneMeshes=Array.from({length:3},()=>{const mesh=new THREE.Mesh(laneGeometry,laneMaterial);scene.add(mesh);mesh.visible=false;return mesh;});
+  let laneHost=null,laneCount=0;
+  function clearLanes(){laneHost?.remove();laneHost=null;laneCount=0;for(const m of laneMeshes)m.visible=false;}
+  function syncLanes(arenaRect){
+    const rows=Array.from(document.querySelectorAll('#fieldTable .board-row')).map(n=>n.getBoundingClientRect())
+      .filter(r=>r.width>40&&r.height>15).sort((a,b)=>a.top-b.top);
+    if(!arenaRect||rows.length<2){clearLanes();return;}
+    const count=Math.min(3,rows.length-1);
+    if(!laneHost||!laneHost.isConnected){
+      laneHost=document.createElement('div');laneHost.id='mcw32-lane-inlays';
+      laneHost.setAttribute('aria-hidden','true');
+      document.querySelector('#arena')?.appendChild(laneHost);
+    }
+    while(laneHost.childElementCount<count){const e=document.createElement('i');e.className='mcw32-lane';laneHost.appendChild(e);}
+    while(laneHost.childElementCount>count)laneHost.lastElementChild.remove();
+    for(let i=0;i<laneMeshes.length;i++){
+      const m=laneMeshes[i];m.visible=i<count;
+      if(i>=count)continue;
+      const a=rows[i],b=rows[i+1];
+      // Restrict markers to the gap, never draw over actual card contents.
+      const y=Math.max(arenaRect.top+9,Math.min(arenaRect.bottom-9,(a.bottom+b.top)/2));
+      const x=Math.max(arenaRect.left+35,a.left+35);
+      const end=Math.min(arenaRect.right-35,a.right-35);
+      const w=Math.max(0,end-x);
+      laneHost.children[i].style.cssText='left:'+Math.round(x-arenaRect.left)+'px;top:'+Math.round(y-arenaRect.top)+'px;width:'+Math.round(w)+'px';
+      m.position.set(x+w/2,height-y,-45);m.scale.set(w,1.5,1);
+      m.visible=w>60;
+    }
+    laneCount=count;
+  }
+
+  // Phase33: selected attacker -> hovered legal attack target, view only.
+  // No click handlers and no evaluation of valid attacks beyond the DOM classes
+  // already assigned by the original game engine.
+  const aimMaterial=new THREE.LineBasicMaterial({color:0xf2c47d,transparent:true,opacity:.67,depthTest:false,depthWrite:false});
+  const aimLine=new THREE.Line(new THREE.BufferGeometry(),aimMaterial);aimLine.visible=false;aimLine.renderOrder=10;scene.add(aimLine);
+  const aimTip=new THREE.Mesh(new THREE.ConeGeometry(6,13,3),
+    new THREE.MeshBasicMaterial({color:0xffd798,transparent:true,opacity:.77,depthTest:false,depthWrite:false}));
+  aimTip.visible=false;aimTip.renderOrder=10;scene.add(aimTip);
+  let aimHost=null,aimPath=null,aimActive=false,aimKey='';
+  function clearAim(){
+    aimHost?.remove();aimHost=null;aimPath=null;aimActive=false;aimKey='';
+    aimLine.visible=false;aimTip.visible=false;
+  }
+  function syncAim(){
+    const arena=document.querySelector('#arena'),r=arena?.getBoundingClientRect();
+    const source=arena?.querySelector('.slot.selected-slot:has(.board-card)');
+    const target=arena?.querySelector('.slot.attack-target:hover');
+    if(!r||!source||!target||source===target){clearAim();return;}
+    const a=source.getBoundingClientRect(),b=target.getBoundingClientRect();
+    const x1=a.left+a.width/2-r.left,y1=a.top+a.height/2-r.top;
+    const x2=b.left+b.width/2-r.left,y2=b.top+b.height/2-r.top;
+    if(!Number.isFinite(x1+y1+x2+y2)||x2<0||x2>r.width||y2<0||y2>r.height){clearAim();return;}
+    const bend=Math.min(52,Math.abs(x2-x1)*.18+22);
+    const key=[x1,y1,x2,y2,bend].map(v=>Math.round(v)).join(':');
+    if(!aimHost||!aimHost.isConnected){
+      aimHost=document.createElementNS('http://www.w3.org/2000/svg','svg');
+      aimHost.id='mcw33-target-guide';
+      aimHost.setAttribute('aria-hidden','true');
+      aimHost.setAttribute('viewBox','0 0 '+Math.max(1,r.width)+' '+Math.max(1,r.height));
+      const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
+      const marker=document.createElementNS('http://www.w3.org/2000/svg','marker');
+      marker.setAttribute('id','mcw33-arrowhead');marker.setAttribute('markerWidth','10');
+      marker.setAttribute('markerHeight','10');marker.setAttribute('refX','8');marker.setAttribute('refY','3');
+      marker.setAttribute('orient','auto');marker.setAttribute('markerUnits','strokeWidth');
+      const polygon=document.createElementNS('http://www.w3.org/2000/svg','path');
+      polygon.setAttribute('d','M0,0 L8,3 L0,6 Z');polygon.setAttribute('fill','#ffd69d');
+      marker.appendChild(polygon);defs.appendChild(marker);aimHost.appendChild(defs);
+      aimPath=document.createElementNS('http://www.w3.org/2000/svg','path');
+      aimPath.setAttribute('fill','none');aimPath.setAttribute('stroke','#f3c884');
+      aimPath.setAttribute('stroke-width','3');aimPath.setAttribute('stroke-linecap','round');
+      aimPath.setAttribute('marker-end','url(#mcw33-arrowhead)');
+      aimHost.appendChild(aimPath);arena.appendChild(aimHost);
+      aimKey='';
+    }
+    aimHost.setAttribute('viewBox','0 0 '+Math.max(1,r.width)+' '+Math.max(1,r.height));
+    if(aimKey!==key){
+      const curve='M'+x1+','+y1+' Q'+((x1+x2)/2)+','+(Math.min(y1,y2)-bend)+' '+x2+','+y2;
+      aimPath.setAttribute('d',curve);
+      const start=new THREE.Vector3(a.left+a.width/2,height-a.top-a.height/2,55);
+      const end=new THREE.Vector3(b.left+b.width/2,height-b.top-b.height/2,55);
+      const middle=new THREE.Vector3((start.x+end.x)/2,
+        height-(r.top+Math.min(y1,y2)-bend),55);
+      const points=new THREE.QuadraticBezierCurve3(start,middle,end).getPoints(24);
+      aimLine.geometry.dispose();aimLine.geometry=new THREE.BufferGeometry().setFromPoints(points);
+      const dir=end.clone().sub(points[points.length-2]);
+      aimTip.position.copy(end);aimTip.rotation.z=Math.atan2(dir.y,dir.x)-Math.PI/2;
+      aimKey=key;
+    }
+    aimLine.visible=aimTip.visible=aimActive=true;
+  }
   let ornamentHost=null;
   function mountOrnaments(){
     const arena=document.querySelector('#arena');
@@ -152,8 +247,15 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     if(/자원|보급|광산|수정|보물|교역/.test(s))return 'crystal';
     return 'warrior';
   }
+  // Phase31 stable portrait variation uses only the already-public card label.
+  // Identical cards render identically, different names get recognizable accents.
+  function artIdentity(info){
+    let h=2166136261;
+    for(const c of info.name+'|'+info.kind)h=Math.imul(h^c.charCodeAt(0),16777619)>>>0;
+    return {motif:h%8,light:(h>>>8)%4,sigil:(h>>>16)%5,tint:(h>>>21)%4};
+  }
   function paintIllustration(c,info,accent){
-    const category=illustrationKind(info);
+    const category=illustrationKind(info),identity=artIdentity(info);
     let seed=2166136261;
     for(const v of info.name+'|'+info.kind){seed=Math.imul(seed^v.charCodeAt(0),16777619)>>>0;}
     const random=()=>{seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;return (seed>>>0)/4294967296;};
@@ -162,9 +264,15 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       category==='citadel'?['#292935','#585b61','#1b2c30']:
       category==='arcane'?['#211b40','#574985','#141d39']:
       category==='crystal'?['#153343','#34746b','#172b31']:['#3e2b34','#83634f','#1a2931'];
-    const sky=c.createLinearGradient(35,116,300,361);
+    const sky=c.createLinearGradient(identity.light%2?320:35,116,identity.light%2?65:300,361);
     sky.addColorStop(0,tones[0]);sky.addColorStop(.56,tones[1]);sky.addColorStop(1,tones[2]);
     c.fillStyle=sky;c.fillRect(38,116,308,245);
+    // One of four asymmetrical sky/ground illumination directions per portrait.
+    const sunX=identity.light<2?92:282;
+    const glow=c.createRadialGradient(sunX,176,3,sunX,176,195);
+    glow.addColorStop(0,identity.tint%2?'#e9cdb454':'#a7d9e947');
+    glow.addColorStop(1,'#00000000');
+    c.fillStyle=glow;c.fillRect(38,116,308,245);
     c.save();c.globalAlpha=.55;c.fillStyle=category==='arcane'?'#bdc4f1':'#f6dca7';
     c.beginPath();c.arc(262+random()*26,164+random()*18,31+random()*15,0,Math.PI*2);c.fill();c.restore();
     for(let j=0;j<18;j++){
@@ -211,6 +319,37 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       c.strokeStyle='#eee0b0';c.stroke();
     }
     c.restore();
+    // Distinct heraldic geometry and miniature banner; placed below card text.
+    c.save();
+    const side=identity.motif%2===0?1:-1;
+    const hx=192+side*118,hy=identity.motif>3?311:186;
+    c.translate(hx,hy);
+    c.globalAlpha=.78;c.fillStyle=identity.tint%2?'#34566a':'#514653';
+    c.strokeStyle=accent;c.lineWidth=2.5;
+    if(identity.motif%3===0){
+      c.beginPath();c.moveTo(-21,-26);c.lineTo(21,-26);c.lineTo(26,12);
+      c.lineTo(0,37);c.lineTo(-26,12);c.closePath();
+    }else if(identity.motif%3===1){
+      c.beginPath();c.moveTo(0,-34);c.lineTo(28,-7);c.lineTo(17,26);
+      c.lineTo(-17,26);c.lineTo(-28,-7);c.closePath();
+    }else{
+      c.beginPath();c.arc(0,0,27,0,Math.PI*2);
+    }
+    c.fill();c.stroke();
+    c.strokeStyle='#f4d9ab';c.lineWidth=3;
+    for(let j=0;j<identity.sigil+2;j++){
+      const xx=(j-(identity.sigil+1)/2)*7;
+      c.beginPath();c.moveTo(xx,-13);c.lineTo(xx+side*(4+(j%2)*3),14);c.stroke();
+    }
+    c.restore();
+    // Eight deterministic banner configurations with silhouettes varied by card.
+    c.save();c.globalAlpha=.48;c.fillStyle=accent;
+    const bx=identity.motif%2===0?43:338;
+    const bw=identity.motif%4===0?21:13;
+    c.beginPath();c.moveTo(bx-bw/2,121);c.lineTo(bx+bw/2,121);
+    c.lineTo(bx+bw/2,190+identity.motif*6);
+    c.lineTo(bx,178+identity.motif*6);
+    c.lineTo(bx-bw/2,190+identity.motif*6);c.closePath();c.fill();c.restore();
     c.globalAlpha=.75;c.strokeStyle=accent;c.lineWidth=2;
     c.beginPath();c.moveTo(45,351);c.lineTo(338,351);c.stroke();
     c.restore();
@@ -360,7 +499,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     const node=document.querySelector('#arena');
     const r=node?.getBoundingClientRect();
     if(!r||r.width<160||r.height<100){arenaTrim.visible=false;return;}
-    arenaTrim.visible=true;mountOrnaments();
+    arenaTrim.visible=true;mountOrnaments();syncLanes(r);
     const cx=r.left+r.width/2,cy=height-r.top-r.height/2;
     const w=Math.max(0,r.width-24),h=Math.max(0,r.height-24);
     arenaTrim.position.set(cx,cy,-60);
@@ -385,8 +524,8 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     const seen=new Set();
     const gameVisible=!document.querySelector('#gameScreen')?.classList.contains('hidden');
     renderer.domElement.style.display=gameVisible?'block':'none';
-    if(!gameVisible){arenaTrim.visible=false;return;}
-    syncArena();
+    if(!gameVisible){arenaTrim.visible=false;clearAim();return;}
+    syncArena();syncAim();
     for(const slot of document.querySelectorAll('#enemyTerrace [data-slot],#fieldTable [data-slot],#myTerrace [data-slot]')){
       const id=slot.getAttribute('data-slot');if(!id)continue;seen.add(id);
       const r=rectOf(slot);if(r.w<10||r.h<10)continue;
@@ -517,7 +656,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     }
     raf=requestAnimationFrame(frame);
   }
-  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;clearOrnaments();
+  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;clearOrnaments();clearLanes();clearAim();
     for(const id of Array.from(entries.keys()))removeEntry(id);
     for(const fx of effects){scene.remove(fx.mesh);fx.mesh.geometry.dispose();fx.mesh.material.dispose();}effects.length=0;
     renderer.clear();
@@ -528,6 +667,8 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     stop();
     for(const p of lightPools){p.geometry.dispose();p.material.map.dispose();p.material.dispose();}
     for(const m of arenaMedallions){m.geometry.dispose();m.material.map.dispose();m.material.dispose();}
+    laneGeometry.dispose();laneMaterial.dispose();
+    aimLine.geometry.dispose();aimMaterial.dispose();aimTip.geometry.dispose();aimTip.material.dispose();
     rimGeo.dispose();rimMat.dispose();renderer.dispose();renderer.domElement.remove();
   }
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();stop();
@@ -538,10 +679,13 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   return {start,stop,pause,resume,resize,dispose,get state(){
     const active=Array.from(entries.values()).filter(e=>e.hasCard);
     return {running,paused,cardCount:active.length,slotCount:entries.size,
-      illustrationRevision:29,
+      illustrationRevision:29,artIdentityRevision:31,
       proceduralArtCards:active.filter(e=>e.front.material.map?.image&&e.signature).length,
       visibleDomArtCards:active.filter(e=>e.artWell&&e.artWell.isConnected).length,
-      proceduralArtProfiles:active.filter(e=>e.hasCard).map(e=>({slot:e.id,profile:illustrationKind(cardInfo(document.querySelector('[data-slot="'+e.id+'"]'))||{kind:'',name:''})})),
+      proceduralArtProfiles:active.filter(e=>e.hasCard).map(e=>{
+        const info=cardInfo(document.querySelector('[data-slot="'+e.id+'"]'))||{kind:'',name:''};
+        return {slot:e.id,profile:illustrationKind(info),identity:artIdentity(info)};
+      }),
       hoveredCardCount:active.filter(e=>e.hovered).length,
       liftedCardCount:active.filter(e=>e.lift>3).length,
       maxLift:active.reduce((max,e)=>Math.max(max,e.lift),0),
@@ -552,7 +696,10 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       visibleHealthRatios:active.filter(e=>e.meterFill.visible).map(e=>({slot:e.id,ratio:e.hpRatio})),
       healthMeterRevision:27,
       frameRevision:24,battlefieldRevision:25,
-      arenaRevision:30,decorativeDomCount:ornamentHost?.children.length||0,
+      targetingRevision:33,targetGuideActive:aimActive,
+      targetGuidePath:aimPath?.getAttribute('d')||null,
+      arenaRevision:30,laneRevision:32,visibleLaneCount:laneCount,visibleLaneMeshes:laneMeshes.filter(m=>m.visible).length,
+      decorativeDomCount:ornamentHost?.children.length||0,
       visibleArenaMedallions:arenaTrim.visible?arenaMedallions.filter(x=>x.visible).length:0,
       cornerArtworkSources:arenaMedallions.length,
       battlefieldTrimCount:arenaTrim.visible?rimParts.length:0,
