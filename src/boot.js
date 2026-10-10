@@ -74,10 +74,17 @@
     }).filter(Boolean);
   }
   function modalClose(){
-    cinemaScene?.dispose();cinemaScene=null;
-    cinemaModal?.remove();cinemaModal=null;
+    // Clear the modal state before graphics disposal. GPU context errors or
+    // late texture callbacks must never strand the user behind an overlay.
+    const staleScene=cinemaScene,staleModal=cinemaModal;
+    cinemaScene=null;cinemaModal=null;
     cinemaCards=[];cinemaIndex=0;cinemaButton.disabled=false;
-    if(document.contains(cinemaButton))cinemaButton.focus({preventScroll:true});
+    try{staleScene?.dispose();}
+    catch(err){console.warn('Cinematic renderer cleanup failed:',err);}
+    finally{
+      staleModal?.remove();
+      if(document.contains(cinemaButton))cinemaButton.focus({preventScroll:true});
+    }
   }
   cinemaButton.addEventListener('click',async()=>{
     if(cinemaBusy||cinemaModal)return;
