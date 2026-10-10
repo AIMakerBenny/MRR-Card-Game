@@ -16,10 +16,11 @@ battlefield = (ROOT/'src/battlefield.js').read_text(encoding='utf-8')
 integrated = (ROOT/'src/integrated.js').read_text(encoding='utf-8')
 boot = (ROOT/'src/boot.js').read_text(encoding='utf-8')
 owner_art_registry, owner_art_ids = bundle(ROOT)
-assert '</script' not in integrated.lower() and '</script' not in scene.lower() and '</script' not in cinema.lower() and '</script' not in battlefield.lower() and '</script' not in boot.lower()
+card_art_identity = (ROOT/'src/card_art_identity.js').read_text(encoding='utf-8')
+assert '</script' not in integrated.lower() and '</script' not in scene.lower() and '</script' not in cinema.lower() and '</script' not in battlefield.lower() and '</script' not in boot.lower() and '</script' not in card_art_identity.lower()
 source = source.replace('<title>MARORONG CARD WAR · Phase 21 UI Fixed</title>', '<title>MARORONG CARD WAR · Phase 59 PC Owner Artwork Import</title>')
 source = source.replace('</head>',f'<style id="mcw3d-extension-css">\n{css}\n</style>\n</head>')
-source = source.replace('</body>', f'<script type="module" id="mcw3d-extension-js">\n{owner_art_registry}{scene}\n{cinema}\n{battlefield}\n{integrated}\n{boot}\n</script>\n</body>')
+source = source.replace('</body>', f'<script type="module" id="mcw3d-extension-js">\n{owner_art_registry}{card_art_identity}\n{scene}\n{cinema}\n{battlefield}\n{integrated}\n{boot}\n</script>\n</body>')
 output = ROOT/'Marorong_Card_War_Phase59_3D_Prototype.html'
 output.write_text(source, encoding='utf-8')
 # Retain the prior artifact path for pre-existing, unmodified regression scripts.
