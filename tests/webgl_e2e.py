@@ -13,13 +13,13 @@ assert (ROOT/'vendor/three.module.js').exists(), 'Three.js is not vendored: run 
 handler=partial(SimpleHTTPRequestHandler,directory=str(ROOT))
 server=ThreadingHTTPServer(('127.0.0.1',0),handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
-url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase26_3D_Prototype.html'
+url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase28_3D_Prototype.html'
 try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
         page=browser.new_page(viewport={'width':1920,'height':1080})
         # Reproducible opening hand, same seed as the existing placement smoke test.
-        page.add_init_script('''() => {let seed=198704;Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};}''')
+        page.add_init_script('''() => {let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};}''')
         errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
         page.goto(url,wait_until='domcontentloaded')
         page.locator('#newGame').click();page.locator('#launchGame').click()
@@ -37,12 +37,31 @@ try:
         # WebGL focus state. No test mutates the game's rules or hand directly.
         options=page.locator('.hand-slot').evaluate_all('''els=>els.map((e,i)=>({index:i,cost:Number(e.querySelector('.cost-bubble')?.textContent||99),isBoardCard:/type-(몬스터|시설|영웅유닛)/.test(e.querySelector('.card-ui')?.className||'')}))''')
         legal=[x for x in options if x['isBoardCard'] and x['cost']<=2]
-        assert legal,'Cannot test focus: no affordable field card'
+        # A randomized opening hand is not guaranteed to contain a cheap unit.
+        # Retry whole normal matches with explicit deterministic seeds; never
+        # insert a card into the engine or mutate card costs for test convenience.
+        for seed in range(198705,198725):
+            if legal:break
+            page.goto(url+f'?qa_seed={seed}',wait_until='domcontentloaded')
+            page.locator('#newGame').click();page.locator('#launchGame').click()
+            page.get_by_role('button',name='이 손패로 시작').click()
+            page.locator('#mcw3d-toggle').click()
+            page.wait_for_function('window.MCW3D?.status.renderer === "three" && MCW3D.scene.state.slotCount === 30',timeout=18000)
+            options=page.locator('.hand-slot').evaluate_all('''els=>els.map((e,i)=>({index:i,cost:Number(e.querySelector('.cost-bubble')?.textContent||99),isBoardCard:/type-(몬스터|시설|영웅유닛)/.test(e.querySelector('.card-ui')?.className||'')}))''')
+            legal=[x for x in options if x['isBoardCard'] and x['cost']<=2]
+        assert legal,'No affordable field card in 21 deterministic test openings'
         page.locator('.hand-slot').nth(legal[0]['index']).evaluate('(el)=>el.click()')
         targets=page.locator('.slot.legal')
         assert targets.count()>0,'No legal target for normal placement'
         targets.first.evaluate('(el)=>el.click()')
         page.wait_for_function('MCW3D.scene.state.cardCount === 1',timeout=8000)
+        # Phase27: only visible HP is mirrored; the meter is not a second game state.
+        actual=page.locator('.slot:has(.board-card) .hpbar > div').first
+        assert actual.count()==1, 'No public health bar on placed unit'
+        dom_ratio=actual.evaluate("e => parseFloat(e.style.width)/100")
+        shown=page.evaluate("MCW3D.scene.state.visibleHealthRatios")
+        assert page.evaluate("MCW3D.scene.state.healthMeterRevision === 27")
+        assert len(shown)==1 and abs(shown[0]['ratio']-dom_ratio)<.001,(shown,dom_ratio)
         # The selected card must remain actually visible in WebGL mode.
         assert page.locator('.slot:has(.board-card) .card-ui').first.evaluate(
             "el => Number(getComputedStyle(el).opacity) > 0.9"
