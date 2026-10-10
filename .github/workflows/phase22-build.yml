@@ -1,4 +1,4 @@
-name: Marorong Card War Phase54 Validation
+name: Marorong Card War Phase55 Validation
 on:
   push:
   pull_request:
@@ -19,7 +19,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run vendor
-      - name: Build phase 54
+      - name: Build phase 55
         run: python build.py
       - name: Install testing dependencies
         run: |
@@ -39,39 +39,41 @@ jobs:
         run: python tests/webgl_e2e.py
       - name: Real perspective cinematic browser regression
         run: python tests/cinema_e2e.py
-      - name: Phase54 full 3D battlefield Chromium WebGL and screenshots
+      - name: Phase55 full 3D battlefield Chromium WebGL and screenshots
         run: python tests/battlefield_e2e.py
-      - name: Phase54 3D card interaction, native input and targeting Chromium QA
+      - name: Phase55 3D card interaction, native input and targeting Chromium QA
         run: python tests/battlefield_interaction_e2e.py
-      - name: Phase54 native CSS combat events mirrored to real WebGL effects
+      - name: Phase55 native CSS combat events mirrored to real WebGL effects
         run: python tests/battlefield_native_fx_e2e.py
-      - name: Phase54 native-confirmed combat cinematic Chromium WebGL
+      - name: Phase55 native-confirmed combat cinematic Chromium WebGL
         run: python tests/battlefield_cinematics_e2e.py
-      - name: Phase54 real turn-cycle attack Chromium WebGL QA
+      - name: Phase55 real turn-cycle attack Chromium WebGL QA
         run: python tests/real_combat_e2e.py
-      - name: Phase54 illustrated card art and camera preset Chromium QA
+      - name: Phase55 illustrated card art and camera preset Chromium QA
         run: python tests/visual_quality_e2e.py
-      - name: Phase54 3D public HP and status Chromium QA
+      - name: Phase55 3D public HP and status Chromium QA
         run: python tests/health_hud_e2e.py
-      - name: Phase54 actual public-card magnifier Chromium QA
+      - name: Phase55 actual public-card magnifier Chromium QA
         run: python tests/card_magnifier_e2e.py
-      - name: Phase54 integrated full-screen native game Chromium QA
+      - name: Phase55 integrated full-screen native game Chromium QA
         run: python tests/integrated_gameplay_e2e.py
+      - name: Phase55 desktop tabletop art Chromium WebGL QA
+        run: python tests/desktop_tabletop_e2e.py
       - name: Collect downloadable build
         run: |
           mkdir -p dist
-          cp Marorong_Card_War_Phase54_3D_Prototype.html dist/index.html
+          cp Marorong_Card_War_Phase55_3D_Prototype.html dist/index.html
           mkdir -p dist/vendor
           cp vendor/three.module.js dist/vendor/three.module.js
           cp build-manifest.json dist/build-manifest.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Phase54-Browser-Screenshots
+          name: Phase55-Browser-Screenshots
           path: tests/*png
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
-          name: Marorong-Card-War-Phase54-3D
+          name: Marorong-Card-War-Phase55-3D
           path: dist/
           if-no-files-found: error
