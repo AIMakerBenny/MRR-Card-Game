@@ -4,9 +4,10 @@ from functools import partial
 from http.server import ThreadingHTTPServer,SimpleHTTPRequestHandler
 import tempfile,threading,struct,zlib
 from playwright.sync_api import sync_playwright
-from src.card_art_bundle import bundle,dimensions
-
+import sys
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
+from src.card_art_bundle import bundle,dimensions
 OUTPUT=ROOT/"Marorong_Card_War_Phase59_3D_Prototype.html"
 FIXTURE=ROOT/"Phase59_Artwork_QA_Fixture.html"
 
