@@ -1,0 +1,54 @@
+/* Phases60-63: PC card art, scene-first commands and restrained visual polish.
+   All changes are visual only; native engine is authoritative. */
+.card-ui .art-well:has(> .mrr-owner-art){background:#272c2d!important}
+.card-ui .art-well > .mrr-owner-art{
+  display:block;position:absolute;inset:0;width:100%;height:100%;
+  object-fit:contain;object-position:center;z-index:2;pointer-events:none;
+  user-select:none;filter:none;
+}
+.card-ui .art-well:has(> .mrr-owner-art) > .sigil-text{display:none!important}
+.card-ui .art-well:has(> .mrr-owner-art):after{z-index:3;pointer-events:none}
+@media(min-width:1024px){
+  /* The PC hand and public board show the same blank reserved art space until
+     an owner artwork exists. Keep native HTML cards and inputs untouched. */
+  body.mrr-integrated-active #hand .card-ui .art-well:not(:has(> .mrr-owner-art)){
+    background:#2b3335!important;
+  }
+  body.mrr-integrated-active #hand .card-ui .art-well:not(:has(> .mrr-owner-art)) .sigil-text{
+    visibility:hidden!important;
+  }
+  body.mrr-integrated-active #hand .hand-slot .card-ui{border-radius:10px!important}
+  body.mrr-integrated-active #hand .hand-slot:hover .card-ui{
+    filter:brightness(1.07);transition:filter .13s ease,box-shadow .13s ease;
+  }
+  /* Light contextual card commands, anchored to the selected real 3D mesh.
+     The empty container is pass-through so no board slot loses clicks. */
+  #mrr-integrated-context{
+    position:absolute;left:50%;top:50%;z-index:8;
+    display:flex;align-items:center;gap:5px;white-space:nowrap;
+    pointer-events:none;transform:translateY(-50%);
+    filter:drop-shadow(0 6px 12px #0b0806cb);
+  }
+  #mrr-integrated-context[hidden]{display:none!important}
+  #mrr-integrated-context button{
+    pointer-events:auto;min-height:32px;height:32px;padding:3px 11px;
+    border-radius:17px;border:1px solid #c6ab78ba;
+    background:linear-gradient(160deg,#322518f5,#1a1b1ae9);
+    color:#f5dfb4;font:600 12px 'Malgun Gothic',sans-serif;
+    box-shadow:inset 0 1px 0 #fff1cd3b,0 3px 9px #0009;
+    cursor:pointer;
+  }
+  #mrr-integrated-context button:hover{border-color:#ffe0a2;background:#4c3524f6}
+  #mrr-integrated-context button:focus-visible{outline:2px solid #f9d28d;outline-offset:2px}
+  body.mrr-integrated-active #mrr-integrated-actions button:not(#mrr-integrated-exit){
+    opacity:.72;
+  }
+  body.mrr-integrated-active #mrr-integrated-actions button:not(#mrr-integrated-exit):hover{
+    opacity:1;
+  }
+}
+@media(max-width:1023px){#mrr-integrated-context{display:none!important}}
+@media(prefers-reduced-motion:reduce){
+  #mrr-integrated-context,#mrr-integrated-context button,
+  body.mrr-integrated-active #hand .hand-slot:hover .card-ui{transition:none!important}
+}

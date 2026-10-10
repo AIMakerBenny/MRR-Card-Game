@@ -93,6 +93,11 @@ try:
       hand_item=page.locator('#hand .hand-slot').nth(chosen['i'])
       assert hand_item.locator('.card-name').inner_text().strip()==chosen['name']
       assert hand_item.locator('.card-ui').get_attribute('data-mrr-public-card-id')==card_id
+      # Phase60: the same owner-supplied image must appear in the actual
+      # native hand, not only as a texture on the 3D battlefield.
+      assert hand_item.locator('.mrr-owner-art').count()==1
+      assert hand_item.locator('.mrr-owner-art').evaluate(
+        'img=>img.getAttribute("src").startsWith("data:image/png;base64,")')
       before=page.evaluate("""() => {
         let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);
       }""")
@@ -113,6 +118,7 @@ try:
         !!document.querySelector('#arena [data-slot="'+key+'"] .board-card')""",
         arg=key,timeout=9000)
       assert page.locator('#arena [data-slot="'+key+'"] .card-ui').get_attribute('data-mrr-public-card-id')==card_id
+      assert page.locator('#arena [data-slot="'+key+'"] .mrr-owner-art').count()==1
       page.wait_for_function('MRRIntegrated.state.scene.artworkLoadedCount>=1',timeout=12000)
       assert page.evaluate('MRRIntegrated.state.scene.publicCardCount')>=1
       assert page.evaluate("""() => {

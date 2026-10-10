@@ -974,7 +974,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     for(const c of cards){
       const hover=c.key===hoveredKey;
-      c.group.scale.setScalar(hover?1.26:1);
+      c.group.scale.setScalar(tabletop?(hover?1.36:1.16):(hover?1.26:1));
       if(frozen)c.group.position.y=1.76+(hover?.78:0);
     }
     advanceEffects(time);
@@ -997,7 +997,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const slot=target?boardSlots.get(target):null;
     focusX=slot?.x||0;
     focusZ=slot?.z||(preset==='ally'?5.6:preset==='enemy'?-5.6:0);
-    distance=preset==='tabletop'?29.6:preset==='all'?29:preset==='selected'?11.5:18.5;
+    distance=preset==='tabletop'?28.8:preset==='all'?29:preset==='selected'?11.5:18.5;
     updateCamera();return true;
   }
   function resetCamera(){setCameraPreset('all');}
@@ -1033,6 +1033,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       previewRevision:53,previewReadyCards:cardIndex.size,
       artworkSlotRevision:tabletop?58:0,
       artworkImportRevision:tabletop?59:0,
+      pcLegibilityRevision:tabletop?64:0,pcCardScale:tabletop?1.16:1,
       artworkEmbeddedCount:tabletop?Object.keys(window.MRRCardArtRegistry?.assets||{}).length:0,
       artworkLoadedCount:tabletop?cards.filter(c=>c.face.material.map?.userData.artLoaded).length:0,artworkSlotResolution:tabletop?'1200x960':null,
       artworkSlotBounds:tabletop?{...pcArtSlot}:null,
