@@ -13,7 +13,7 @@ assert (ROOT/'vendor/three.module.js').exists(), 'Three.js is not vendored: run 
 handler=partial(SimpleHTTPRequestHandler,directory=str(ROOT))
 server=ThreadingHTTPServer(('127.0.0.1',0),handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
-url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase31_3D_Prototype.html'
+url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase32_3D_Prototype.html'
 try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
@@ -78,6 +78,8 @@ try:
         assert page.evaluate("MCW3D.scene.state.arenaRevision===30 && MCW3D.scene.state.cornerArtworkSources===4 && MCW3D.scene.state.visibleArenaMedallions===4 && MCW3D.scene.state.decorativeDomCount===4"),'Phase30 arena corner decorations missing'
         assert page.locator('#mcw30-arena-ornaments .mcw30-corner').count()==4
         assert page.locator('#mcw30-arena-ornaments').evaluate("e=>getComputedStyle(e).pointerEvents==='none'"),'Arena accents intercept clicks'
+        assert page.evaluate("MCW3D.scene.state.laneRevision===32 && MCW3D.scene.state.visibleLaneCount>0 && MCW3D.scene.state.visibleLaneCount===MCW3D.scene.state.visibleLaneMeshes"),'Phase32 battlefield lane inlays missing'
+        assert page.locator('#mcw32-lane-inlays').evaluate("e=>getComputedStyle(e).pointerEvents==='none'"),'Lane inlays intercept input'
         before_focus=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         # Newly placed cards may remain selected. Their idle height is 10,
         # whereas a true hover must raise only that card to height 18.
@@ -131,6 +133,7 @@ try:
         page.locator('#mcw3d-toggle').click()
         page.wait_for_function("MCW3D.status.renderer === 'legacy'")
         assert page.locator('#mcw30-arena-ornaments').count()==0,'Arena ornaments not removed with WebGL'
+        assert page.locator('#mcw32-lane-inlays').count()==0,'Lane inlays not removed with WebGL'
         assert not page.locator('.slot:has(.board-card) .art-well').first.evaluate(
             "el => getComputedStyle(el).backgroundImage.includes('data:image/png')"
         ),'Turning off Three.js left behind generated art'

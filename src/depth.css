@@ -149,3 +149,19 @@ body.mcw-three-ready #mcw30-arena-ornaments .mcw30-corner-1{top:10px;right:10px}
 body.mcw-three-ready #mcw30-arena-ornaments .mcw30-corner-2{bottom:10px;left:10px}
 body.mcw-three-ready #mcw30-arena-ornaments .mcw30-corner-3{bottom:10px;right:10px}
 @media(max-width:760px){body.mcw-three-ready #mcw30-arena-ornaments{display:none}}
+
+/* Phase32 - thin inlays between battle rows, no card/command overlays. */
+body.mcw-three-ready #mcw32-lane-inlays{
+  position:absolute;inset:0;pointer-events:none;z-index:4;overflow:hidden;user-select:none;
+}
+body.mcw-three-ready #mcw32-lane-inlays .mcw32-lane{
+  position:absolute;height:2px;transform:translateY(-50%);
+  background:linear-gradient(90deg,transparent,rgba(198,174,121,.48) 24%,rgba(213,195,149,.72) 50%,rgba(198,174,121,.48) 76%,transparent);
+  box-shadow:0 1px 4px rgba(214,171,85,.17);pointer-events:none;
+}
+body.mcw-three-ready #mcw32-lane-inlays .mcw32-lane::after{
+  content:"";position:absolute;top:50%;left:50%;width:6px;height:6px;
+  transform:translate(-50%,-50%) rotate(45deg);
+  border:1px solid rgba(234,197,125,.6);background:rgba(29,49,51,.75);
+}
+@media(max-width:760px){body.mcw-three-ready #mcw32-lane-inlays{display:none}}

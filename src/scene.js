@@ -57,6 +57,40 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
 
   // Phase30: four small corner medallions, away from logical card slots.
   // Canvas-based, optional visuals only; no game-state access or hit targets.
+  // Phase32 floor inlays follow the four visible combat rows.
+  // Decoration-only DOM and Three.js meshes never become input surfaces.
+  const laneMaterial=new THREE.MeshBasicMaterial({color:0xc9a66a,transparent:true,opacity:.18,depthWrite:false,side:THREE.DoubleSide});
+  const laneGeometry=new THREE.PlaneGeometry(1,1);
+  const laneMeshes=Array.from({length:3},()=>{const mesh=new THREE.Mesh(laneGeometry,laneMaterial);scene.add(mesh);mesh.visible=false;return mesh;});
+  let laneHost=null,laneCount=0;
+  function clearLanes(){laneHost?.remove();laneHost=null;laneCount=0;for(const m of laneMeshes)m.visible=false;}
+  function syncLanes(arenaRect){
+    const rows=Array.from(document.querySelectorAll('#fieldTable .board-row')).map(n=>n.getBoundingClientRect())
+      .filter(r=>r.width>40&&r.height>15).sort((a,b)=>a.top-b.top);
+    if(!arenaRect||rows.length<2){clearLanes();return;}
+    const count=Math.min(3,rows.length-1);
+    if(!laneHost||!laneHost.isConnected){
+      laneHost=document.createElement('div');laneHost.id='mcw32-lane-inlays';
+      laneHost.setAttribute('aria-hidden','true');
+      document.querySelector('#arena')?.appendChild(laneHost);
+    }
+    while(laneHost.childElementCount<count){const e=document.createElement('i');e.className='mcw32-lane';laneHost.appendChild(e);}
+    while(laneHost.childElementCount>count)laneHost.lastElementChild.remove();
+    for(let i=0;i<laneMeshes.length;i++){
+      const m=laneMeshes[i];m.visible=i<count;
+      if(i>=count)continue;
+      const a=rows[i],b=rows[i+1];
+      // Restrict markers to the gap, never draw over actual card contents.
+      const y=Math.max(arenaRect.top+9,Math.min(arenaRect.bottom-9,(a.bottom+b.top)/2));
+      const x=Math.max(arenaRect.left+35,a.left+35);
+      const end=Math.min(arenaRect.right-35,a.right-35);
+      const w=Math.max(0,end-x);
+      laneHost.children[i].style.cssText='left:'+Math.round(x-arenaRect.left)+'px;top:'+Math.round(y-arenaRect.top)+'px;width:'+Math.round(w)+'px';
+      m.position.set(x+w/2,height-y,-45);m.scale.set(w,1.5,1);
+      m.visible=w>60;
+    }
+    laneCount=count;
+  }
   let ornamentHost=null;
   function mountOrnaments(){
     const arena=document.querySelector('#arena');
@@ -404,7 +438,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     const node=document.querySelector('#arena');
     const r=node?.getBoundingClientRect();
     if(!r||r.width<160||r.height<100){arenaTrim.visible=false;return;}
-    arenaTrim.visible=true;mountOrnaments();
+    arenaTrim.visible=true;mountOrnaments();syncLanes(r);
     const cx=r.left+r.width/2,cy=height-r.top-r.height/2;
     const w=Math.max(0,r.width-24),h=Math.max(0,r.height-24);
     arenaTrim.position.set(cx,cy,-60);
@@ -561,7 +595,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     }
     raf=requestAnimationFrame(frame);
   }
-  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;clearOrnaments();
+  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;clearOrnaments();clearLanes();
     for(const id of Array.from(entries.keys()))removeEntry(id);
     for(const fx of effects){scene.remove(fx.mesh);fx.mesh.geometry.dispose();fx.mesh.material.dispose();}effects.length=0;
     renderer.clear();
@@ -572,6 +606,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     stop();
     for(const p of lightPools){p.geometry.dispose();p.material.map.dispose();p.material.dispose();}
     for(const m of arenaMedallions){m.geometry.dispose();m.material.map.dispose();m.material.dispose();}
+    laneGeometry.dispose();laneMaterial.dispose();
     rimGeo.dispose();rimMat.dispose();renderer.dispose();renderer.domElement.remove();
   }
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();stop();
@@ -599,7 +634,8 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       visibleHealthRatios:active.filter(e=>e.meterFill.visible).map(e=>({slot:e.id,ratio:e.hpRatio})),
       healthMeterRevision:27,
       frameRevision:24,battlefieldRevision:25,
-      arenaRevision:30,decorativeDomCount:ornamentHost?.children.length||0,
+      arenaRevision:30,laneRevision:32,visibleLaneCount:laneCount,visibleLaneMeshes:laneMeshes.filter(m=>m.visible).length,
+      decorativeDomCount:ornamentHost?.children.length||0,
       visibleArenaMedallions:arenaTrim.visible?arenaMedallions.filter(x=>x.visible).length:0,
       cornerArtworkSources:arenaMedallions.length,
       battlefieldTrimCount:arenaTrim.visible?rimParts.length:0,
