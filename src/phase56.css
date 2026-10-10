@@ -90,3 +90,13 @@
   body.mrr-integrated-active #mrr-integrated-actions{right:12px;bottom:100px}
   body.mrr-integrated-active #mrr-integrated-hint{font-size:10px}
 }
+
+
+/* Phase56: while a native hand placement is selected, tuck fan beneath the
+   legal near-side slots. Keep actual card clicks enabled and all native rules.
+   The canvas remains the only way to choose a projected legal target. */
+@media (min-width:1024px) and (min-height:700px){
+  body.mrr-integrated-active #gameScreen:has(#arena .slot.legal) .hand-wrap{
+    bottom:calc(clamp(68px,10.3vh,112px) - var(--fc-hand-h))!important;
+  }
+}
