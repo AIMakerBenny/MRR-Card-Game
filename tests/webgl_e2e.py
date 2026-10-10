@@ -13,7 +13,7 @@ assert (ROOT/'vendor/three.module.js').exists(), 'Three.js is not vendored: run 
 handler=partial(SimpleHTTPRequestHandler,directory=str(ROOT))
 server=ThreadingHTTPServer(('127.0.0.1',0),handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
-url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase26_3D_Prototype.html'
+url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase27_3D_Prototype.html'
 try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
@@ -43,6 +43,13 @@ try:
         assert targets.count()>0,'No legal target for normal placement'
         targets.first.evaluate('(el)=>el.click()')
         page.wait_for_function('MCW3D.scene.state.cardCount === 1',timeout=8000)
+        # Phase27: only visible HP is mirrored; the meter is not a second game state.
+        actual=page.locator('.slot:has(.board-card) .hpbar > div').first
+        assert actual.count()==1, 'No public health bar on placed unit'
+        dom_ratio=actual.evaluate("e => parseFloat(e.style.width)/100")
+        shown=page.evaluate("MCW3D.scene.state.visibleHealthRatios")
+        assert page.evaluate("MCW3D.scene.state.healthMeterRevision === 27")
+        assert len(shown)==1 and abs(shown[0]['ratio']-dom_ratio)<.001,(shown,dom_ratio)
         # The selected card must remain actually visible in WebGL mode.
         assert page.locator('.slot:has(.board-card) .card-ui').first.evaluate(
             "el => Number(getComputedStyle(el).opacity) > 0.9"

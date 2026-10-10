@@ -70,9 +70,13 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     if(!card)return null;
     const get=(selector)=>card.querySelector(selector)?.textContent?.trim()||'';
     const status=slot.querySelector('.status-chip')?.textContent?.trim()||'';
+    // Read only the public HP bar already visible on the field.
+    const publicHp=slot.querySelector('.hpbar > div');
+    const hpRaw=publicHp?Number.parseFloat(publicHp.style.width):NaN;
+    const hpRatio=Number.isFinite(hpRaw)?Math.max(0,Math.min(1,hpRaw/100)):null;
     const name=get('.card-name'),kind=get('.card-kind')||card.className,
       cost=get('.cost-bubble'),stats=get('.card-stats'),sigil=get('.sigil-text');
-    return {name,kind,cost,stats,sigil,status,signature:[name,kind,cost,stats,sigil,status].join('|')};
+    return {name,kind,cost,stats,sigil,status,hpRatio,signature:[name,kind,cost,stats,sigil,status].join('|')};
   }
   function rounded(ctx,x,y,w,h,r){
     const rr=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+rr,y);ctx.lineTo(x+w-rr,y);
@@ -161,11 +165,21 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     front.position.z=13.2;group.add(front);
     const shadow=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.28,depthWrite:false}));
     shadow.position.set(5,-8,4);group.add(shadow);
+    // Phase27: visual-only health trim derives from the existing public DOM HP bar.
+    // It never mutates HP and never reads hand/deck/hidden opponent information.
+    const meterBg=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+      new THREE.MeshBasicMaterial({color:0x18252a,transparent:true,opacity:.86,depthWrite:false}));
+    const meterFill=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+      new THREE.MeshBasicMaterial({color:0x7fe0a3,transparent:true,opacity:.95,depthWrite:false}));
+    meterBg.position.z=18;meterFill.position.z=19;
+    group.add(meterBg,meterFill);
+    meterBg.visible=meterFill.visible=false;
     // The focus glow belongs to the visual card only, never to the original hit target.
     const halo=new THREE.Mesh(new THREE.RingGeometry(.68,.77,48),
       new THREE.MeshBasicMaterial({color:0xffe3a0,transparent:true,opacity:.68,side:THREE.DoubleSide,depthWrite:false}));
     halo.position.z=12.6;halo.visible=false;group.add(halo);
-    const entry={id,group,plate,edge,front,shadow,halo,signature:null,hasCard:false,prevEffect:'',
+    const entry={id,group,plate,edge,front,shadow,halo,meterBg,meterFill,hpRatio:null,
+      signature:null,hasCard:false,prevEffect:'',
       position:new THREE.Vector3(),lift:0,targetLift:0,hovered:false,selected:false};
     entries.set(id,entry);return entry;
   }
@@ -174,6 +188,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     e.plate.material.dispose();e.edge.material.forEach(m=>m.dispose());
     e.shadow.material.dispose();e.shadow.geometry.dispose();
     e.halo.material.dispose();e.halo.geometry.dispose();
+    for(const m of [e.meterBg,e.meterFill]){m.material.dispose();m.geometry.dispose();}
     scene.remove(e.group);entries.delete(id);}
   // Phase 26: predictable VFX only. No damage/healing/target calculations here.
   // A single game visual class starts a distinct material effect. Entries expire
@@ -243,6 +258,18 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
         const cr=rectOf(card);const cw=Math.max(26,cr.w),ch=Math.max(38,cr.h);
         e.hasCard=true;e.edge.visible=e.front.visible=e.shadow.visible=true;
         e.edge.scale.set(cw,ch,6);e.front.scale.set(cw-6,ch-7,1);e.shadow.scale.set(cw,ch,1);
+        e.hpRatio=info.hpRatio;
+        const showMeter=info.hpRatio!==null;
+        e.meterBg.visible=e.meterFill.visible=showMeter;
+        if(showMeter){
+          const barWidth=Math.min(cw*.82,90),barHeight=3.5;
+          const valueWidth=Math.max(.001,barWidth*info.hpRatio);
+          const y=-ch*.5-5;
+          e.meterBg.scale.set(barWidth,barHeight,1);e.meterBg.position.set(0,y,18);
+          e.meterFill.scale.set(valueWidth,barHeight,1);
+          e.meterFill.position.set(-barWidth*.5+valueWidth*.5,y,19);
+          e.meterFill.material.color.set(info.hpRatio<=.25?0xf19b79:info.hpRatio<=.5?0xe8c17d:0x7fe0a3);
+        }
         e.group.position.set(cr.x,cr.y,9);
         e.plate.position.set(r.x-cr.x,r.y-cr.y,-4);
         if(e.signature!==info.signature){
@@ -261,6 +288,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       }else{
         e.signature=null;e.hasCard=false;e.edge.visible=e.front.visible=e.shadow.visible=false;
         e.lift=e.targetLift=0;e.hovered=e.selected=false;e.halo.visible=false;
+        e.meterBg.visible=e.meterFill.visible=false;e.hpRatio=null;
         e.plate.position.set(0,0,0);e.group.position.set(r.x,r.y,3);
       }
       const fx=['fx-hit','fx-heal','fx-summon'].find(x=>slot.classList.contains(x))||'';
@@ -362,6 +390,9 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       maxTargetLift:active.reduce((max,e)=>Math.max(max,e.targetLift),0),
       focusedSlot:active.find(e=>e.hovered)?.id||null,
       decoratedCards:active.filter(e=>e.front.material.map&&e.signature).length,
+      publicHealthMeterCount:active.filter(e=>e.meterFill.visible).length,
+      visibleHealthRatios:active.filter(e=>e.meterFill.visible).map(e=>({slot:e.id,ratio:e.hpRatio})),
+      healthMeterRevision:27,
       frameRevision:24,battlefieldRevision:25,
       battlefieldTrimCount:arenaTrim.visible?rimParts.length:0,
       battlefieldLightPoolCount:arenaTrim.visible?lightPools.length:0,
