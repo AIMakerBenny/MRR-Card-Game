@@ -224,6 +224,8 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     e.artWell.style.backgroundImage=e.artOriginal.backgroundImage;
     e.artWell.style.backgroundSize=e.artOriginal.backgroundSize;
     e.artWell.style.backgroundPosition=e.artOriginal.backgroundPosition;
+    e.artWell.style.removeProperty('--mcw-procedural-paint');
+    e.artWell.classList.remove('mcw-art-painted');
     e.artWell=null;e.artOriginal=null;e.artURL=null;
   }
   function exposeArt(e,card){
@@ -237,8 +239,11 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
         backgroundSize:well.style.backgroundSize,backgroundPosition:well.style.backgroundPosition};
     }
     const art=e.front.material.map?.userData?.artUrl;
-    if(art&&e.artURL!==art){well.style.backgroundImage='url("'+art+'")';
-      well.style.backgroundSize='cover';well.style.backgroundPosition='center';e.artURL=art;}
+    if(art&&e.artURL!==art){
+      well.style.setProperty('--mcw-procedural-paint','url("'+art+'")');
+      well.classList.add('mcw-art-painted');
+      e.artURL=art;
+    }
   }
   function makeEntry(id){
     const group=new THREE.Group();scene.add(group);

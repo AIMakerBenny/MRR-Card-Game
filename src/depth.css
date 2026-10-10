@@ -115,3 +115,15 @@ body:is(.mcw-three-ready,.mcw-depth-fallback) #enemyHand .mcw-back::after{
   body:is(.mcw-three-ready,.mcw-depth-fallback) #hand .hand-slot .card-ui,
   body:is(.mcw-three-ready,.mcw-depth-fallback) #enemyHand .mcw-back{transition:none!important}
 }
+
+/* Phase29: the legacy card uses an !important art background. Scope the
+   illustrated override exclusively to generated, active WebGL cards. */
+body.mcw-three-ready #arenaInner .board-card .art-well.mcw-art-painted{
+  background-image:var(--mcw-procedural-paint)!important;
+  background-size:cover!important;
+  background-position:center!important;
+}
+body.mcw-three-ready #arenaInner .board-card .art-well.mcw-art-painted .mcw-role,
+body.mcw-three-ready #arenaInner .board-card .art-well.mcw-art-painted .sigil-text{
+  opacity:.35;
+}
