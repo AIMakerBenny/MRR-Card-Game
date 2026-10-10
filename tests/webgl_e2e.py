@@ -19,7 +19,7 @@ try:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
         page=browser.new_page(viewport={'width':1920,'height':1080})
         # Reproducible opening hand, same seed as the existing placement smoke test.
-        page.add_init_script('''() => {let seed=198704;Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};}''')
+        page.add_init_script('''() => {let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};}''')
         errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
         page.goto(url,wait_until='domcontentloaded')
         page.locator('#newGame').click();page.locator('#launchGame').click()
@@ -37,7 +37,19 @@ try:
         # WebGL focus state. No test mutates the game's rules or hand directly.
         options=page.locator('.hand-slot').evaluate_all('''els=>els.map((e,i)=>({index:i,cost:Number(e.querySelector('.cost-bubble')?.textContent||99),isBoardCard:/type-(몬스터|시설|영웅유닛)/.test(e.querySelector('.card-ui')?.className||'')}))''')
         legal=[x for x in options if x['isBoardCard'] and x['cost']<=2]
-        assert legal,'Cannot test focus: no affordable field card'
+        # A randomized opening hand is not guaranteed to contain a cheap unit.
+        # Retry whole normal matches with explicit deterministic seeds; never
+        # insert a card into the engine or mutate card costs for test convenience.
+        for seed in range(198705,198725):
+            if legal:break
+            page.goto(url+f'?qa_seed={seed}',wait_until='domcontentloaded')
+            page.locator('#newGame').click();page.locator('#launchGame').click()
+            page.get_by_role('button',name='이 손패로 시작').click()
+            page.locator('#mcw3d-toggle').click()
+            page.wait_for_function('window.MCW3D?.status.renderer === "three" && MCW3D.scene.state.slotCount === 30',timeout=18000)
+            options=page.locator('.hand-slot').evaluate_all('''els=>els.map((e,i)=>({index:i,cost:Number(e.querySelector('.cost-bubble')?.textContent||99),isBoardCard:/type-(몬스터|시설|영웅유닛)/.test(e.querySelector('.card-ui')?.className||'')}))''')
+            legal=[x for x in options if x['isBoardCard'] and x['cost']<=2]
+        assert legal,'No affordable field card in 21 deterministic test openings'
         page.locator('.hand-slot').nth(legal[0]['index']).evaluate('(el)=>el.click()')
         targets=page.locator('.slot.legal')
         assert targets.count()>0,'No legal target for normal placement'
