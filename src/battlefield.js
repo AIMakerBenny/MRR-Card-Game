@@ -817,9 +817,9 @@ window.MRRBattlefieldUIInit=function(loadThree){
         if(pinnedKey){
           pinnedKey=null;pinPreview.setAttribute('aria-pressed','false');
           pinPreview.textContent='확대 고정';
-          renderZoom(view?.state.hoveredKey||view?.state.selectedKey);
+          renderZoom(view?.state.hoveredKey||view?.state.selectedKey||previewKey);
         }else{
-          const key=view?.state.hoveredKey||view?.state.selectedKey;
+          const key=view?.state.hoveredKey||view?.state.selectedKey||previewKey;
           if(!key||!view?.hasCard(key))return;
           pinnedKey=key;pinPreview.setAttribute('aria-pressed','true');
           pinPreview.textContent='고정 해제';renderZoom(key);
@@ -836,12 +836,13 @@ window.MRRBattlefieldUIInit=function(loadThree){
       moveCard.addEventListener('click',()=>runNativeAction('button[data-actor="move"]'));
       cancelAction.addEventListener('click',()=>runNativeAction('button[data-cancel-action]'));
       function updateCommands(info){
+        if(previewKey&&!view?.hasCard(previewKey))renderZoom(null);
         if(pinnedKey&&!view?.hasCard(pinnedKey)){
           pinnedKey=null;pinPreview.setAttribute('aria-pressed','false');
           pinPreview.textContent='확대 고정';
         }
-        pinPreview.disabled=!(view?.hasCard(info.hoveredKey)||view?.hasCard(info.selectedKey));
-        if(!pinnedKey&&(info.hoveredKey||info.selectedKey)!==previewKey){
+        pinPreview.disabled=!(pinnedKey||view?.hasCard(info.hoveredKey)||view?.hasCard(info.selectedKey)||view?.hasCard(previewKey));
+        if(!pinnedKey&&(info.hoveredKey||info.selectedKey)&&(info.hoveredKey||info.selectedKey)!==previewKey){
           renderZoom(info.hoveredKey||info.selectedKey);
         }
         if(combatFeed.classList.contains('active')&&performance.now()-Number(combatFeed.dataset.since)>1650){combatFeed.classList.remove('active');}
@@ -874,7 +875,7 @@ window.MRRBattlefieldUIInit=function(loadThree){
         view.refreshHover(key);
       }
       function describeHover(key,profile){
-        if(!pinnedKey)renderZoom(view?.hasCard(key)?key:view?.state.selectedKey);
+        if(!pinnedKey&&(view?.hasCard(key)||view?.hasCard(view?.state.selectedKey)))renderZoom(view?.hasCard(key)?key:view?.state.selectedKey);
         if(!key||!profile){cardTip.classList.remove('visible');cardTip.textContent='';return;}
         const legal=profile.target?'공격 가능 대상':profile.legal?'합법적 대상 또는 위치':'';
         cardTip.replaceChildren();
