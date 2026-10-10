@@ -21,11 +21,6 @@ try:
       Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
     })();""")
     url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase63_3D_Prototype.html'
-    page.goto(url+'?qa_seed=198708')
-    page.locator('#newGame').click()
-    page.locator('#modeSelect').select_option('local')
-    page.locator('#launchGame').click()
-    page.get_by_role('button',name='이 손패로 시작').click()
     def affordable():
       return page.locator('.hand-slot').evaluate_all("""els=>els.map((e,i)=>{
         const c=e.querySelector('.card-ui'),kind=c?.querySelector('.card-kind')?.textContent||'';
@@ -36,21 +31,34 @@ try:
       }).filter(x=>x.unit && x.attack>0 && x.cost<=2)""")
     def set_unit(side):
       units=affordable()
-      assert units,('No affordable unit',side)
+      if not units:return None
       page.locator('.hand-slot').nth(units[0]['i']).evaluate('e=>e.click()')
       key=page.locator(f'#arena [data-slot^="{side}:front:"].legal').first.get_attribute('data-slot')
       assert key
       page.locator('#arena [data-slot="'+key+'"]').evaluate('e=>e.click()')
       assert page.locator('#arena [data-slot="'+key+'"] .board-card').count()==1
       return key
-    my_key=set_unit(0)
-    page.locator('#turnDock #endTurn').evaluate('e=>e.click()')
-    page.wait_for_selector('#passContinue')
-    page.locator('#passContinue').click()
-    their_key=set_unit(1)
-    page.locator('#turnDock #endTurn').evaluate('e=>e.click()')
-    page.wait_for_selector('#passContinue')
-    page.locator('#passContinue').click()
+    # A legal opening hand is seed-dependent; reproduce a real match rather
+    # than assuming one particular shuffled deal always has two cheap units.
+    my_key=their_key=None
+    for seed in range(198704,198780):
+      page.goto(url+f'?qa_seed={seed}',wait_until='domcontentloaded')
+      page.locator('#newGame').click()
+      page.locator('#modeSelect').select_option('local')
+      page.locator('#launchGame').click()
+      page.get_by_role('button',name='이 손패로 시작').click()
+      my_key=set_unit(0)
+      if not my_key:continue
+      page.locator('#turnDock #endTurn').evaluate('e=>e.click()')
+      page.wait_for_selector('#passContinue')
+      page.locator('#passContinue').click()
+      their_key=set_unit(1)
+      if not their_key:continue
+      page.locator('#turnDock #endTurn').evaluate('e=>e.click()')
+      page.wait_for_selector('#passContinue')
+      page.locator('#passContinue').click()
+      break
+    assert my_key and their_key,'Unable to establish a real two-unit local match'
     assert page.evaluate('G.current===0 && G.players[0].turns>1')
     page.locator('#mrr-integrated-open').click()
     page.wait_for_function('MRRIntegrated.state.open && MRRIntegrated.state.scene.frames>3',timeout=25000)
