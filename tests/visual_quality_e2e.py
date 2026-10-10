@@ -1,4 +1,4 @@
-"""Phase51: real Chromium screenshots of unique drawn card archetypes and four 3D camera presets."""
+"""Phase52: real Chromium screenshots of unique drawn card archetypes and four 3D camera presets."""
 from pathlib import Path
 from functools import partial
 from http.server import ThreadingHTTPServer,SimpleHTTPRequestHandler
@@ -19,7 +19,7 @@ try:
       let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;
       Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
     }''')
-    base=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase51_3D_Prototype.html'
+    base=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase52_3D_Prototype.html'
     options=[]
     for seed in range(198704,198730):
       page.goto(base+f'?qa_seed={seed}')
@@ -45,7 +45,7 @@ try:
     assert s['illustrationArchetypes'][0] in ['fortress','ship','mage','archer','beast','warrior'],s
     assert s['cameraPreset']=='all'
     assert s['slotCount']==30 and s['pickableCount']>=30
-    page.screenshot(path=str(ROOT/'tests/phase51_illustrated_3d_cards_fhd.png'))
+    page.screenshot(path=str(ROOT/'tests/phase52_illustrated_3d_cards_fhd.png'))
     # Change real 3D camera presets using accessible DOM buttons.
     for preset,expectedZ in [('ally',5.6),('enemy',-5.6)]:
       page.locator('#mrr-view-'+preset).click()
@@ -53,7 +53,7 @@ try:
       state=page.evaluate('MRRBattlefield.state.scene')
       assert abs(state['focusZ']-expectedZ)<.01,state
       assert page.locator('#mrr-view-'+preset).get_attribute('aria-pressed')=='true'
-      page.screenshot(path=str(ROOT/f'tests/phase51_camera_{preset}.png'))
+      page.screenshot(path=str(ROOT/f'tests/phase52_camera_{preset}.png'))
     page.locator('#mrr-view-all').click()
     assert page.evaluate('MRRBattlefield.state.scene.distance')==29
     # Select a public card using its true WebGL projected coordinates.
@@ -66,7 +66,7 @@ try:
     assert focused['focusKey']==loc and focused['distance']==11.5
     assert page.locator('#mrr-view-selected').get_attribute('aria-pressed')=='true'
     assert page.evaluate('MRRBattlefield.state.scene.cardMeshCount')>=1
-    page.screenshot(path=str(ROOT/'tests/phase51_selected_card_3d_closeup.png'))
+    page.screenshot(path=str(ROOT/'tests/phase52_selected_card_3d_closeup.png'))
     page.locator('#mrr-battlefield-reset').click()
     assert page.evaluate('MRRBattlefield.state.scene.cameraPreset')=='all'
     assert page.evaluate('MRRBattlefield.state.scene.focusX')==0
@@ -76,7 +76,7 @@ try:
     assert page.locator('#mrr-battlefield-viewpoints button').count()==4
     assert page.evaluate('MRRBattlefield.state.scene.cardMeshCount')>=1
     assert page.locator('#mrr-battlefield-stage canvas').evaluate('e=>e.width>100 && e.height>100')
-    page.screenshot(path=str(ROOT/'tests/phase51_mobile_illustrated_3d_battlefield.png'))
+    page.screenshot(path=str(ROOT/'tests/phase52_mobile_illustrated_3d_battlefield.png'))
     page.locator('#mrr-battlefield-close').click()
     assert not page.evaluate('MRRBattlefield.state.open')
     assert page.evaluate('MRRBattlefield.scene===null')
