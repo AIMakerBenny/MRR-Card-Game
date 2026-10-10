@@ -66,11 +66,15 @@ try:
     # visual() is the unchanged original engine's event-emitting helper, not
     # an attack resolution. The resulting FX must be clearly gated.
     page.evaluate('''key => {const [o,row,c]=key.split(':'); visual('hit',Number(o),row,Number(c));}''',target)
+    # The banner is intentionally transient: observe its activation immediately
+    # after the native signal, before later GPU-frame assertions can outlive it.
+    page.wait_for_function("document.querySelector('#mrr-battlefield-combat-feed.active')?.dataset.kind==='hit'",timeout=7000)
     page.wait_for_function('MRRBattlefield.state.scene.confirmedStrikes===1',timeout=7000)
     page.wait_for_function('MRRBattlefield.state.scene.liveStrikeCount>=1',timeout=7000)
     page.wait_for_function('MRRBattlefield.state.scene.cinematicFrameCount>=1',timeout=7000)
     assert page.evaluate('MRRBattlefield.state.scene.fxReceived.hit')>=1
-    assert page.locator('#mrr-battlefield-combat-feed.active').count()==1
+    assert page.locator('#mrr-battlefield-combat-feed[data-kind="hit"]').count()==1
+    assert '피격' in page.locator('#mrr-battlefield-combat-feed').inner_text()
     page.screenshot(path=str(ROOT/'tests/phase49_confirmed_native_hit_signal_beam.png'))
     page.wait_for_function('MRRBattlefield.state.scene.liveStrikeCount===0',timeout=7000)
     page.wait_for_function('MRRBattlefield.state.scene.impactLightIntensity===0',timeout=7000)
