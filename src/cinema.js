@@ -221,6 +221,61 @@ window.MRRCinemaFactory=function(THREE,mount){
   starGeo.setAttribute('position',new THREE.BufferAttribute(starPositions,3));
   const starMat=new THREE.PointsMaterial({color:0xa9e2df,size:.035,transparent:true,opacity:.72,depthWrite:false});
   const stars=new THREE.Points(starGeo,starMat);stage.add(stars);
+
+  // Phase45: time-bounded cinematic preview only. No game-state or turn writes.
+  const summonGroup=new THREE.Group();summonGroup.position.set(0,2.15,-.42);scene.add(summonGroup);
+  const summonMats=[],summonGeos=[],summonRings=[];
+  for(const radius of [2.28,2.57]){
+    const mat=new THREE.MeshBasicMaterial({color:0x7ee7e3,transparent:true,opacity:0,
+      depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending});
+    const geo=new THREE.TorusGeometry(radius,.024,6,96);
+    const ring=new THREE.Mesh(geo,mat);summonGroup.add(ring);
+    summonMats.push(mat);summonGeos.push(geo);summonRings.push(ring);
+  }
+  const sparkGeo=new THREE.BufferGeometry();
+  const sparkCount=96,sparkCoords=new Float32Array(sparkCount*3);
+  sparkGeo.setAttribute('position',new THREE.BufferAttribute(sparkCoords,3));
+  const sparkMat=new THREE.PointsMaterial({color:0xffda93,size:.075,transparent:true,
+    depthWrite:false,opacity:0,blending:THREE.AdditiveBlending});
+  const sparkCloud=new THREE.Points(sparkGeo,sparkMat);
+  summonGroup.add(sparkCloud);summonGeos.push(sparkGeo);summonMats.push(sparkMat);
+  const summonLamp=new THREE.PointLight(0x66e8db,0,9);
+  summonLamp.position.set(0,2.35,1.9);scene.add(summonLamp);
+  let previewStart=-1,previewActive=false,previewCount=0;
+  function previewSummon(){
+    if(disposed||!running)return false;
+    previewStart=performance.now();previewActive=true;previewCount++;
+    return true;
+  }
+  function updatePreview(t){
+    if(!previewActive)return;
+    const elapsed=t-previewStart,life=2300;
+    if(elapsed>=life){
+      previewActive=false;previewStart=-1;
+      sparkMat.opacity=0;summonLamp.intensity=0;
+      for(const m of summonMats)m.opacity=0;
+      return;
+    }
+    const p=elapsed/life;
+    const glow=Math.sin(Math.PI*p),energy=glow*glow;
+    summonLamp.intensity=65*energy;
+    summonRings.forEach((ring,i)=>{
+      ring.scale.setScalar(.62+p*(1.12+i*.14));
+      ring.rotation.z=p*Math.PI*(i?-.7:.9);
+      ring.material.opacity=.72*energy;
+    });
+    const positions=sparkGeo.attributes.position;
+    for(let i=0;i<sparkCount;i++){
+      const angle=i*Math.PI*(3-Math.sqrt(5));
+      const v=(i+.5)/sparkCount;
+      const radius=(.15+Math.sqrt(v)*2.75)*(.3+p);
+      const orbit=angle+p*2.2;
+      positions.setXYZ(i,Math.cos(orbit)*radius,Math.sin(orbit)*radius,
+        .9+Math.sin(i*5.3)*.14);
+    }
+    positions.needsUpdate=true;
+    sparkMat.opacity=Math.min(.9,energy*1.8);
+  }
   let cardToken=0,viewMode='front';
   function setView(value){
     if(disposed)return;
@@ -321,16 +376,22 @@ window.MRRCinemaFactory=function(THREE,mount){
     for(let i=0;i<rings.length;i++)rings[i].rotation.z=slow?0:Math.sin(sec*.18+i*.8)*.038;
     portalGroup.rotation.z=slow?0:Math.sin(sec*.095)*.02;
     starMat.opacity=slow?.6:.52+Math.sin(sec*.74)*.15;
+    updatePreview(t);
     renderer.render(scene,camera);frame++;
   }
   function start(){if(disposed)return;resize();if(running)return;running=true;lastDraw=0;startAt=performance.now();raf=requestAnimationFrame(tick);}
-  function stop(){running=false;cancelAnimationFrame(raf);}
+  function stop(){
+    running=false;cancelAnimationFrame(raf);previewActive=false;previewStart=-1;
+    summonLamp.intensity=0;for(const m of summonMats)m.opacity=0;
+  }
   function dispose(){
     if(disposed)return;stop();disposed=true;
     frontMaterial.map?.dispose();frontMaterial.dispose();
     back.material.map?.dispose();back.material.dispose();
     for(const m of [bevel,core,front,back,gem,...rails])m.geometry.dispose();
     gold.dispose();core.material.dispose();gem.material.dispose();
+    for(const g of summonGeos)g.dispose();
+    for(const m of summonMats)m.dispose();
     for(const mesh of portalParts)mesh.geometry.dispose();
     for(const mat of portalResources)mat.dispose();
     starGeo.dispose();starMat.dispose();
@@ -344,10 +405,12 @@ window.MRRCinemaFactory=function(THREE,mount){
     renderer.dispose();renderer.domElement.remove();
   }
   setCard(profile);
-  return {start,stop,dispose,resize,setCard,setView,resetCamera,
+  return {start,stop,dispose,resize,setCard,setView,resetCamera,previewSummon,
     get state(){return {running,projection:camera.type,frameCount:frame,profile:{...profile},
       orbitRevision:43,orbitYaw,orbitPitch,orbitDistance,
       portalRevision:44,portalElements:portalParts.length,starParticleCount:180,
+      summonRevision:45,summonActive:previewActive,summonCount:previewCount,
+      summonParticles:sparkCount,
       cardFlipRevision:40,viewMode,
       cardBackRevision:41,cardBackTextureReady:!!back.material.map?.image,
       cinematicLifecycleRevision:42,

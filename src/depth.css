@@ -273,3 +273,10 @@ body.mcw-three-ready #arena .mcw35-hurt{color:#ffb08a}
 #mcw-cinema-stage:active{cursor:grabbing}
 #mcw-cinema-stage canvas{pointer-events:none}
 #mcw-cinema-reset-camera{white-space:nowrap}
+
+/* Phase45 - cinematic-only button. No overlay over the game or clicks. */
+#mcw-cinema-summon{background:linear-gradient(120deg,#316678,#192f45)!important;
+  border-color:#84cbd2!important;color:#e2f8f1!important;white-space:nowrap;}
+@media(max-width:760px){#mcw-cinema-header{gap:5px}
+ #mcw-cinema-controls{flex-wrap:wrap;align-content:center}
+ #mcw-cinema-controls button{font-size:9px;padding:3px 5px}}

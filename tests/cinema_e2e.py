@@ -18,7 +18,7 @@ try:
       let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;
       Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
     }''')
-    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase44_3D_Prototype.html'
+    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase45_3D_Prototype.html'
     legal=[]
     for seed in range(198704,198728):
       page.goto(url+f'?qa_seed={seed}')
@@ -72,6 +72,13 @@ try:
     assert page.locator('#mcw-cinema-flip').get_attribute('aria-pressed')=='false'
     assert page.locator('[data-slot]').count()==30
     assert not errors,errors
+    initial_summons=page.evaluate("MRRCinema.scene.state.summonCount")
+    page.locator('#mcw-cinema-summon').click()
+    page.wait_for_function("previous=>MRRCinema.scene.state.summonRevision===45 && MRRCinema.scene.state.summonCount>previous && MRRCinema.scene.state.summonActive && MRRCinema.scene.state.summonParticles===96",arg=initial_summons,timeout=7000)
+    page.wait_for_timeout(450)
+    page.screenshot(path=str(ROOT/'tests/phase45_summon_burst.png'))
+    page.wait_for_function("!MRRCinema.scene.state.summonActive",timeout=7000)
+    assert before==page.evaluate('''()=>{let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s)}'''), 'Cinematic preview changed game rules'
     page.screenshot(path=str(ROOT/'tests/phase44_portal_stage.png'))
     page.screenshot(path=str(ROOT/'tests/phase39_live_card.png'))
     page.set_viewport_size({'width':390,'height':844})
