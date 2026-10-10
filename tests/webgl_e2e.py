@@ -53,8 +53,17 @@ try:
         page.locator('.hand-slot').nth(legal[0]['index']).evaluate('(el)=>el.click()')
         targets=page.locator('.slot.legal')
         assert targets.count()>0,'No legal target for normal placement'
+        # Exercise eligible DOM targets via the same native click the legacy
+        # engine receives; don't directly mutate G or insert a unit.
+        slot_options=targets.evaluate_all("els=>els.map(e=>e.getAttribute('data-slot'))")
+        before_count=page.locator('.board-card').count()
         targets.first.evaluate('(el)=>el.click()')
-        page.wait_for_function('MCW3D.scene.state.cardCount === 1',timeout=8000)
+        page.wait_for_timeout(200)
+        if page.locator('.board-card').count()==before_count:
+            # A normal invalid placement can leave no unit; report enough
+            # information to distinguish game legality from renderer failure.
+            raise AssertionError(f'Normal placement did not create a board card: slots={slot_options}, candidate={legal[0]}, before={before_count}, hand={page.locator(".hand-slot").count()}')
+        page.wait_for_function('MCW3D.scene.state.cardCount >= 1',timeout=8000)
         # Phase27: only visible HP is mirrored; the meter is not a second game state.
         actual=page.locator('.slot:has(.board-card) .hpbar > div').first
         assert actual.count()==1, 'No public health bar on placed unit'
