@@ -1,4 +1,4 @@
-name: Marorong Card War Phase47 Validation
+name: Marorong Card War Phase48 Validation
 on:
   push:
   pull_request:
@@ -39,25 +39,27 @@ jobs:
         run: python tests/webgl_e2e.py
       - name: Real perspective cinematic browser regression
         run: python tests/cinema_e2e.py
-      - name: Phase47 full 3D battlefield Chromium WebGL and screenshots
+      - name: Phase48 full 3D battlefield Chromium WebGL and screenshots
         run: python tests/battlefield_e2e.py
-      - name: Phase47 3D card interaction, native input and targeting Chromium QA
+      - name: Phase48 3D card interaction, native input and targeting Chromium QA
         run: python tests/battlefield_interaction_e2e.py
+      - name: Phase48 native CSS combat events mirrored to real WebGL effects
+        run: python tests/battlefield_native_fx_e2e.py
       - name: Collect downloadable build
         run: |
           mkdir -p dist
-          cp Marorong_Card_War_Phase47_3D_Prototype.html dist/index.html
+          cp Marorong_Card_War_Phase48_3D_Prototype.html dist/index.html
           mkdir -p dist/vendor
           cp vendor/three.module.js dist/vendor/three.module.js
           cp build-manifest.json dist/build-manifest.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Phase47-Browser-Screenshots
+          name: Phase48-Browser-Screenshots
           path: tests/*png
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
-          name: Marorong-Card-War-Phase47-3D
+          name: Marorong-Card-War-Phase48-3D
           path: dist/
           if-no-files-found: error
