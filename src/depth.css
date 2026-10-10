@@ -400,3 +400,33 @@ body.mcw-three-ready #arena .mcw35-hurt{color:#ffb08a}
 @media(prefers-reduced-motion:reduce) {
   #mrr-battlefield-combat-feed {transition:none}
 }
+
+
+/* Phase51 illustrated-card camera presets, isolated to the 3D viewer. */
+#mrr-battlefield-viewpoints{
+  position:absolute;z-index:6;top:14px;left:50%;
+  transform:translateX(-50%);
+  display:flex;flex-wrap:wrap;justify-content:center;
+  gap:5px;max-width:72%;padding:5px;
+  border:1px solid #a88c65b3;border-radius:8px;
+  background:linear-gradient(120deg,#112a3adb,#211c2ddb);
+  box-shadow:0 8px 22px #020913ab;
+}
+#mrr-battlefield-viewpoints button{
+  min-height:31px;padding:5px 10px;color:#eadbc1;
+  border:1px solid #a2866177;border-radius:5px;
+  background:linear-gradient(165deg,#2b4251,#111e2d);
+  font:600 11px 'Malgun Gothic',sans-serif;
+  letter-spacing:.01em;white-space:nowrap;
+}
+#mrr-battlefield-viewpoints button[aria-pressed="true"]{
+  background:linear-gradient(145deg,#9e7149,#413429);
+  color:#fff2cd;border-color:#f1c68a;box-shadow:0 0 12px #ebba6945;
+}
+#mrr-battlefield-viewpoints button:focus-visible{outline:2px solid #a8efec}
+#mrr-battlefield-viewpoints button:disabled{opacity:.32;cursor:not-allowed}
+@media(max-width:700px){
+  #mrr-battlefield-viewpoints{left:50%;top:38px;max-width:97%;width:max-content;padding:3px;gap:3px}
+  #mrr-battlefield-viewpoints button{font-size:9px;min-height:26px;padding:3px 5px}
+  #mrr-battlefield-cardtip{top:95px}
+}
