@@ -9,14 +9,14 @@ window.MRRIntegratedUIInit=function(loadThree){
   toggle.id='mrr-integrated-open';toggle.type='button';
   toggle.textContent='통합 전장';toggle.title='손패와 턴 조작이 함께 있는 3D 플레이 화면';
   bar.appendChild(toggle);
-  let view=null,stage=null,updating=false,busy=false;
+  let view=null,stage=null,updating=false,busy=false,lastRefresh=null;
   function nativeButton(selector){
     const el=document.querySelector(selector);
     if(!el||el.disabled)return false;
     el.click();view?.sync();return true;
   }
   function close(){
-    const old=view,oldStage=stage;view=null;stage=null;
+    const old=view,oldStage=stage;view=null;stage=null;lastRefresh=null;
     root.classList.remove('mrr-integrated-playing','mrr-integrated-inspector-open','mrr-integrated-rail-open');
     document.body.classList.remove('mrr-integrated-active');
     toggle.textContent='통합 전장';toggle.setAttribute('aria-pressed','false');
@@ -117,6 +117,7 @@ window.MRRIntegratedUIInit=function(loadThree){
         node.click(); // Exactly one real engine click. No fake battle resolution.
         view.sync();view.refreshHover(key);
       }
+      lastRefresh=refresh;
       view=window.MRRBattlefieldFactory(THREE,stage,{
         onPick:pick,onState:refresh,onHover:(key,profile)=>{
           if(key&&profile?.name)help.textContent=[profile.name,profile.kind,profile.stats].filter(Boolean).join('  ·  ');
@@ -131,7 +132,7 @@ window.MRRIntegratedUIInit=function(loadThree){
     finally{busy=false;}
   }
   toggle.addEventListener('click',()=>view?close():open());
-  window.addEventListener('resize',()=>view?.resize());
+  window.addEventListener('resize',()=>{view?.resize();if(view&&lastRefresh)lastRefresh(view.state);});
   document.addEventListener('visibilitychange',()=>{
     if(!view)return;
     if(document.hidden)view.stop();else view.start();
