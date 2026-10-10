@@ -26,7 +26,7 @@ try:
     assert page.locator('[data-slot]').count()==30
     assert not errors,errors
     page.screenshot(path=str(ROOT/'tests/phase37_cinematic.png'))
-    page.keyboard.press('Escape')
+    page.locator('#mcw-cinema-close').click()
     page.wait_for_function("!MRRCinema.status.open",timeout=6000)
     assert page.locator('#mcw-cinema-view').count()==0
     assert before==page.evaluate('''()=>{let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s)}''')
