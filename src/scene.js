@@ -100,9 +100,9 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   const aimTip=new THREE.Mesh(new THREE.ConeGeometry(6,13,3),
     new THREE.MeshBasicMaterial({color:0xffd798,transparent:true,opacity:.77,depthTest:false,depthWrite:false}));
   aimTip.visible=false;aimTip.renderOrder=10;scene.add(aimTip);
-  let aimHost=null,aimPath=null,aimActive=false,aimKey='';
+  let aimHost=null,aimPath=null,aimReticle=null,aimActive=false,aimKey='';
   function clearAim(){
-    aimHost?.remove();aimHost=null;aimPath=null;aimActive=false;aimKey='';
+    aimHost?.remove();aimHost=null;aimPath=null;aimReticle=null;aimActive=false;aimKey='';
     aimLine.visible=false;aimTip.visible=false;
   }
   function syncAim(){
@@ -133,13 +133,24 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       aimPath.setAttribute('fill','none');aimPath.setAttribute('stroke','#f3c884');
       aimPath.setAttribute('stroke-width','3');aimPath.setAttribute('stroke-linecap','round');
       aimPath.setAttribute('marker-end','url(#mcw33-arrowhead)');
-      aimHost.appendChild(aimPath);arena.appendChild(aimHost);
+      aimHost.appendChild(aimPath);
+      // Phase34: a non-interactive focus reticle makes the destination legible.
+      aimReticle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      aimReticle.setAttribute('class','mcw34-reticle');
+      aimReticle.setAttribute('r','16');
+      aimReticle.setAttribute('fill','none');
+      aimReticle.setAttribute('stroke','#ffd69d');
+      aimReticle.setAttribute('stroke-width','2');
+      aimHost.appendChild(aimReticle);
+      arena.appendChild(aimHost);
       aimKey='';
     }
     aimHost.setAttribute('viewBox','0 0 '+Math.max(1,r.width)+' '+Math.max(1,r.height));
     if(aimKey!==key){
       const curve='M'+x1+','+y1+' Q'+((x1+x2)/2)+','+(Math.min(y1,y2)-bend)+' '+x2+','+y2;
       aimPath.setAttribute('d',curve);
+      aimReticle.setAttribute('cx',String(x2));
+      aimReticle.setAttribute('cy',String(y2));
       const start=new THREE.Vector3(a.left+a.width/2,height-a.top-a.height/2,55);
       const end=new THREE.Vector3(b.left+b.width/2,height-b.top-b.height/2,55);
       const middle=new THREE.Vector3((start.x+end.x)/2,
@@ -696,7 +707,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       visibleHealthRatios:active.filter(e=>e.meterFill.visible).map(e=>({slot:e.id,ratio:e.hpRatio})),
       healthMeterRevision:27,
       frameRevision:24,battlefieldRevision:25,
-      targetingRevision:33,targetGuideActive:aimActive,
+      targetingRevision:33,targetReticleRevision:34,targetGuideActive:aimActive,
       targetGuidePath:aimPath?.getAttribute('d')||null,
       arenaRevision:30,laneRevision:32,visibleLaneCount:laneCount,visibleLaneMeshes:laneMeshes.filter(m=>m.visible).length,
       decorativeDomCount:ornamentHost?.children.length||0,

@@ -13,7 +13,7 @@ assert (ROOT/'vendor/three.module.js').exists(), 'Three.js is not vendored: run 
 handler=partial(SimpleHTTPRequestHandler,directory=str(ROOT))
 server=ThreadingHTTPServer(('127.0.0.1',0),handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
-url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase33_3D_Prototype.html'
+url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase34_3D_Prototype.html'
 try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
@@ -97,6 +97,11 @@ try:
         possible.hover()
         page.wait_for_function("MCW3D.scene.state.targetGuideActive && !!MCW3D.scene.state.targetGuidePath",timeout=9000)
         assert page.locator('#mcw33-target-guide path[stroke]').count()==1
+        assert page.evaluate("MCW3D.scene.state.targetReticleRevision === 34")
+        assert page.locator('#mcw33-target-guide .mcw34-reticle').count()==1
+        assert page.locator('#mcw33-target-guide .mcw34-reticle').evaluate(
+            "e=>Number(e.getAttribute('r'))===16 && Number.isFinite(Number(e.getAttribute('cx')))"
+        )
         assert page.locator('#mcw33-target-guide').evaluate("e=>getComputedStyle(e).pointerEvents==='none'")
         page.screenshot(path=str(ROOT/'tests/phase33_target_arrow.png'))
         page.mouse.move(0,0)

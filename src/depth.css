@@ -175,3 +175,18 @@ body.mcw-three-ready #mcw33-target-guide{
 @media(prefers-reduced-motion:reduce){
  body.mcw-three-ready #mcw33-target-guide{filter:none}
 }
+
+/* Phase34 - attack destination marker; never alters target selection. */
+body.mcw-three-ready #mcw33-target-guide .mcw34-reticle{
+  stroke-dasharray:7 5;
+  filter:drop-shadow(0 0 4px rgba(255,200,110,.75));
+  transform-box:fill-box;transform-origin:center;
+  animation:mcw34-reticle-pulse 1.2s ease-in-out infinite;
+}
+@keyframes mcw34-reticle-pulse{
+  0%,100%{opacity:.58;transform:scale(.86)}
+  50%{opacity:1;transform:scale(1.1)}
+}
+@media(prefers-reduced-motion:reduce){
+  body.mcw-three-ready #mcw33-target-guide .mcw34-reticle{animation:none;opacity:.88}
+}
