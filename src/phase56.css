@@ -1,0 +1,88 @@
+/* Phase56 - PC-only integrated tabletop composition.
+   Preserve all native controls and every original engine interaction. */
+@media (min-width:1024px) and (min-height:700px){
+  body.mrr-integrated-active #gameScreen #enemyPortrait{
+    position:fixed!important;top:24px!important;left:28px!important;
+    width:76px!important;height:76px!important;min-width:76px!important;
+    z-index:94!important;filter:drop-shadow(0 7px 12px #180c09c9);
+  }
+  body.mrr-integrated-active #gameScreen #enemyMana{
+    position:fixed!important;top:42px!important;left:120px!important;
+    z-index:94!important;max-width:175px;
+  }
+  body.mrr-integrated-active #gameScreen #enemyHand{
+    position:fixed!important;top:8px!important;left:50%!important;
+    width:min(480px,40vw)!important;height:140px!important;
+    max-width:min(480px,40vw)!important;
+    transform:translateX(-50%)!important;
+    overflow:visible!important;z-index:91!important;
+  }
+  /* Only the original enemy backs, never enemy card identity or art. */
+  body.mrr-integrated-active #enemyHand .mcw-back{
+    top:8px!important;width:clamp(74px,5.2vw,92px)!important;
+    height:clamp(102px,7.3vw,130px)!important;
+    border-radius:8px;box-shadow:0 8px 14px #090605a9,
+      inset 0 0 0 2px #c7a16a88!important;
+  }
+  body.mrr-integrated-active #enemyHand .mcw-hand-count{
+    right:-42px;bottom:15px;z-index:2;
+  }
+  body.mrr-integrated-active #gameScreen #myPortrait{
+    left:26px!important;bottom:24px!important;
+    width:78px!important;height:78px!important;min-width:78px!important;
+    filter:drop-shadow(0 7px 12px #120c08da);
+  }
+  body.mrr-integrated-active #gameScreen #myMana{
+    left:118px!important;bottom:44px!important;
+  }
+  /* The exposed arc now includes the printed name and painted card art.
+     Hover and selection still use the legacy #handPreview system. */
+  body.mrr-integrated-active #gameScreen .hand-wrap{
+    bottom:calc(clamp(154px,17.2vh,234px) - var(--fc-hand-h))!important;
+    width:min(980px,72vw)!important;
+    z-index:90!important;
+  }
+  body.mrr-integrated-active #hand .hand-slot .card-ui{
+    box-shadow:0 12px 19px #160b08e0,0 0 0 1px #f1d5a447!important;
+  }
+  body.mrr-integrated-active #hand .hand-slot:hover .card-ui,
+  body.mrr-integrated-active #hand .hand-slot.active .card-ui{
+    box-shadow:0 16px 30px #0c0705fa,0 0 0 2px #f1c56e!important;
+  }
+  body.mrr-integrated-active #mrr-integrated-stage .mrr-integrated-heading{
+    display:none;
+  }
+  body.mrr-integrated-active #mrr-integrated-status{
+    left:28px;top:116px;transform:none;
+    color:#eed4a9;letter-spacing:.035em;
+  }
+  body.mrr-integrated-active #mrr-integrated-hint{
+    bottom:calc(clamp(154px,17.2vh,234px) + 8px);
+    max-width:44%;font-size:12px;
+  }
+  body.mrr-integrated-active #mrr-integrated-actions{
+    right:22px;bottom:114px;gap:6px;
+  }
+  body.mrr-integrated-active #mrr-integrated-actions button{
+    border-radius:15px;min-height:32px;height:32px;
+    box-shadow:0 6px 16px #100907c4;
+  }
+}
+@media (min-width:1024px) and (max-height:850px){
+  body.mrr-integrated-active #gameScreen #enemyPortrait{
+    top:16px!important;left:20px!important;width:68px!important;
+    height:68px!important;min-width:68px!important;
+  }
+  body.mrr-integrated-active #gameScreen #enemyMana{left:100px!important;top:35px!important}
+  body.mrr-integrated-active #gameScreen #myPortrait{
+    left:18px!important;bottom:17px!important;width:68px!important;
+    height:68px!important;min-width:68px!important;
+  }
+  body.mrr-integrated-active #gameScreen #myMana{left:97px!important;bottom:34px!important}
+  body.mrr-integrated-active #enemyHand .mcw-back{
+    top:5px!important;width:74px!important;height:102px!important;
+  }
+  body.mrr-integrated-active #mrr-integrated-status{left:20px;top:98px}
+  body.mrr-integrated-active #mrr-integrated-actions{right:12px;bottom:100px}
+  body.mrr-integrated-active #mrr-integrated-hint{font-size:10px}
+}
