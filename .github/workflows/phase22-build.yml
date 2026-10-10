@@ -1,4 +1,4 @@
-name: Marorong Card War Phase45 Validation
+name: Marorong Card War Phase46 Validation
 on:
   push:
   pull_request:
@@ -19,7 +19,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run vendor
-      - name: Build phase 45
+      - name: Build phase 46
         run: python build.py
       - name: Install testing dependencies
         run: |
@@ -39,21 +39,23 @@ jobs:
         run: python tests/webgl_e2e.py
       - name: Real perspective cinematic browser regression
         run: python tests/cinema_e2e.py
+      - name: Phase46 full 3D battlefield Chromium WebGL and screenshots
+        run: python tests/battlefield_e2e.py
       - name: Collect downloadable build
         run: |
           mkdir -p dist
-          cp Marorong_Card_War_Phase45_3D_Prototype.html dist/index.html
+          cp Marorong_Card_War_Phase46_3D_Prototype.html dist/index.html
           mkdir -p dist/vendor
           cp vendor/three.module.js dist/vendor/three.module.js
           cp build-manifest.json dist/build-manifest.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Phase45-Browser-Screenshots
+          name: Phase46-Browser-Screenshots
           path: tests/*png
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
-          name: Marorong-Card-War-Phase45-3D
+          name: Marorong-Card-War-Phase46-3D
           path: dist/
           if-no-files-found: error

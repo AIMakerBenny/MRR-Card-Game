@@ -280,3 +280,67 @@ body.mcw-three-ready #arena .mcw35-hurt{color:#ffb08a}
 @media(max-width:760px){#mcw-cinema-header{gap:5px}
  #mcw-cinema-controls{flex-wrap:wrap;align-content:center}
  #mcw-cinema-controls button{font-size:9px;padding:3px 5px}}
+
+
+/* Phase46: full perspective world viewport, isolated from the original game UI. */
+#mrr-battlefield-open {
+  min-height:36px;padding:5px 11px;white-space:nowrap;
+  background:linear-gradient(150deg,#4b3a25,#1a2833);color:#f5d9a6;
+  border:1px solid #c9a56c;border-radius:4px;font-size:12px;
+}
+#mrr-battlefield-modal {
+  position:fixed;inset:0;z-index:20000;display:grid;place-items:center;
+  padding:12px;background:rgba(3,8,17,.92);
+  backdrop-filter:blur(5px);
+}
+#mrr-battlefield-dialog {
+  width:min(1580px,98vw);height:min(940px,96vh);
+  display:flex;flex-direction:column;min-height:0;
+  background:#0b1722;border:1px solid #bd955c;border-radius:9px;
+  box-shadow:0 0 0 2px #283c4b,0 35px 100px #000b;
+  overflow:hidden;color:#f1ddbd;
+}
+#mrr-battlefield-header {
+  display:flex;align-items:center;gap:10px;padding:10px 15px;
+  background:linear-gradient(90deg,#192d39,#0e1a2a 55%,#291d22);
+  border-bottom:1px solid #a48154;
+  font-family:Georgia,'Noto Serif KR',serif;font-size:14px;letter-spacing:1px;
+}
+#mrr-battlefield-header span:first-child{flex:1;min-width:80px}
+#mrr-battlefield-header button {
+  color:#f2dbb3;background:#263d48;border:1px solid #ad8a5e;
+  border-radius:4px;padding:8px 11px;cursor:pointer;white-space:nowrap;
+}
+#mrr-battlefield-header button:focus-visible {outline:2px solid #8ddcf1}
+#mrr-battlefield-status {color:#acd8da;font:12px sans-serif;letter-spacing:0}
+#mrr-battlefield-stage {
+  position:relative;flex:1;min-height:0;overflow:hidden;
+  background:radial-gradient(ellipse at center,#244057,#08101b 80%);
+  touch-action:none;
+}
+#mrr-battlefield-stage canvas {position:absolute;inset:0;width:100%;height:100%}
+#mrr-battlefield-help {
+  position:absolute;bottom:13px;left:50%;transform:translateX(-50%);
+  color:#c4d1d9;background:rgba(4,13,24,.77);
+  border:1px solid #826b4d66;border-radius:5px;
+  padding:7px 15px;white-space:nowrap;pointer-events:none;z-index:2;
+  font:12px sans-serif;text-align:center;
+}
+#mrr-battlefield-stage .mrr-side-label {
+  position:absolute;z-index:1;left:18px;pointer-events:none;
+  font:600 13px Georgia,serif;letter-spacing:2px;
+  text-shadow:0 2px 12px #000;opacity:.8;
+}
+#mrr-battlefield-stage .mrr-side-label.enemy {top:14px;color:#f0a4a0}
+#mrr-battlefield-stage .mrr-side-label.friendly {bottom:16px;color:#91dcea}
+@media(max-width:700px){
+  #mrr-battlefield-open{padding:3px 5px;font-size:10px;min-height:32px}
+  #mrr-battlefield-modal{padding:4px}
+  #mrr-battlefield-dialog{width:100%;height:97dvh}
+  #mrr-battlefield-header{flex-wrap:wrap;gap:5px;padding:6px;font-size:10px}
+  #mrr-battlefield-header span:first-child{flex-basis:100%}
+  #mrr-battlefield-header button{font-size:11px;padding:6px}
+  #mrr-battlefield-status{font-size:10px}
+  #mrr-battlefield-help{bottom:4px;font-size:9px;max-width:92%;white-space:normal}
+  #mrr-battlefield-stage .mrr-side-label{left:7px;font-size:9px}
+}
