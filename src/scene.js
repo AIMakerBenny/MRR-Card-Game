@@ -54,6 +54,29 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,opacity:.58,side:THREE.DoubleSide}));
     m.position.z=-72;arenaTrim.add(m);lightPools.push(m);
   }
+
+  // Phase30: four small corner medallions, away from logical card slots.
+  // Canvas-based, optional visuals only; no game-state access or hit targets.
+  const arenaMedallions=[];
+  for(let i=0;i<4;i++){
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=128;
+    const g=canvas.getContext('2d');
+    const tone=i<2?'#bf9c69':'#83cbc8';
+    g.translate(64,64);g.strokeStyle=tone;g.globalAlpha=.9;
+    g.lineWidth=4;g.beginPath();g.arc(0,0,37,0,Math.PI*2);g.stroke();
+    g.lineWidth=1.5;g.beginPath();g.arc(0,0,29,0,Math.PI*2);g.stroke();
+    for(let j=0;j<8;j++){
+      g.save();g.rotate(Math.PI*j/4);
+      g.beginPath();g.moveTo(0,-42);g.lineTo(0,-48);g.stroke();g.restore();
+    }
+    g.beginPath();g.moveTo(0,-23);g.lineTo(10,-8);g.lineTo(23,0);
+    g.lineTo(10,8);g.lineTo(0,23);g.lineTo(-10,8);
+    g.lineTo(-23,0);g.lineTo(-10,-8);g.closePath();g.stroke();
+    const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+    const mesh=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+      new THREE.MeshBasicMaterial({map:texture,transparent:true,opacity:.55,depthWrite:false,side:THREE.DoubleSide}));
+    arenaTrim.add(mesh);arenaMedallions.push(mesh);
+  }
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   let observer=null,dirty=true,failed=false;
   function rectOf(node){const r=node.getBoundingClientRect();return {x:r.left+r.width/2,y:height-r.top-r.height/2,w:r.width,h:r.height};}
@@ -332,6 +355,14 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     lightPools[0].position.set(0,-h*.23,0);
     lightPools[1].position.set(0,h*.23,0);
     for(const p of lightPools)p.scale.set(w*.85,h*.58,1);
+    // Corner ornaments live inside the clipped arena, never in the HUD.
+    for(let i=0;i<arenaMedallions.length;i++){
+      const m=arenaMedallions[i];
+      const right=(i%2===1),top=(i<2);
+      m.visible=w>490&&h>360;
+      m.position.set((right?1:-1)*(w/2-13),(top?1:-1)*(h/2-13),2);
+      m.scale.set(30,30,1);
+    }
   }
   function sync(){
     if(!running)return;
@@ -405,6 +436,12 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     if(innerWidth!==width||innerHeight!==height)resize();
     // Client rects can change on hover/scroll without mutating the slot subtree.
     sync();
+    // Quiet alternating illumination; no flicker for reduced-motion users.
+    if(arenaTrim.visible){
+      const drift=reduced.matches?0:Math.sin(t*.00085)*.05;
+      lightPools[0].material.opacity=.52+drift;
+      lightPools[1].material.opacity=.52-drift;
+    }
     // Ease only the selected / hovered card out of the tabletop.
     // The DOM cards and every other 3D card keep their original slots.
     for(const e of entries.values()){
@@ -474,6 +511,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   function dispose(){
     stop();
     for(const p of lightPools){p.geometry.dispose();p.material.map.dispose();p.material.dispose();}
+    for(const m of arenaMedallions){m.geometry.dispose();m.material.map.dispose();m.material.dispose();}
     rimGeo.dispose();rimMat.dispose();renderer.dispose();renderer.domElement.remove();
   }
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();stop();
@@ -498,6 +536,8 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       visibleHealthRatios:active.filter(e=>e.meterFill.visible).map(e=>({slot:e.id,ratio:e.hpRatio})),
       healthMeterRevision:27,
       frameRevision:24,battlefieldRevision:25,
+      arenaRevision:30,visibleArenaMedallions:arenaTrim.visible?arenaMedallions.filter(x=>x.visible).length:0,
+      cornerArtworkSources:arenaMedallions.length,
       battlefieldTrimCount:arenaTrim.visible?rimParts.length:0,
       battlefieldLightPoolCount:arenaTrim.visible?lightPools.length:0,
       visualFxRevision:26,visualFxTriggered:effectsTriggered,
