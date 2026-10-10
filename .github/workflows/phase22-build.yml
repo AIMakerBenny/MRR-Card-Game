@@ -28,6 +28,8 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Check byte-identical game engine
         run: python tests/static_audit.py
+      - name: Phase63 actual Chromium PC contextual card command and three-resolution real attack QA
+        run: python tests/phase63_pc_context_e2e.py
       - name: Chromium game and fallback tests
         run: |
           python tests/parity_smoke.py
@@ -45,8 +47,6 @@ jobs:
         run: python tests/phase58_artwork_placeholder_e2e.py
       - name: Phase59 actual owner artwork importer and Chromium 3-resolution QA
         run: python tests/phase59_art_import_e2e.py
-      - name: Phase63 actual Chromium PC contextual card command and three-resolution real attack QA
-        run: python tests/phase63_pc_context_e2e.py
       - name: Hand interaction and enemy-back visual regression
         run: python tests/hand_visual_e2e.py
       - name: Strict real WebGL rendering test
