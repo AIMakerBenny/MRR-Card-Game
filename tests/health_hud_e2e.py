@@ -18,7 +18,7 @@ try:
     page.add_init_script('''() => {
       let seed=198704;Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
     }''')
-    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase53_3D_Prototype.html'
+    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase54_3D_Prototype.html'
     page.goto(url)
     page.locator('#newGame').click();page.locator('#launchGame').click()
     page.get_by_role('button',name='이 손패로 시작').click()
