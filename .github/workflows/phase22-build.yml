@@ -1,4 +1,4 @@
-name: Marorong Card War Phase60-63 PC Batch Validation
+name: Marorong Card War Phase60-64 PC Batch Validation
 on:
   push:
   pull_request:
@@ -19,7 +19,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run vendor
-      - name: Build phase 63
+      - name: Build phase 64
         run: python build.py
       - name: Install testing dependencies
         run: |
@@ -72,7 +72,7 @@ jobs:
       - name: Collect downloadable build
         run: |
           mkdir -p dist
-          cp Marorong_Card_War_Phase63_3D_Prototype.html dist/index.html
+          cp Marorong_Card_War_Phase64_3D_Prototype.html dist/index.html
           mkdir -p dist/assets
           cp assets/CARD_ART_SPEC.md assets/card_art_index.csv dist/assets/
           mkdir -p dist/vendor
@@ -81,11 +81,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Phase63-Browser-Screenshots
+          name: Phase64-Browser-Screenshots
           path: tests/*png
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
-          name: Marorong-Card-War-Phase63-3D
+          name: Marorong-Card-War-Phase64-3D
           path: dist/
           if-no-files-found: error
