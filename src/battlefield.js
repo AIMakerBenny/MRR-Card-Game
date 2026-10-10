@@ -123,8 +123,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const woodSurface=tabletop?material({map:tabletopTexture('wood'),color:0xffffff,roughness:.83}):null;
   const parchmentSurface=tabletop?material({map:tabletopTexture('parchment'),color:0xffffff,roughness:.98}):null;
   const woodEdge=tabletop?material({color:0x51301d,roughness:.82}):null;
-  const parchmentSlot=tabletop?material({color:0xd7bd90,roughness:.94,transparent:true,opacity:.055}):null;
-  const parchmentInk=tabletop?material({color:0x80603b,roughness:.9,transparent:true,opacity:.17}):null;
+  const parchmentSlot=tabletop?material({color:0xd7bd90,roughness:.94,transparent:true,opacity:.018}):null;
+  const parchmentInk=tabletop?material({color:0x80603b,roughness:.9,transparent:true,opacity:.055}):null;
   const softZone=tabletop?material({color:0x9a7150,metalness:.25,roughness:.77}):null;
 
   const black=material({color:0x223746,metalness:.18,roughness:.72});
