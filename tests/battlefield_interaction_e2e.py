@@ -65,9 +65,9 @@ try:
     for dx,dy in [(0,0),(0,-12),(-12,0),(12,0),(0,12)]:
       page.mouse.move(new_card_pt['x']+dx,new_card_pt['y']+dy)
       page.wait_for_timeout(90)
-      if page.locator('#mrr-battlefield-cardtip strong').text_content()==displayed_name:
+      if page.locator('#mrr-battlefield-cardtip strong').count() and page.locator('#mrr-battlefield-cardtip strong').text_content()==displayed_name:
         break
-    assert page.locator('#mrr-battlefield-cardtip strong').text_content()==displayed_name,'Native card face hover info did not update'
+    assert page.locator('#mrr-battlefield-cardtip strong').count() and page.locator('#mrr-battlefield-cardtip strong').text_content()==displayed_name,'Native card face hover info did not update'
     assert page.locator('.hand-slot').count()==hand_before-1,'Native placement not processed exactly once'
     assert page.locator('#arena .board-card').count()==1,'Duplicate placement during 3D selection'
     assert page.evaluate('MRRBattlefield.state.scene.legalCount')==0
