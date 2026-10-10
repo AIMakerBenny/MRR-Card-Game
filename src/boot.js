@@ -74,8 +74,17 @@
     }).filter(Boolean);
   }
   function modalClose(){
-    cinemaScene?.stop();cinemaModal?.remove();cinemaModal=null;
+    // Clear the modal state before graphics disposal. GPU context errors or
+    // late texture callbacks must never strand the user behind an overlay.
+    const staleScene=cinemaScene,staleModal=cinemaModal;
+    cinemaScene=null;cinemaModal=null;
     cinemaCards=[];cinemaIndex=0;cinemaButton.disabled=false;
+    try{staleScene?.dispose();}
+    catch(err){console.warn('Cinematic renderer cleanup failed:',err);}
+    finally{
+      staleModal?.remove();
+      if(document.contains(cinemaButton))cinemaButton.focus({preventScroll:true});
+    }
   }
   cinemaButton.addEventListener('click',async()=>{
     if(cinemaBusy||cinemaModal)return;
@@ -106,8 +115,8 @@
       document.body.appendChild(overlay);
       overlay.addEventListener('click',event=>{if(event.target===overlay)modalClose();});
       cinemaModal=overlay;
-      if(!cinemaScene)cinemaScene=window.MRRCinemaFactory(THREE,stage);
-      else{cinemaScene.dispose();cinemaScene=window.MRRCinemaFactory(THREE,stage);}
+      // Every modal owns and releases exactly one renderer.
+      cinemaScene=window.MRRCinemaFactory(THREE,stage);
       cinemaCards=publicFieldCards();
       cinemaIndex=Math.max(0,cinemaCards.findIndex(card=>card.selected));
       function show(){
@@ -133,8 +142,19 @@
       console.warn('Cinematic 3D unavailable',err);modalClose();
     }finally{cinemaBusy=false;}
   });
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&cinemaModal){event.preventDefault();event.stopImmediatePropagation();modalClose();}},true);
+  // Phase21 captures Escape keydown first at window level and stops its
+  // propagation. The modal therefore closes on keyup, without modifying or
+  // overriding the original game's shortcut handling.
+  window.addEventListener('keyup',event=>{
+    if(event.key==='Escape'&&cinemaModal){
+      event.preventDefault();event.stopImmediatePropagation();modalClose();
+    }
+  },true);
   window.addEventListener('resize',()=>{if(cinemaModal)cinemaScene?.resize();});
+  document.addEventListener('visibilitychange',()=>{
+    if(!cinemaModal||!cinemaScene)return;
+    if(document.hidden)cinemaScene.stop();else cinemaScene.start();
+  });
   window.addEventListener('beforeunload',()=>cinemaScene?.dispose());
   window.MRRCinema={get status(){return {open:!!cinemaModal,renderer:cinemaModal?'three':'closed',
       publicCardCount:cinemaCards.length,selectedIndex:cinemaIndex};},

@@ -18,7 +18,7 @@ try:
       let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;
       Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
     }''')
-    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase40_3D_Prototype.html'
+    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase42_3D_Prototype.html'
     legal=[]
     for seed in range(198704,198728):
       page.goto(url+f'?qa_seed={seed}')
@@ -50,6 +50,7 @@ try:
     assert page.evaluate("MRRCinema.scene.state.cardFlipRevision===40 && MRRCinema.scene.state.viewMode==='front'")
     page.locator('#mcw-cinema-flip').click()
     page.wait_for_function("MRRCinema.scene.state.viewMode==='back'")
+    assert page.evaluate('MRRCinema.scene.state.cardBackRevision===41 && MRRCinema.scene.state.cardBackTextureReady'), '3D card back did not load'
     assert page.locator('#mcw-cinema-flip').get_attribute('aria-pressed')=='true'
     page.screenshot(path=str(ROOT/'tests/phase40_card_back.png'))
     page.locator('#mcw-cinema-flip').click()
@@ -61,11 +62,23 @@ try:
     page.set_viewport_size({'width':390,'height':844})
     page.wait_for_timeout(500)
     assert page.locator('#mcw-cinema-stage canvas').evaluate('e=>e.width>100 && e.height>100')
+    assert page.evaluate("MRRCinema.scene.state.cinematicLifecycleRevision===42 && MRRCinema.scene.state.renderPixelRatio<=1.0 && MRRCinema.scene.state.frameIntervalMs===48"),'Mobile GPU quality cap or frame pacing incorrect'
     page.screenshot(path=str(ROOT/'tests/phase39_live_card_mobile.png'))
     page.set_viewport_size({'width':1600,'height':900})
     page.locator('#mcw-cinema-close').click()
     page.wait_for_function("!MRRCinema.status.open",timeout=6000)
     assert page.locator('#mcw-cinema-view').count()==0
+    assert page.evaluate('MRRCinema.scene===null'),'Closed modal retained WebGL renderer'
+    assert page.evaluate("document.activeElement?.id==='mcw-cinema-open'"),'Focus not restored after close'
+    # Repeated opens must not leave orphan canvas, modal or GPU scene.
+    for i in range(2):
+      page.locator('#mcw-cinema-open').click()
+      page.wait_for_function("MRRCinema.status.open && MRRCinema.scene.state.frameCount>3",timeout=16000)
+      assert page.locator('#mcw-cinema-stage canvas').count()==1
+      page.keyboard.press('Escape')
+      page.wait_for_function("!MRRCinema.status.open",timeout=6000)
+      assert page.evaluate('MRRCinema.scene===null')
+      assert page.locator('#mcw-cinema-stage canvas').count()==0
     assert before==page.evaluate('''()=>{let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s)}''')
     assert not errors,errors
     print('PHASE39 CINEMATIC PASS - live public field card, actual perspective WebGL, resize and state parity.')
