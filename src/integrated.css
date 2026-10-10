@@ -101,3 +101,31 @@ body.mrr-integrated-active #gameScreen .mcw-top-controls{
     top:120px!important;bottom:135px!important;max-height:calc(100dvh - 270px)!important
   }
 }
+
+/* Visual screenshot review: retire obsolete prototype buttons in the live game
+   surface, but restore them without mutation as soon as 2D view is selected. */
+body.mrr-integrated-active #gameScreen .mcw-top-controls > :is(
+  #mcw3d-toggle,#mcw-cinema-open,#mrr-battlefield-open
+){display:none!important}
+body.mrr-integrated-active #gameScreen .mcw-top-controls{gap:6px}
+body.mrr-integrated-active #gameScreen #mrr-integrated-open{
+  min-width:100px!important;width:auto!important;
+  border-radius:22px!important;
+  box-shadow:0 4px 15px #000b,inset 0 1px 0 #e9d1a144;
+}
+body.mrr-integrated-active #mrr-integrated-actions button:disabled{display:none}
+body.mrr-integrated-active #contextActions{
+  background:transparent!important;border:0!important;box-shadow:none!important;
+}
+body.mrr-integrated-active #contextActions button{
+  border-radius:18px!important;background:#172735e9!important;
+  border-color:#b9a170!important;box-shadow:0 3px 12px #000a!important;
+}
+@media(max-width:760px){
+  body.mrr-integrated-active #gameScreen .mcw-top-controls{right:7px;gap:4px}
+  body.mrr-integrated-active #gameScreen #mrr-integrated-open{
+    min-width:82px!important;width:auto!important;font-size:10px!important;
+  }
+  #mrr-integrated-stage .mrr-integrated-heading{top:94px}
+  #mrr-integrated-status{top:111px}
+}
