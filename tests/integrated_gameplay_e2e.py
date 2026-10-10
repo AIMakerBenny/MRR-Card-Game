@@ -17,7 +17,7 @@ try:
     browser=pw.chromium.launch(**options)
     page=browser.new_page(viewport={'width':1920,'height':1080})
     errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-    page.add_init_script("""() => {
+    page.add_init_script("""(() => {
       let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;
       Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
     }""")
