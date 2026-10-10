@@ -31,7 +31,7 @@ try:
       })).filter(x=>x.board&&x.cost<=2)''')
       if options:break
     assert options
-    page.locator('.hand-slot').nth(options[0]['i']).click()
+    page.locator('.hand-slot').nth(options[0]['i']).evaluate('(e)=>e.click()')
     loc=page.locator('#arena .slot.legal').first.get_attribute('data-slot')
     assert loc
     page.locator('#arena .slot.legal').first.evaluate('(e)=>e.click()')
