@@ -105,7 +105,11 @@
       next.textContent='다음 카드';
       const flip=document.createElement('button');flip.id='mcw-cinema-flip';flip.type='button';
       flip.textContent='카드 뒤집기';flip.setAttribute('aria-pressed','false');
-      controls.append(prev,current,next,flip);
+      const camReset=document.createElement('button');camReset.id='mcw-cinema-reset-camera';
+      camReset.type='button';camReset.textContent='시점 초기화';
+      const summon=document.createElement('button');summon.id='mcw-cinema-summon';
+      summon.type='button';summon.textContent='소환 연출';
+      controls.append(prev,current,next,flip,camReset,summon);
       const close=document.createElement('button');close.id='mcw-cinema-close';close.type='button';close.textContent='닫기';
       close.addEventListener('click',modalClose);header.append(title,controls,close);
       const stage=document.createElement('div');stage.id='mcw-cinema-stage';
@@ -132,6 +136,8 @@
       }
       prev.addEventListener('click',()=>{cinemaIndex=(cinemaIndex+cinemaCards.length-1)%cinemaCards.length;show();});
       next.addEventListener('click',()=>{cinemaIndex=(cinemaIndex+1)%cinemaCards.length;show();});
+      camReset.addEventListener('click',()=>cinemaScene.resetCamera());
+      summon.addEventListener('click',()=>cinemaScene.previewSummon());
       flip.addEventListener('click',()=>{
         const nextView=cinemaScene.state.viewMode==='front'?'back':'front';
         cinemaScene.setView(nextView);flip.setAttribute('aria-pressed',String(nextView==='back'));
