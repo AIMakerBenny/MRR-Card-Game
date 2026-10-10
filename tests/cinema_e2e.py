@@ -18,7 +18,7 @@ try:
       let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;
       Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
     }''')
-    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase43_3D_Prototype.html'
+    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase44_3D_Prototype.html'
     legal=[]
     for seed in range(198704,198728):
       page.goto(url+f'?qa_seed={seed}')
@@ -48,6 +48,7 @@ try:
     assert page.locator('#mcw-cinema-prev').count()==1
     assert page.locator('#mcw-cinema-stage canvas').count()==1
     assert page.evaluate("MRRCinema.scene.state.orbitRevision===43")
+    assert page.evaluate("MRRCinema.scene.state.portalRevision===44 && MRRCinema.scene.state.portalElements>=20 && MRRCinema.scene.state.starParticleCount===180")
     first=page.evaluate("MRRCinema.scene.state")
     stage=page.locator('#mcw-cinema-stage').bounding_box()
     mx=stage['x']+stage['width']*.55
@@ -71,6 +72,7 @@ try:
     assert page.locator('#mcw-cinema-flip').get_attribute('aria-pressed')=='false'
     assert page.locator('[data-slot]').count()==30
     assert not errors,errors
+    page.screenshot(path=str(ROOT/'tests/phase44_portal_stage.png'))
     page.screenshot(path=str(ROOT/'tests/phase39_live_card.png'))
     page.set_viewport_size({'width':390,'height':844})
     page.wait_for_timeout(500)

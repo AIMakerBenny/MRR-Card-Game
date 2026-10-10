@@ -179,6 +179,48 @@ window.MRRCinemaFactory=function(THREE,mount){
   mount.addEventListener('pointercancel',onUp);
   mount.addEventListener('wheel',onWheel,{passive:false});
   resetCamera();
+
+  // Phase44: towering engraved portal and physically separated lanterns
+  // behind the card, with all solid geometry outside the central sightline.
+  const portalGroup=new THREE.Group();portalGroup.position.set(0,2.3,-3.8);
+  stage.add(portalGroup);const portalParts=[],portalResources=[];
+  const portalBronze=new THREE.MeshPhysicalMaterial({color:0x9b7750,metalness:.79,roughness:.25,clearcoat:.5});
+  const portalDark=new THREE.MeshStandardMaterial({color:0x10232d,metalness:.4,roughness:.58});
+  const portalGlow=new THREE.MeshBasicMaterial({color:0x5bded6,transparent:true,opacity:.82,depthWrite:false});
+  portalResources.push(portalBronze,portalDark,portalGlow);
+  function addPortal(geo,material,x=0,y=0,z=0){
+    const mesh=new THREE.Mesh(geo,material);
+    mesh.position.set(x,y,z);portalGroup.add(mesh);portalParts.push(mesh);
+    return mesh;
+  }
+  for(const radius of [3.18,3.38,3.62]){
+    const circle=addPortal(new THREE.TorusGeometry(radius,.09,10,120),
+      radius===3.38?portalGlow:portalBronze);
+    circle.rotation.z=Math.PI/2;
+  }
+  for(let i=0;i<16;i++){
+    const a=i*Math.PI/8,x=Math.sin(a)*3.47,y=Math.cos(a)*3.47;
+    const shard=addPortal(new THREE.OctahedronGeometry(.17,0),i%2?portalDark:portalBronze,x,y,.1);
+    shard.rotation.z=a;
+  }
+  for(const x of [-3.95,3.95]){
+    const lantern=addPortal(new THREE.CylinderGeometry(.24,.31,1.25,8),portalDark,x,-.5,1.5);
+    lantern.castShadow=true;
+    const fire=addPortal(new THREE.IcosahedronGeometry(.2,0),portalGlow,x,-.1,1.5);
+    fire.scale.set(1,.83,1);
+  }
+  // Star dust is batched into one GPU Points draw call instead of many meshes.
+  const starPositions=new Float32Array(180*3);
+  let rng=39281;const random=()=>{rng=(Math.imul(rng,1664525)+1013904223)>>>0;return rng/4294967296;};
+  for(let i=0;i<180;i++){
+    starPositions[i*3]=(random()-.5)*19;
+    starPositions[i*3+1]=random()*7;
+    starPositions[i*3+2]=-5-random()*13;
+  }
+  const starGeo=new THREE.BufferGeometry();
+  starGeo.setAttribute('position',new THREE.BufferAttribute(starPositions,3));
+  const starMat=new THREE.PointsMaterial({color:0xa9e2df,size:.035,transparent:true,opacity:.72,depthWrite:false});
+  const stars=new THREE.Points(starGeo,starMat);stage.add(stars);
   let cardToken=0,viewMode='front';
   function setView(value){
     if(disposed)return;
@@ -277,6 +319,8 @@ window.MRRCinemaFactory=function(THREE,mount){
     card.position.y=2.15+(slow?0:Math.sin(sec*1.45)*.105);
     gem.rotation.y=sec*.9;
     for(let i=0;i<rings.length;i++)rings[i].rotation.z=slow?0:Math.sin(sec*.18+i*.8)*.038;
+    portalGroup.rotation.z=slow?0:Math.sin(sec*.095)*.02;
+    starMat.opacity=slow?.6:.52+Math.sin(sec*.74)*.15;
     renderer.render(scene,camera);frame++;
   }
   function start(){if(disposed)return;resize();if(running)return;running=true;lastDraw=0;startAt=performance.now();raf=requestAnimationFrame(tick);}
@@ -287,6 +331,9 @@ window.MRRCinemaFactory=function(THREE,mount){
     back.material.map?.dispose();back.material.dispose();
     for(const m of [bevel,core,front,back,gem,...rails])m.geometry.dispose();
     gold.dispose();core.material.dispose();gem.material.dispose();
+    for(const mesh of portalParts)mesh.geometry.dispose();
+    for(const mat of portalResources)mat.dispose();
+    starGeo.dispose();starMat.dispose();
     for(const g of stageGeometries)g.dispose();
     for(const m of stageMats)m.dispose();
     mount.removeEventListener('pointerdown',onDown);
@@ -300,6 +347,7 @@ window.MRRCinemaFactory=function(THREE,mount){
   return {start,stop,dispose,resize,setCard,setView,resetCamera,
     get state(){return {running,projection:camera.type,frameCount:frame,profile:{...profile},
       orbitRevision:43,orbitYaw,orbitPitch,orbitDistance,
+      portalRevision:44,portalElements:portalParts.length,starParticleCount:180,
       cardFlipRevision:40,viewMode,
       cardBackRevision:41,cardBackTextureReady:!!back.material.map?.image,
       cinematicLifecycleRevision:42,
