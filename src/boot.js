@@ -51,6 +51,48 @@
       console.warn('MCW3D graphics fallback:',String(err));
     }finally{busy=false;button.disabled=false;}
   });
+
+  // Phase37: explicit cinematic viewer, isolated from all gameplay controls.
+  const cinemaButton=document.createElement('button');
+  cinemaButton.id='mcw-cinema-open';cinemaButton.type='button';cinemaButton.textContent='3D 카드 감상';
+  cinemaButton.title='원근감이 있는 독립적인 3D 카드 뷰어';
+  bar.insertBefore(cinemaButton,button.nextSibling);
+  let cinemaModal=null,cinemaScene=null,cinemaBusy=false;
+  function modalClose(){
+    cinemaScene?.stop();cinemaModal?.remove();cinemaModal=null;
+    cinemaButton.disabled=false;
+  }
+  cinemaButton.addEventListener('click',async()=>{
+    if(cinemaBusy||cinemaModal)return;
+    cinemaBusy=true;cinemaButton.disabled=true;
+    try{
+      const THREE=await loadThree();
+      const overlay=document.createElement('div');overlay.id='mcw-cinema-view';overlay.className='mcw-active';
+      const dialog=document.createElement('section');dialog.id='mcw-cinema-dialog';
+      dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');
+      dialog.setAttribute('aria-label','3D 카드 시네마틱');
+      const header=document.createElement('div');header.id='mcw-cinema-header';
+      const title=document.createElement('span');title.textContent='MARORONG CARD WAR - CINEMATIC 3D';
+      const close=document.createElement('button');close.id='mcw-cinema-close';close.type='button';close.textContent='닫기';
+      close.addEventListener('click',modalClose);header.append(title,close);
+      const stage=document.createElement('div');stage.id='mcw-cinema-stage';
+      const footer=document.createElement('div');footer.id='mcw-cinema-footer';
+      footer.textContent='실제 원근 카메라와 조명을 사용하는 시각 품질 시제품입니다. 게임 규칙은 원본 그대로 유지됩니다.';
+      dialog.append(header,stage,footer);overlay.appendChild(dialog);
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click',event=>{if(event.target===overlay)modalClose();});
+      cinemaModal=overlay;
+      if(!cinemaScene)cinemaScene=window.MRRCinemaFactory(THREE,stage);
+      else{cinemaScene.dispose();cinemaScene=window.MRRCinemaFactory(THREE,stage);}
+      cinemaScene.start();close.focus();
+    }catch(err){
+      console.warn('Cinematic 3D unavailable',err);modalClose();
+    }finally{cinemaBusy=false;}
+  });
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&cinemaModal)modalClose();});
+  window.addEventListener('beforeunload',()=>cinemaScene?.dispose());
+  window.MRRCinema={get status(){return {open:!!cinemaModal,renderer:cinemaModal?'three':'closed'};},
+    get scene(){return cinemaScene;},close:modalClose};
   document.addEventListener('visibilitychange',()=>{if(sceneApi&&enabled){if(document.hidden)sceneApi.pause();else sceneApi.resume();}});
   window.addEventListener('beforeunload',()=>sceneApi?.dispose());
   window.MCW3D={get status(){return {enabled,renderer:document.body.classList.contains('mcw-three-ready')?'three':enabled?'css':'legacy'};},
