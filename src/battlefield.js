@@ -409,19 +409,71 @@ window.MRRBattlefieldUIInit=function(loadThree){
       exit.addEventListener('click',close);
       header.append(name,status,reset,exit);
       const stage=document.createElement('div');stage.id='mrr-battlefield-stage';
+      const commands=document.createElement('nav');commands.id='mrr-battlefield-commands';
+      commands.setAttribute('aria-label','3D 전장 카드 행동');
+      const attack=document.createElement('button');attack.id='mrr-battlefield-attack';
+      attack.type='button';attack.textContent='공격 대상 지정';attack.disabled=true;
+      const moveCard=document.createElement('button');moveCard.id='mrr-battlefield-move';
+      moveCard.type='button';moveCard.textContent='인접 이동';moveCard.disabled=true;
+      const cancelAction=document.createElement('button');cancelAction.id='mrr-battlefield-cancel';
+      cancelAction.type='button';cancelAction.textContent='선택 취소';cancelAction.disabled=true;
+      commands.append(attack,moveCard,cancelAction);
+      const cardTip=document.createElement('div');cardTip.id='mrr-battlefield-cardtip';
+      cardTip.setAttribute('role','status');cardTip.setAttribute('aria-live','off');
+      function runNativeAction(selector){
+        const native=document.querySelector('#inspectBody '+selector);
+        if(!native||native.disabled||!view)return;
+        native.click();view.sync();
+      }
+      attack.addEventListener('click',()=>runNativeAction('button[data-actor="attack"]'));
+      moveCard.addEventListener('click',()=>runNativeAction('button[data-actor="move"]'));
+      cancelAction.addEventListener('click',()=>runNativeAction('button[data-cancel-action]'));
+      function updateCommands(info){
+        const inspect=Boolean(info.selectedKey);
+        const nativeAttack=document.querySelector('#inspectBody button[data-actor="attack"]');
+        const nativeMove=document.querySelector('#inspectBody button[data-actor="move"]');
+        attack.disabled=!inspect||!nativeAttack||nativeAttack.disabled;
+        moveCard.disabled=!inspect||!nativeMove||nativeMove.disabled;
+        cancelAction.disabled=!document.querySelector('#inspectBody button[data-cancel-action]');
+        const phase=info.attackTargetCount?'  /  공격 대상 '+info.attackTargetCount+'곳':
+          info.legalCount?'  /  유효 위치 '+info.legalCount+'곳':'';
+        status.textContent='전장 30슬롯  /  공개 카드 '+info.publicCardCount+'장'+phase;
+      }
+      function pickNativeSlot(key){
+        const node=document.querySelector('#arena [data-slot="'+key+'"]');
+        if(!node||!view||!document.querySelector('#overlay.hidden'))return;
+        const actionable=node.querySelector('.board-card')||
+          node.classList.contains('legal')||node.classList.contains('attack-target');
+        if(!actionable)return;
+        // One delegated DOM click is the sole authority for all selection,
+        // movement, summons and attacks. Never simulate a damage event.
+        node.click();
+        view.sync();
+      }
+      function describeHover(key,profile){
+        if(!key||!profile){cardTip.classList.remove('visible');cardTip.textContent='';return;}
+        const legal=profile.target?'공격 가능 대상':profile.legal?'합법적 대상 또는 위치':'';
+        cardTip.replaceChildren();
+        const headline=document.createElement('strong');headline.textContent=profile.name;
+        const summary=document.createElement('span');summary.textContent=
+          [profile.kind,profile.stats,legal].filter(Boolean).join('  |  ');
+        cardTip.append(headline,summary);cardTip.classList.add('visible');
+      }
       const overlayHelp=document.createElement('div');overlayHelp.id='mrr-battlefield-help';
-      overlayHelp.textContent='마우스 드래그 - 카메라 회전  |  휠 - 확대·축소  |  실제 카드 조작은 게임 화면에서';
+      overlayHelp.textContent='카드 클릭 - 선택  |  공격 버튼 - 대상 지정  |  드래그 - 시점 회전  |  휠 - 확대·축소';
       const enemy=document.createElement('div');enemy.className='mrr-side-label enemy';enemy.textContent='OPPONENT TERRITORY';
       const friendly=document.createElement('div');friendly.className='mrr-side-label friendly';friendly.textContent='ALLIED TERRITORY';
-      stage.append(enemy,friendly,overlayHelp);
+      stage.append(enemy,friendly,overlayHelp,commands,cardTip);
       dialog.append(header,stage);layer.appendChild(dialog);document.body.appendChild(layer);
       layer.addEventListener('click',event=>{if(event.target===layer)close();});
-      overlay=layer;view=window.MRRBattlefieldFactory(THREE,stage);
+      overlay=layer;view=window.MRRBattlefieldFactory(THREE,stage,{
+        onPick:pickNativeSlot,onHover:describeHover,onState:updateCommands
+      });
       reset.addEventListener('click',()=>view?.resetCamera());
       view.start();
-      status.textContent='30 전장 슬롯  /  공개 카드 '+view.state.publicCardCount+'장';
+      updateCommands(view.state);
       exit.focus();
-    }catch(err){console.warn('Phase46 WebGL battlefield unavailable:',err);close();}
+    }catch(err){console.warn('Phase47 WebGL battlefield unavailable:',err);close();}
     finally{busy=false;}
   });
   window.addEventListener('keyup',e=>{if(e.key==='Escape'&&overlay){
