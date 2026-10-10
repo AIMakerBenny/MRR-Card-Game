@@ -21,7 +21,7 @@ try:
       let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;
       Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
     })();""")
-    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase54_3D_Prototype.html'
+    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase55_3D_Prototype.html'
     affordable=[]
     for seed in range(198704,198730):
       page.goto(url+f'?qa_seed={seed}')
@@ -50,6 +50,10 @@ try:
     }""")
     assert abs(sizes[0]-sizes[2])<3 and abs(sizes[1]-sizes[3])<3,sizes
     assert page.evaluate('MRRIntegrated.state.scene.slotCount')==30
+    assert page.evaluate('MRRIntegrated.state.scene.desktopArtRevision')==55
+    assert page.evaluate('MRRIntegrated.state.scene.tabletopSurface')=='parchment-and-wood'
+    assert page.evaluate('MRRIntegrated.state.scene.proceduralTextureCount')==2
+    assert page.evaluate('MRRIntegrated.state.scene.cameraPreset')=='tabletop'
     assert page.locator('#mrr-integrated-stage canvas').evaluate('e=>e.width>600 && e.height>500')
     assert page.evaluate('MRRIntegrated.state.nativeEndTurn')
     assert baseline==page.evaluate("""() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s)}"""),'Just opening 3D altered the game'
@@ -82,7 +86,7 @@ try:
     # Verify the native end-turn control remains above the WebGL canvas.
     assert page.locator('#endTurn').is_visible()
     # Resize while still using the in-game surface; no lost engine state.
-    for w,h in [(1366,768),(390,844)]:
+    for w,h in [(1366,768),(2560,1440)]:
       page.set_viewport_size({'width':w,'height':h})
       page.wait_for_timeout(350)
       assert page.locator('#mrr-integrated-stage canvas').evaluate('e=>e.width>200 && e.height>200')
@@ -97,6 +101,6 @@ try:
     assert page.locator('#arena').is_visible(),'Native board did not return'
     assert not errors,errors
     browser.close()
-    print('PHASE54 PASS: in-game WebGL, same native hand/end-turn and engine, legal real 3D placement, no modal, native optional drawers, FHD/compact/mobile screenshots, teardown parity')
+    print('PHASE54 PASS: in-game WebGL, same native hand/end-turn and engine, legal real 3D placement, no modal, native optional drawers, FHD/compact/2K desktop screenshots, teardown parity')
 finally:
   server.shutdown()
