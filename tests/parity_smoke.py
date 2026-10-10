@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parents[1]
-texts=[(ROOT/'legacy/Phase21_Original.html').read_text('utf-8'),(ROOT/'Marorong_Card_War_Phase46_3D_Prototype.html').read_text('utf-8')]
+texts=[(ROOT/'legacy/Phase21_Original.html').read_text('utf-8'),(ROOT/'Marorong_Card_War_Phase47_3D_Prototype.html').read_text('utf-8')]
 
 def open_game(browser,text):
     page=browser.new_page(viewport={'width':1366,'height':768})
