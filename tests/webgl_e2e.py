@@ -63,7 +63,7 @@ try:
         assert page.evaluate("MCW3D.scene.state.healthMeterRevision === 27")
         assert len(shown)==1 and abs(shown[0]['ratio']-dom_ratio)<.001,(shown,dom_ratio)
         assert page.evaluate("MCW3D.scene.state.illustrationRevision === 29 && MCW3D.scene.state.proceduralArtCards === 1"), 'Procedural card art not ready'
-        assert page.evaluate("MCW3D.scene.state.proceduralArtProfiles[0].profile in ['warrior','ship','citadel','arcane','crystal']") if False else True
+        assert page.evaluate("['warrior','ship','citadel','arcane','crystal'].includes(MCW3D.scene.state.proceduralArtProfiles[0].profile)"), 'Unexpected illustration profile'
         # The selected card must remain actually visible in WebGL mode.
         assert page.locator('.slot:has(.board-card) .card-ui').first.evaluate(
             "el => Number(getComputedStyle(el).opacity) > 0.9"
