@@ -227,8 +227,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const attackGlow=material({color:0xffaf66,emissive:0xe65d20,emissiveIntensity:1.85,metalness:.15,roughness:.35});
   const hoverGlow=material({color:0xffffff,emissive:0xc9a66b,emissiveIntensity:.9,metalness:.18,roughness:.33});
   const glowGeo=geometry(new THREE.TorusGeometry(1.04,.07,8,48));
-  const cardGeometry=geometry(new THREE.BoxGeometry(2.08,2.84,.22));
-  const cardFaceGeometry=geometry(new THREE.PlaneGeometry(1.96,2.71));
+  const cardGeometry=geometry(new THREE.BoxGeometry(tabletop?2.22:2.08,2.84,.22));
+  const cardFaceGeometry=geometry(new THREE.PlaneGeometry(tabletop?2.10:1.96,2.71));
   // Phase52: public-health display floats above each card, never reads G.
   const healthBackGeo=geometry(new THREE.BoxGeometry(2.18,.22,.075));
   const healthFillGeo=geometry(new THREE.BoxGeometry(2.04,.15,.084));
@@ -851,7 +851,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const slot=target?boardSlots.get(target):null;
     focusX=slot?.x||0;
     focusZ=slot?.z||(preset==='ally'?5.6:preset==='enemy'?-5.6:0);
-    distance=preset==='tabletop'?31.8:preset==='all'?29:preset==='selected'?11.5:18.5;
+    distance=preset==='tabletop'?29.6:preset==='all'?29:preset==='selected'?11.5:18.5;
     updateCamera();return true;
   }
   function resetCamera(){setCameraPreset('all');}
