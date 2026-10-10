@@ -85,6 +85,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const glowGeo=geometry(new THREE.TorusGeometry(1.04,.07,8,48));
   const cardGeometry=geometry(new THREE.BoxGeometry(2.08,2.84,.22));
   const cardFaceGeometry=geometry(new THREE.PlaneGeometry(1.96,2.71));
+  // Phase52: public-health display floats above each card, never reads G.
+  const healthBackGeo=geometry(new THREE.BoxGeometry(2.18,.22,.075));
+  const healthFillGeo=geometry(new THREE.BoxGeometry(2.04,.15,.084));
+  const statusGeo=geometry(new THREE.SphereGeometry(.135,12,8));
+  const healthBackMat=material({color:0x061820,emissive:0x0d2a31,emissiveIntensity:.4});
+  const healthHealthyMat=material({color:0x76f0c6,emissive:0x17bd8c,emissiveIntensity:.78});
+  const healthWarnMat=material({color:0xf7c46b,emissive:0xdb8a24,emissiveIntensity:.9});
+  const healthDangerMat=material({color:0xff7771,emissive:0xe54444,emissiveIntensity:1});
+  const readyMat=material({color:0x96e9ff,emissive:0x1875c2,emissiveIntensity:.7});
+  const actedMat=material({color:0x708090,emissive:0x1f2c32,emissiveIntensity:.25});
+  const wardMat=material({color:0xffe39e,emissive:0xf2ba53,emissiveIntensity:.75});
   const stripGeo=geometry(new THREE.BoxGeometry(19.5,.025,.045));
   for(const lane of lanes){
     const laneMaterial=lane.owner===0?blue:red;
@@ -139,13 +150,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const key=el.getAttribute('data-slot');
       if(!boardSlots.has(key))return null;
       const card=el.querySelector('.board-card .card-ui');
+      const fill=el.querySelector('.board-card .hpbar > div');
+      const pct=fill?Number.parseFloat(fill.style.width):NaN;
+      const chip=el.querySelector('.board-card .status-chip')?.textContent?.trim()||'';
       return {key,selected:el.classList.contains('selected-slot'),
         legal:el.classList.contains('legal'),attackTarget:el.classList.contains('attack-target'),
         name:card?.querySelector('.card-name')?.textContent?.trim()||'',
         kind:card?.querySelector('.card-kind')?.textContent?.trim()||'',
         cost:card?.querySelector('.cost-bubble')?.textContent?.trim()||'',
         stats:card?.querySelector('.card-stats')?.textContent?.trim()||'',
-        sigil:card?.querySelector('.sigil-text')?.textContent?.trim()||''};
+        sigil:card?.querySelector('.sigil-text')?.textContent?.trim()||'',
+        hasHealth:!!fill,hpRatio:fill&&Number.isFinite(pct)?Math.max(0,Math.min(1,pct/100)):null,
+        stateChip:chip};
     }).filter(Boolean);
   }
 
@@ -465,6 +481,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   let cards=[],signature='',publicCardCount=0,lastSync=0;
   let hoveredKey=null,selectedKey=null,legalCount=0,attackTargetCount=0,statusSignature='';
+  let cardHealth=new Map(),healthIndicatorCount=0;
   let pickMeshes=slotPickMeshes.slice(),cardIndex=new Map();
   function publicHit(e){
     const rect=renderer.domElement.getBoundingClientRect();
@@ -491,7 +508,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   function sync(){
     const list=publicSnapshot();
-    const nextStatusSignature=JSON.stringify(list.map(p=>[p.key,p.selected,p.legal,p.attackTarget]));
+    const nextStatusSignature=JSON.stringify(list.map(p=>[p.key,p.selected,p.legal,p.attackTarget,p.hasHealth,p.hpRatio,p.stateChip]));
     const statusChanged=nextStatusSignature!==statusSignature;
     statusSignature=nextStatusSignature;
     const cardsSignature=JSON.stringify(list.map(p=>[p.key,p.name,p.kind,p.cost,p.stats,p.sigil]));
@@ -513,21 +530,43 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         face.position.z=.116;face.userData.mrrSlotKey=p.key;group.add(face);
         const stand=new THREE.Mesh(cardGeometry,bronze);
         stand.position.z=-.065;stand.scale.set(1.055,1.05,.18);group.add(stand);
+        // Parent the indicators to the 3D card so tilt, hover and focus
+        // transform the art and health/status as a single visible object.
+        const hpBg=new THREE.Mesh(healthBackGeo,healthBackMat);
+        hpBg.position.set(0,1.66,.2);group.add(hpBg);
+        const hpFill=new THREE.Mesh(healthFillGeo,healthHealthyMat);
+        hpFill.position.set(0,1.66,.265);group.add(hpFill);
+        const statusDot=new THREE.Mesh(statusGeo,readyMat);
+        statusDot.position.set(1.22,1.67,.26);group.add(statusDot);
         scene.add(group);
-        const item={key:p.key,group,face,frame,slot};
+        const item={key:p.key,group,face,frame,slot,hpBg,hpFill,statusDot};
         cards.push(item);cardIndex.set(p.key,item);
         pickMeshes.push(frame,face);publicCardCount++;
       }
     }
     selectedKey=list.find(p=>p.selected)?.key||null;
     legalCount=list.filter(p=>p.legal).length;
+    cardHealth=new Map();healthIndicatorCount=0;
     attackTargetCount=list.filter(p=>p.attackTarget).length;
     for(const p of list){
       const slot=boardSlots.get(p.key);
       slot.halo.visible=!!(p.selected||p.attackTarget||p.legal||hoveredKey===p.key);
       slot.halo.material=p.attackTarget?attackGlow:p.selected?selectGlow:p.legal?legalGlow:hoverGlow;
       const item=cardIndex.get(p.key);
-      if(item)item.frame.material=p.selected?gold:(slot.owner===0?blue:red);
+      if(item){
+        item.frame.material=p.selected?gold:(slot.owner===0?blue:red);
+        item.hpBg.visible=item.hpFill.visible=p.hasHealth;
+        item.hpFill.material=p.hpRatio<=.33?healthDangerMat:p.hpRatio<=.66?healthWarnMat:healthHealthyMat;
+        item.hpFill.scale.x=Math.max(.001,p.hpRatio??0);
+        item.hpFill.position.x=-1.02*(1-(p.hpRatio??0));
+        item.statusDot.material=/보호|방호/.test(p.stateChip)?wardMat:
+          /행동 완료|대기/.test(p.stateChip)?actedMat:readyMat;
+        item.statusDot.visible=!!p.stateChip;
+        if(p.hasHealth){
+          healthIndicatorCount++;
+          cardHealth.set(p.key,{ratio:p.hpRatio,state:p.stateChip,color:p.hpRatio<=.33?'danger':p.hpRatio<=.66?'warning':'healthy'});
+        }
+      }
     }
     if(hoveredKey&&!list.some(p=>p.key===hoveredKey))hoveredKey=null;
     const hovered=list.find(p=>p.key===hoveredKey);
@@ -678,6 +717,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       realCombatQaRevision:50,nativeCombatEvents:nativeCombatEvents.slice(),
       visualArtRevision:51,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
+      healthHudRevision:52,healthIndicatorCount,cardHealth:Object.fromEntries(cardHealth),
       combatEvent:latestCombat,stagedStrike:!!pendingStrike,
       liveStrikeCount:liveEffects.filter(x=>(x.group.userData.beams||[]).length).length};}};
 };
