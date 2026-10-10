@@ -31,13 +31,16 @@ try:
       }).filter(x=>x.unit && x.attack>0 && x.cost<=2)""")
     def set_unit(side):
       units=affordable()
-      if not units:return None
-      page.locator('.hand-slot').nth(units[0]['i']).evaluate('e=>e.click()')
-      key=page.locator(f'#arena [data-slot^="{side}:front:"].legal').first.get_attribute('data-slot')
-      assert key
-      page.locator('#arena [data-slot="'+key+'"]').evaluate('e=>e.click()')
-      assert page.locator('#arena [data-slot="'+key+'"] .board-card').count()==1
-      return key
+      for unit in units:
+        page.locator('.hand-slot').nth(unit['i']).evaluate('e=>e.click()')
+        front=page.locator(f'#arena [data-slot^="{side}:front:"].legal')
+        if front.count()==0:continue
+        key=front.first.get_attribute('data-slot')
+        if not key:continue
+        front.first.evaluate('e=>e.click()')
+        assert page.locator('#arena [data-slot="'+key+'"] .board-card').count()==1
+        return key
+      return None
     # A legal opening hand is seed-dependent; reproduce a real match rather
     # than assuming one particular shuffled deal always has two cheap units.
     my_key=their_key=None
