@@ -89,7 +89,7 @@
       console.warn('Cinematic 3D unavailable',err);modalClose();
     }finally{cinemaBusy=false;}
   });
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&cinemaModal)modalClose();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&cinemaModal){event.preventDefault();event.stopImmediatePropagation();modalClose();}},true);
   window.addEventListener('beforeunload',()=>cinemaScene?.dispose());
   window.MRRCinema={get status(){return {open:!!cinemaModal,renderer:cinemaModal?'three':'closed'};},
     get scene(){return cinemaScene;},close:modalClose};
