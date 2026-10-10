@@ -59,10 +59,12 @@ window.MRRCinemaFactory=function(THREE,mount){
   stageGeometries.push(plaque.geometry);plaque.position.y=-.197;plaque.receiveShadow=true;
   // Eight architectural columns remain behind and below the interactive card.
   for(let i=0;i<8;i++){
-    const theta=i*Math.PI/4,rad=6.2;
+    // Keep architecture to either side of the main card. No columns are
+    // allowed in the center corridor, even after perspective projection.
+    const xs=[-7.3,-5.5,5.5,7.3,-8,-6.5,6.5,8];
     const col=add(new THREE.Mesh(new THREE.CylinderGeometry(.19,.3,4.1,8),stone));
     stageGeometries.push(col.geometry);
-    col.position.set(Math.cos(theta)*rad,1.18,-2.5+Math.sin(theta)*rad*.55);
+    col.position.set(xs[i],1.18,i<4?-2.7:-6.1);
     col.castShadow=true;
     const cap=add(new THREE.Mesh(new THREE.CylinderGeometry(.37,.24,.23,8),bronze));
     stageGeometries.push(cap.geometry);cap.position.set(col.position.x,3.3,col.position.z);
