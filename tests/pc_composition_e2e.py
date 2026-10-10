@@ -115,8 +115,21 @@ try:
       arg=target,timeout=9000)
     assert page.evaluate('MRRIntegrated.state.scene.publicCardCount') >= 1
     assert before != snap(),'Native legal placement not reflected in engine'
-    page.screenshot(path=str(ROOT/'tests/phase56_pc_1920x1080_card.png'),
-                    animations='disabled')
+    # A placed card must remain targetable/readable when the idle hand is present.
+    # Verify the on-screen click target rather than merely testing CSS dimensions.
+    for w,h in [(1920,1080),(1366,768),(2560,1440)]:
+      page.set_viewport_size({'width':w,'height':h})
+      page.wait_for_timeout(300)
+      projected = page.evaluate('(key)=>MRRIntegrated.scene.projectSlot(key)',target)
+      assert projected and 0 < projected['x'] < w and 0 < projected['y'] < h
+      exposed = page.evaluate("""p => {
+        const e = document.elementFromPoint(p.x,p.y);
+        return !!e?.closest('#mrr-integrated-stage');
+      }""",projected)
+      assert exposed,('Deployed 3D card is occluded by the native hand',w,h,projected)
+      page.screenshot(path=str(ROOT/f'tests/phase56_pc_{w}x{h}_card.png'),
+                      animations='disabled')
+    assert before != snap(),'Resize or composition must not reset native card placement'
     page.locator('#mrr-integrated-exit').evaluate('(e)=>e.click()')
     assert page.evaluate('MRRIntegrated.scene === null')
     assert page.locator('#mrr-integrated-stage').count() == 0
