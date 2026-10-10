@@ -354,6 +354,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // Phase48: CSS effects are emitted by the unmodified original game.
   // Observe only real native fx-* class transitions, never compute damage or healing.
   const liveEffects=[],effectsReceived={hit:0,heal:0,summon:0};
+  let peakLiveFxCount=0;
   const recentFx=new Map();
   const effectColors={hit:0xffa96e,heal:0x7affbd,summon:0x69d8ef};
   const fxObserver=new MutationObserver(records=>{
@@ -439,6 +440,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const life=type==='summon'?1150:type==='heal'?1040:820;
     liveEffects.push({type,key,group,ring,sparkGeo,sparkMat,beacon,
       velocity,born:now,life,resources:[ringGeo,ringMat,sparkGeo,sparkMat,beaconGeo,beaconMat,...(group.userData.beamResources||[]),...(group.userData.columnResources||[])]});
+    peakLiveFxCount=Math.max(peakLiveFxCount,liveEffects.length);
     effectsReceived[type]++;
     const combatEntry={type,key,name:document.querySelector('#arena [data-slot="'+key+'"] .card-name')?.textContent?.trim()||'',at:now,confirmedStrike:!!strike};
     nativeCombatEvents.push(combatEntry);
@@ -730,7 +732,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       publicCardCount,cardMeshCount:cards.length,shadows:renderer.shadowMap.enabled,
       rendererAlive:renderer.domElement.isConnected,yaw,pitch,distance,
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
-      nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,
+      nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,peakLiveFxCount,
       fxSources:'native-slot-classes',cinematicRevision:49,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       realCombatQaRevision:50,nativeCombatEvents:nativeCombatEvents.slice(),
