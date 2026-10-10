@@ -308,9 +308,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
       confirmedStrikes++;pendingStrike=null;
     }
-    const life=type='summon'?1150:type==='heal'?1040:820;
+    // Soft additive volumetric core creates readable summon/heal silhouettes.
+    const columnGeo=new THREE.CylinderGeometry(type==='hit'?.45:.16,
+      type==='hit'?.65:.34,type==='hit'?1.6:3.8,16,1,true);
+    const columnMat=new THREE.MeshBasicMaterial({color:colour,transparent:true,
+      opacity:type==='hit'?.42:.32,depthWrite:false,side:THREE.DoubleSide,
+      blending:THREE.AdditiveBlending});
+    const column=new THREE.Mesh(columnGeo,columnMat);
+    column.position.y=type==='hit'?.7:1.9;
+    group.add(column);group.userData.column=column;
+    group.userData.columnResources=[columnGeo,columnMat];
+    const life=type==='summon'?1150:type==='heal'?1040:820;
     liveEffects.push({type,key,group,ring,sparkGeo,sparkMat,beacon,
-      velocity,born:now,life,resources:[ringGeo,ringMat,sparkGeo,sparkMat,beaconGeo,beaconMat,...(group.userData.beamResources||[])]});
+      velocity,born:now,life,resources:[ringGeo,ringMat,sparkGeo,sparkMat,beaconGeo,beaconMat,...(group.userData.beamResources||[]),...(group.userData.columnResources||[])]});
     effectsReceived[type]++;
     events.onCombat?.({type,key,name:document.querySelector('#arena [data-slot="'+key+'"] .card-name')?.textContent?.trim()||'',at:now,confirmedStrike:!!strike});
     while(liveEffects.length>24)removeFx(liveEffects.shift());
@@ -325,6 +335,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(p>=1){removeFx(f);liveEffects.splice(i,1);continue;}
       const ease=Math.sin(Math.PI*p);
       f.ring.scale.setScalar(.7+p*1.55);
+      if(f.group.userData.column){
+        const column=f.group.userData.column;
+        column.material.opacity=(1-p)*(f.type==='hit'?.44:.36);
+        column.scale.x=column.scale.z=.65+Math.sin(Math.PI*p)*.58;
+        column.scale.y=.8+Math.sin(Math.PI*p)*.4;
+      }
       f.ring.material.opacity=(1-p)*.9;
       f.beacon.scale.setScalar(.7+ease*1.9);
       f.beacon.material.opacity=(1-p)*.72;
