@@ -409,7 +409,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     c.restore();
   }
 
+  // Phase58: reserve an exact 5:4 400x320 pixel window for user-supplied artwork.
+  // The master artwork size is 1200x960 px. This surface stays genuinely blank
+  // until the owner supplies images. The standalone 3D modal is unchanged.
+  const pcArtSlot={x:56,y:199,width:400,height:320,sourceWidth:1200,sourceHeight:960};
+  function drawPcBlankArtwork(c){
+    c.save();
+    c.fillStyle='#2b3335';
+    c.fillRect(pcArtSlot.x,pcArtSlot.y,pcArtSlot.width,pcArtSlot.height);
+    c.strokeStyle='#857455';c.lineWidth=2;
+    c.strokeRect(pcArtSlot.x-1,pcArtSlot.y-1,pcArtSlot.width+2,pcArtSlot.height+2);
+    c.restore();
+  }
   function drawCardIllustration(c,profile,ally){
+    if(tabletop){drawPcBlankArtwork(c);return 'blank-art-slot';}
     let hash=2166136261;
     for(const ch of profile.name){hash=Math.imul(hash^ch.charCodeAt(0),16777619)>>>0;}
     const types=profile.kind+' '+profile.name;
@@ -993,6 +1006,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       visualArtRevision:51,pcArtRevision:tabletop?57:0,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
       healthHudRevision:52,healthIndicatorCount,cardHealth:Object.fromEntries(cardHealth),
       previewRevision:53,previewReadyCards:cardIndex.size,
+      artworkSlotRevision:tabletop?58:0,artworkSlotResolution:tabletop?'1200x960':null,
+      artworkSlotBounds:tabletop?{...pcArtSlot}:null,
       desktopArtRevision:tabletop?55:0,tabletopSurface:tabletop?'parchment-and-wood':'legacy-stone',
       proceduralTextureCount:tabletopTextures.length,
       combatEvent:latestCombat,stagedStrike:!!pendingStrike,
