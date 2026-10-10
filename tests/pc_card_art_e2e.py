@@ -70,6 +70,11 @@ try:
     assert details and details['valid'] and details['dataLength']>11000,details
     assert details['inWorld'] and details['pcArtRevision']==57,details
     assert details['canvasVisible']
+    # Capture the exact GPU card-face canvas at full pixel resolution for art review.
+    import base64
+    png=page.evaluate('(key)=>MRRIntegrated.scene.getCardPreview(key).artData',key)
+    (ROOT/'tests/phase57_public_card_face_512x704.png').write_bytes(
+      base64.b64decode(png.split(',',1)[1]))
     after=snap()
     for w,h in [(1920,1080),(1366,768),(2560,1440)]:
       page.set_viewport_size({'width':w,'height':h})
