@@ -91,6 +91,67 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     }
     laneCount=count;
   }
+
+  // Phase33: selected attacker -> hovered legal attack target, view only.
+  // No click handlers and no evaluation of valid attacks beyond the DOM classes
+  // already assigned by the original game engine.
+  const aimMaterial=new THREE.LineBasicMaterial({color:0xf2c47d,transparent:true,opacity:.67,depthTest:false,depthWrite:false});
+  const aimLine=new THREE.Line(new THREE.BufferGeometry(),aimMaterial);aimLine.visible=false;aimLine.renderOrder=10;scene.add(aimLine);
+  const aimTip=new THREE.Mesh(new THREE.ConeGeometry(6,13,3),
+    new THREE.MeshBasicMaterial({color:0xffd798,transparent:true,opacity:.77,depthTest:false,depthWrite:false}));
+  aimTip.visible=false;aimTip.renderOrder=10;scene.add(aimTip);
+  let aimHost=null,aimPath=null,aimActive=false,aimKey='';
+  function clearAim(){
+    aimHost?.remove();aimHost=null;aimPath=null;aimActive=false;aimKey='';
+    aimLine.visible=false;aimTip.visible=false;
+  }
+  function syncAim(){
+    const arena=document.querySelector('#arena'),r=arena?.getBoundingClientRect();
+    const source=arena?.querySelector('.slot.selected-slot:has(.board-card)');
+    const target=arena?.querySelector('.slot.attack-target:hover');
+    if(!r||!source||!target||source===target){clearAim();return;}
+    const a=source.getBoundingClientRect(),b=target.getBoundingClientRect();
+    const x1=a.left+a.width/2-r.left,y1=a.top+a.height/2-r.top;
+    const x2=b.left+b.width/2-r.left,y2=b.top+b.height/2-r.top;
+    if(!Number.isFinite(x1+y1+x2+y2)||x2<0||x2>r.width||y2<0||y2>r.height){clearAim();return;}
+    const bend=Math.min(52,Math.abs(x2-x1)*.18+22);
+    const key=[x1,y1,x2,y2,bend].map(v=>Math.round(v)).join(':');
+    if(!aimHost||!aimHost.isConnected){
+      aimHost=document.createElementNS('http://www.w3.org/2000/svg','svg');
+      aimHost.id='mcw33-target-guide';
+      aimHost.setAttribute('aria-hidden','true');
+      aimHost.setAttribute('viewBox','0 0 '+Math.max(1,r.width)+' '+Math.max(1,r.height));
+      const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
+      const marker=document.createElementNS('http://www.w3.org/2000/svg','marker');
+      marker.setAttribute('id','mcw33-arrowhead');marker.setAttribute('markerWidth','10');
+      marker.setAttribute('markerHeight','10');marker.setAttribute('refX','8');marker.setAttribute('refY','3');
+      marker.setAttribute('orient','auto');marker.setAttribute('markerUnits','strokeWidth');
+      const polygon=document.createElementNS('http://www.w3.org/2000/svg','path');
+      polygon.setAttribute('d','M0,0 L8,3 L0,6 Z');polygon.setAttribute('fill','#ffd69d');
+      marker.appendChild(polygon);defs.appendChild(marker);aimHost.appendChild(defs);
+      aimPath=document.createElementNS('http://www.w3.org/2000/svg','path');
+      aimPath.setAttribute('fill','none');aimPath.setAttribute('stroke','#f3c884');
+      aimPath.setAttribute('stroke-width','3');aimPath.setAttribute('stroke-linecap','round');
+      aimPath.setAttribute('marker-end','url(#mcw33-arrowhead)');
+      aimHost.appendChild(aimPath);arena.appendChild(aimHost);
+      aimKey='';
+    }
+    aimHost.setAttribute('viewBox','0 0 '+Math.max(1,r.width)+' '+Math.max(1,r.height));
+    if(aimKey!==key){
+      const curve='M'+x1+','+y1+' Q'+((x1+x2)/2)+','+(Math.min(y1,y2)-bend)+' '+x2+','+y2;
+      aimPath.setAttribute('d',curve);
+      const start=new THREE.Vector3(a.left+a.width/2,height-a.top-a.height/2,55);
+      const end=new THREE.Vector3(b.left+b.width/2,height-b.top-b.height/2,55);
+      const middle=new THREE.Vector3((start.x+end.x)/2,
+        height-(r.top+Math.min(y1,y2)-bend),55);
+      const points=new THREE.QuadraticBezierCurve3(start,middle,end).getPoints(24);
+      aimLine.geometry.dispose();aimLine.geometry=new THREE.BufferGeometry().setFromPoints(points);
+      const dir=end.clone().sub(points[points.length-2]);
+      aimTip.position.copy(end);aimTip.rotation.z=Math.atan2(dir.y,dir.x)-Math.PI/2;
+      aimKey=key;
+    }
+    aimLine.visible=aimTip.visible=aimActive=true;
+  }
   let ornamentHost=null;
   function mountOrnaments(){
     const arena=document.querySelector('#arena');
@@ -463,8 +524,8 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     const seen=new Set();
     const gameVisible=!document.querySelector('#gameScreen')?.classList.contains('hidden');
     renderer.domElement.style.display=gameVisible?'block':'none';
-    if(!gameVisible){arenaTrim.visible=false;return;}
-    syncArena();
+    if(!gameVisible){arenaTrim.visible=false;clearAim();return;}
+    syncArena();syncAim();
     for(const slot of document.querySelectorAll('#enemyTerrace [data-slot],#fieldTable [data-slot],#myTerrace [data-slot]')){
       const id=slot.getAttribute('data-slot');if(!id)continue;seen.add(id);
       const r=rectOf(slot);if(r.w<10||r.h<10)continue;
@@ -595,7 +656,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     }
     raf=requestAnimationFrame(frame);
   }
-  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;clearOrnaments();clearLanes();
+  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;clearOrnaments();clearLanes();clearAim();
     for(const id of Array.from(entries.keys()))removeEntry(id);
     for(const fx of effects){scene.remove(fx.mesh);fx.mesh.geometry.dispose();fx.mesh.material.dispose();}effects.length=0;
     renderer.clear();
@@ -607,6 +668,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     for(const p of lightPools){p.geometry.dispose();p.material.map.dispose();p.material.dispose();}
     for(const m of arenaMedallions){m.geometry.dispose();m.material.map.dispose();m.material.dispose();}
     laneGeometry.dispose();laneMaterial.dispose();
+    aimLine.geometry.dispose();aimMaterial.dispose();aimTip.geometry.dispose();aimTip.material.dispose();
     rimGeo.dispose();rimMat.dispose();renderer.dispose();renderer.domElement.remove();
   }
   renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();stop();
@@ -634,6 +696,8 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       visibleHealthRatios:active.filter(e=>e.meterFill.visible).map(e=>({slot:e.id,ratio:e.hpRatio})),
       healthMeterRevision:27,
       frameRevision:24,battlefieldRevision:25,
+      targetingRevision:33,targetGuideActive:aimActive,
+      targetGuidePath:aimPath?.getAttribute('d')||null,
       arenaRevision:30,laneRevision:32,visibleLaneCount:laneCount,visibleLaneMeshes:laneMeshes.filter(m=>m.visible).length,
       decorativeDomCount:ornamentHost?.children.length||0,
       visibleArenaMedallions:arenaTrim.visible?arenaMedallions.filter(x=>x.visible).length:0,

@@ -165,3 +165,13 @@ body.mcw-three-ready #mcw32-lane-inlays .mcw32-lane::after{
   border:1px solid rgba(234,197,125,.6);background:rgba(29,49,51,.75);
 }
 @media(max-width:760px){body.mcw-three-ready #mcw32-lane-inlays{display:none}}
+
+/* Phase33 only shows an attack arrow when the game has a selected attacker
+   AND the pointer is over an already legal attack target. No click capture. */
+body.mcw-three-ready #mcw33-target-guide{
+  position:absolute;inset:0;width:100%;height:100%;z-index:17;
+  pointer-events:none;overflow:hidden;filter:drop-shadow(0 0 3px rgba(255,191,105,.48));
+}
+@media(prefers-reduced-motion:reduce){
+ body.mcw-three-ready #mcw33-target-guide{filter:none}
+}
