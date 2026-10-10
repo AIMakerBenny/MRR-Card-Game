@@ -18,7 +18,7 @@ try:
     page.add_init_script('''() => {
       let seed=198704;Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
     }''')
-    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase52_3D_Prototype.html'
+    url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase53_3D_Prototype.html'
     page.goto(url)
     page.locator('#newGame').click();page.locator('#launchGame').click()
     page.get_by_role('button',name='이 손패로 시작').click()
@@ -42,13 +42,13 @@ try:
     assert state['cardHealth'][key]['ratio']==1 or state['cardHealth'][key]['ratio']<1
     assert state['cardHealth'][key]['color'] in ['healthy','warning','danger']
     page.locator('#mrr-view-selected').is_visible()
-    page.screenshot(path=str(ROOT/'tests/phase52_public_hp_3d_fhd.png'))
+    page.screenshot(path=str(ROOT/'tests/phase53_public_hp_3d_fhd.png'))
     for w,h in [(1366,768),(390,844)]:
       page.set_viewport_size({'width':w,'height':h})
       page.wait_for_timeout(550)
       assert page.evaluate('MRRBattlefield.state.scene.healthIndicatorCount')==page.locator('#arena .board-card .hpbar').count()
       assert page.evaluate('MRRBattlefield.state.scene.cardHealth')[key]['ratio']>0
-      page.screenshot(path=str(ROOT/f'tests/phase52_public_hp_3d_{w}x{h}.png'))
+      page.screenshot(path=str(ROOT/f'tests/phase53_public_hp_3d_{w}x{h}.png'))
     assert snapshot==page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s)}'''),'3D health HUD mutated game state'
     page.locator('#mrr-battlefield-close').click()
     assert not page.evaluate('MRRBattlefield.state.open')
