@@ -15,17 +15,20 @@ try:
     browser=pw.chromium.launch(**opts)
     page=browser.new_page(viewport={'width':1920,'height':1080})
     errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-    page.add_init_script('''() => {let seed=198704;Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};}''')
+    page.add_init_script('''() => {let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};}''')
     url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase53_3D_Prototype.html'
-    page.goto(url)
-    page.locator('#newGame').click();page.locator('#launchGame').click()
-    page.get_by_role('button',name='이 손패로 시작').click()
-    choices=page.locator('.hand-slot').evaluate_all('''els=>els.map((e,i)=>({
-      i,cost:Number(e.querySelector('.cost-bubble')?.textContent||99),
-      unit:/type-(몬스터|시설|영웅유닛)/.test(e.querySelector('.card-ui')?.className||'')
-    }))''')
-    affordable=[x for x in choices if x['unit'] and x['cost']<=2]
-    assert affordable
+    affordable=[]
+    for seed in range(198704,198728):
+      page.goto(url+f'?qa_seed={seed}')
+      page.locator('#newGame').click();page.locator('#launchGame').click()
+      page.get_by_role('button',name='이 손패로 시작').click()
+      choices=page.locator('.hand-slot').evaluate_all('''els=>els.map((e,i)=>({
+        i,cost:Number(e.querySelector('.cost-bubble')?.textContent||99),
+        unit:/type-(몬스터|시설|영웅유닛)/.test(e.querySelector('.card-ui')?.className||'')
+      }))''')
+      affordable=[x for x in choices if x['unit'] and x['cost']<=2]
+      if affordable:break
+    assert affordable,'No lawful card to place across deterministic openings'
     page.locator('.hand-slot').nth(affordable[0]['i']).evaluate('(e)=>e.click()')
     key=page.locator('#arena .slot.legal').first.get_attribute('data-slot')
     page.locator('#arena [data-slot="'+key+'"]').evaluate('(e)=>e.click()')
