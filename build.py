@@ -20,7 +20,7 @@ source = source.replace('</body>', f'<script type="module" id="mcw3d-extension-j
 output = ROOT/'Marorong_Card_War_Phase46_3D_Prototype.html'
 output.write_text(source, encoding='utf-8')
 manifest = {
-    'build': 'Phase46 Summoning Cinematic Preview 01',
+    'build': 'Phase46 Perspective Full Battlefield 01',
     'source': 'Phase21_UI_Fixed',
     'source_sha256': sha,
     'output_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
