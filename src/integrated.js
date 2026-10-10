@@ -51,6 +51,18 @@ window.MRRIntegratedUIInit=function(loadThree){
       const rail=control('mrr-integrated-rail','▣ 보급 / 영역');
       const exit=control('mrr-integrated-exit','2D 보기','기존 게임 화면으로 돌아가기');
       for(const b of [attack,move,cancel,inspect,rail,exit])command.appendChild(b);
+      // Phase62: commands follow the selected *public* 3D card. All buttons
+      // delegate to the existing original-game action buttons.
+      const context=document.createElement('div');context.id='mrr-integrated-context';
+      context.hidden=true;context.setAttribute('aria-label','선택 카드 명령');
+      const commandFor=(id,label,selector)=>{
+        const b=control(id,label);
+        b.addEventListener('click',()=>nativeButton(selector));
+        context.appendChild(b);return b;
+      };
+      const quickAttack=commandFor('mrr-quick-attack','⚔ 공격','#inspectBody button[data-actor="attack"]');
+      const quickMove=commandFor('mrr-quick-move','↗ 이동','#inspectBody button[data-actor="move"]');
+      const quickCancel=commandFor('mrr-quick-cancel','× 취소','#inspectBody button[data-cancel-action]');
       // Two real, native control panels are available on demand. No rule actions
       // or state mutations are reimplemented in this graphics adapter.
       inspect.addEventListener('click',()=>root.classList.toggle('mrr-integrated-inspector-open'));
@@ -59,7 +71,7 @@ window.MRRIntegratedUIInit=function(loadThree){
       attack.addEventListener('click',()=>nativeButton('#inspectBody button[data-actor="attack"]'));
       move.addEventListener('click',()=>nativeButton('#inspectBody button[data-actor="move"]'));
       cancel.addEventListener('click',()=>nativeButton('#inspectBody button[data-cancel-action]'));
-      stage.append(vignette,heading,badge,help,command);
+      stage.append(vignette,heading,badge,help,command,context);
       root.appendChild(stage);
       root.classList.add('mrr-integrated-playing');
       document.body.classList.add('mrr-integrated-active');
@@ -79,6 +91,21 @@ window.MRRIntegratedUIInit=function(loadThree){
           const suffix=info.attackTargetCount?'  ·  공격 대상 '+info.attackTargetCount:
             info.legalCount?'  ·  배치 가능 '+info.legalCount:'';
           badge.textContent='전장 '+info.publicCardCount+'장'+suffix;
+          // Only show actions already supplied by the original inspector.
+          const valid=!!info.selectedKey && !!view?.hasCard(info.selectedKey);
+          quickAttack.hidden=!valid||attack.disabled;
+          quickMove.hidden=!valid||move.disabled;
+          quickCancel.hidden=!valid||cancel.disabled;
+          const show=valid&&(!quickAttack.hidden||!quickMove.hidden||!quickCancel.hidden);
+          context.hidden=!show;
+          if(show){
+            const pos=view.projectCard(info.selectedKey);
+            const rect=stage.getBoundingClientRect();
+            if(pos&&rect.width>0&&rect.height>0){
+              context.style.left=Math.max(12,Math.min(rect.width-230,pos.x-rect.left+48))+'px';
+              context.style.top=Math.max(90,Math.min(rect.height-130,pos.y-rect.top-48))+'px';
+            }else context.hidden=true;
+          }
         }finally{updating=false;}
       }
       function pick(key){
