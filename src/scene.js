@@ -100,9 +100,9 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   const aimTip=new THREE.Mesh(new THREE.ConeGeometry(6,13,3),
     new THREE.MeshBasicMaterial({color:0xffd798,transparent:true,opacity:.77,depthTest:false,depthWrite:false}));
   aimTip.visible=false;aimTip.renderOrder=10;scene.add(aimTip);
-  let aimHost=null,aimPath=null,aimActive=false,aimKey='';
+  let aimHost=null,aimPath=null,aimReticle=null,aimActive=false,aimKey='';
   function clearAim(){
-    aimHost?.remove();aimHost=null;aimPath=null;aimActive=false;aimKey='';
+    aimHost?.remove();aimHost=null;aimPath=null;aimReticle=null;aimActive=false;aimKey='';
     aimLine.visible=false;aimTip.visible=false;
   }
   function syncAim(){
@@ -133,13 +133,24 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       aimPath.setAttribute('fill','none');aimPath.setAttribute('stroke','#f3c884');
       aimPath.setAttribute('stroke-width','3');aimPath.setAttribute('stroke-linecap','round');
       aimPath.setAttribute('marker-end','url(#mcw33-arrowhead)');
-      aimHost.appendChild(aimPath);arena.appendChild(aimHost);
+      aimHost.appendChild(aimPath);
+      // Phase34: a non-interactive focus reticle makes the destination legible.
+      aimReticle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      aimReticle.setAttribute('class','mcw34-reticle');
+      aimReticle.setAttribute('r','16');
+      aimReticle.setAttribute('fill','none');
+      aimReticle.setAttribute('stroke','#ffd69d');
+      aimReticle.setAttribute('stroke-width','2');
+      aimHost.appendChild(aimReticle);
+      arena.appendChild(aimHost);
       aimKey='';
     }
     aimHost.setAttribute('viewBox','0 0 '+Math.max(1,r.width)+' '+Math.max(1,r.height));
     if(aimKey!==key){
       const curve='M'+x1+','+y1+' Q'+((x1+x2)/2)+','+(Math.min(y1,y2)-bend)+' '+x2+','+y2;
       aimPath.setAttribute('d',curve);
+      aimReticle.setAttribute('cx',String(x2));
+      aimReticle.setAttribute('cy',String(y2));
       const start=new THREE.Vector3(a.left+a.width/2,height-a.top-a.height/2,55);
       const end=new THREE.Vector3(b.left+b.width/2,height-b.top-b.height/2,55);
       const middle=new THREE.Vector3((start.x+end.x)/2,
@@ -453,10 +464,31 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     const halo=new THREE.Mesh(new THREE.RingGeometry(.68,.77,48),
       new THREE.MeshBasicMaterial({color:0xffe3a0,transparent:true,opacity:.68,side:THREE.DoubleSide,depthWrite:false}));
     halo.position.z=12.6;halo.visible=false;group.add(halo);
-    const entry={id,group,plate,edge,front,shadow,halo,meterBg,meterFill,hpRatio:null,
+    const entry={id,group,plate,edge,front,shadow,halo,meterBg,meterFill,hpRatio:null,hpCardKey:null,
       artWell:null,artOriginal:null,artURL:null,signature:null,hasCard:false,prevEffect:'',
       position:new THREE.Vector3(),lift:0,targetLift:0,hovered:false,selected:false};
     entries.set(id,entry);return entry;
+  }
+  // Phase35 visual feedback reads only the public HP bar percentage.
+  // Percentage point delta is NOT a claim about actual damage or healing units.
+  const hpPopups=[];let healthChangeFxCount=0;
+  function clearHealthPopups(){for(const p of hpPopups)p.el.remove();hpPopups.length=0;}
+  function healthFeedback(e,slot,before,after){
+    if(before===null||after===null||Math.abs(after-before)<.006)return;
+    const arena=document.querySelector('#arena'),box=arena?.getBoundingClientRect();
+    const rect=slot.getBoundingClientRect();
+    if(!box||rect.width<5||rect.height<5)return;
+    const delta=Math.round((after-before)*100);
+    if(delta===0)return;
+    const div=document.createElement('div');
+    div.className='mcw35-health-change '+(delta>0?'mcw35-heal':'mcw35-hurt');
+    div.setAttribute('aria-hidden','true');div.dataset.slot=e.id;
+    div.textContent='체력 '+(delta>0?'+':'')+delta+'%p';
+    div.style.left=Math.round(rect.left+rect.width/2-box.left)+'px';
+    div.style.top=Math.round(rect.top+rect.height*.16-box.top)+'px';
+    arena.appendChild(div);
+    hpPopups.push({el:div,born:performance.now()});healthChangeFxCount++;
+    while(hpPopups.length>12)hpPopups.shift().el.remove();
   }
   function removeEntry(id){const e=entries.get(id);if(!e)return;
     restoreArt(e);
@@ -542,7 +574,9 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
         const cr=rectOf(card);const cw=Math.max(26,cr.w),ch=Math.max(38,cr.h);
         e.hasCard=true;e.edge.visible=e.front.visible=e.shadow.visible=true;
         e.edge.scale.set(cw,ch,6);e.front.scale.set(cw-6,ch-7,1);e.shadow.scale.set(cw,ch,1);
-        e.hpRatio=info.hpRatio;
+        const hpCardKey=info.name+'|'+info.kind+'|'+info.cost;
+        if(e.hasCard&&e.hpCardKey===hpCardKey)healthFeedback(e,slot,e.hpRatio,info.hpRatio);
+        e.hpCardKey=hpCardKey;e.hpRatio=info.hpRatio;
         const showMeter=info.hpRatio!==null;
         e.meterBg.visible=e.meterFill.visible=showMeter;
         if(showMeter){
@@ -574,7 +608,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
         restoreArt(e);
         e.signature=null;e.hasCard=false;e.edge.visible=e.front.visible=e.shadow.visible=false;
         e.lift=e.targetLift=0;e.hovered=e.selected=false;e.halo.visible=false;
-        e.meterBg.visible=e.meterFill.visible=false;e.hpRatio=null;
+        e.meterBg.visible=e.meterFill.visible=false;e.hpRatio=null;e.hpCardKey=null;
         e.plate.position.set(0,0,0);e.group.position.set(r.x,r.y,3);
       }
       const fx=['fx-hit','fx-heal','fx-summon'].find(x=>slot.classList.contains(x))||'';
@@ -587,7 +621,9 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
   function frame(t){
     if(!running||paused)return;
     raf=requestAnimationFrame(frame);
-    if(t-last<32)return;last=t;
+    // Phase36: reduce GPU pressure on narrow viewports without touching the
+    // original game's timers, frame scheduling, physics or card decisions.
+    if(t-last<(width<760?48:32))return;last=t;
     if(innerWidth!==width||innerHeight!==height)resize();
     // Client rects can change on hover/scroll without mutating the slot subtree.
     sync();
@@ -596,6 +632,12 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       const drift=reduced.matches?0:Math.sin(t*.00085)*.05;
       lightPools[0].material.opacity=.52+drift;
       lightPools[1].material.opacity=.52-drift;
+    }
+    // Release completed health feedback overlays. No delayed callback can
+    // resurrect UI after the 3D scene is disabled.
+    for(let i=hpPopups.length-1;i>=0;i--){
+      const p=hpPopups[i];
+      if(!p.el.isConnected||t-p.born>=1000){p.el.remove();hpPopups.splice(i,1);}
     }
     // Ease only the selected / hovered card out of the tabletop.
     // The DOM cards and every other 3D card keep their original slots.
@@ -643,7 +685,9 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     camera.left=0;camera.right=width;camera.top=height;camera.bottom=0;
     camera.position.set(width/2,height/2,1100);camera.lookAt(width/2,height/2,0);camera.updateProjectionMatrix();
     key.position.set(width*.19,height*.96,650);fill.position.set(width*.82,height*.42,200);
-    renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.setSize(width,height,false);dirty=true;
+    const pixelCap=reduced.matches?1:width<760?1.25:1.5;
+    renderer.setPixelRatio(Math.min(Math.max(.75,devicePixelRatio||1),pixelCap));
+    renderer.setSize(width,height,false);dirty=true;
   }
   function start(){
     if(running){paused=false;return;}
@@ -656,7 +700,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     }
     raf=requestAnimationFrame(frame);
   }
-  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;clearOrnaments();clearLanes();clearAim();
+  function stop(){running=false;paused=false;cancelAnimationFrame(raf);observer?.disconnect();observer=null;clearOrnaments();clearLanes();clearAim();clearHealthPopups();
     for(const id of Array.from(entries.keys()))removeEntry(id);
     for(const fx of effects){scene.remove(fx.mesh);fx.mesh.geometry.dispose();fx.mesh.material.dispose();}effects.length=0;
     renderer.clear();
@@ -696,7 +740,10 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       visibleHealthRatios:active.filter(e=>e.meterFill.visible).map(e=>({slot:e.id,ratio:e.hpRatio})),
       healthMeterRevision:27,
       frameRevision:24,battlefieldRevision:25,
-      targetingRevision:33,targetGuideActive:aimActive,
+      targetingRevision:33,targetReticleRevision:34,targetGuideActive:aimActive,
+      healthFeedbackRevision:35,healthChangeFxCount,activeHealthPopups:hpPopups.length,
+      renderQualityRevision:36,renderPixelRatio:renderer.getPixelRatio(),
+      graphicsFrameIntervalMs:width<760?48:32,viewportWidth:width,viewportHeight:height,
       targetGuidePath:aimPath?.getAttribute('d')||null,
       arenaRevision:30,laneRevision:32,visibleLaneCount:laneCount,visibleLaneMeshes:laneMeshes.filter(m=>m.visible).length,
       decorativeDomCount:ornamentHost?.children.length||0,

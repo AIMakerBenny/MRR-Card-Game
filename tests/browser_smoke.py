@@ -3,7 +3,7 @@ import json
 from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parents[1]
 original=(ROOT/'legacy/Phase21_Original.html').read_text(encoding='utf-8')
-modded=(ROOT/'Marorong_Card_War_Phase33_3D_Prototype.html').read_text(encoding='utf-8')
+modded=(ROOT/'Marorong_Card_War_Phase36_3D_Prototype.html').read_text(encoding='utf-8')
 
 def launch_game(page):
     page.locator('#newGame').click()

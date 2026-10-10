@@ -175,3 +175,43 @@ body.mcw-three-ready #mcw33-target-guide{
 @media(prefers-reduced-motion:reduce){
  body.mcw-three-ready #mcw33-target-guide{filter:none}
 }
+
+/* Phase34 - attack destination marker; never alters target selection. */
+body.mcw-three-ready #mcw33-target-guide .mcw34-reticle{
+  stroke-dasharray:7 5;
+  filter:drop-shadow(0 0 4px rgba(255,200,110,.75));
+  transform-box:fill-box;transform-origin:center;
+  animation:mcw34-reticle-pulse 1.2s ease-in-out infinite;
+}
+@keyframes mcw34-reticle-pulse{
+  0%,100%{opacity:.58;transform:scale(.86)}
+  50%{opacity:1;transform:scale(1.1)}
+}
+@media(prefers-reduced-motion:reduce){
+  body.mcw-three-ready #mcw33-target-guide .mcw34-reticle{animation:none;opacity:.88}
+}
+
+/* Phase35 - percentage point feedback from the already-visible HP bar.
+   All overlays are decorative and explicitly ignore pointer events. */
+body.mcw-three-ready #arena .mcw35-health-change{
+  position:absolute;z-index:21;pointer-events:none;white-space:nowrap;
+  font:700 14px/1.25 sans-serif;letter-spacing:.03em;
+  transform:translate(-50%,-50%);
+  padding:3px 8px;border-radius:6px;
+  background:rgba(7,17,25,.82);border:1px solid currentColor;
+  text-shadow:0 0 8px currentColor;
+  animation:mcw35-float 1s ease-out both;
+}
+body.mcw-three-ready #arena .mcw35-heal{color:#8aefbb}
+body.mcw-three-ready #arena .mcw35-hurt{color:#ffb08a}
+@keyframes mcw35-float{
+  0%{opacity:0;transform:translate(-50%,-35%) scale(.8)}
+  16%{opacity:1;transform:translate(-50%,-60%) scale(1)}
+  75%{opacity:1}
+  100%{opacity:0;transform:translate(-50%,-140%) scale(.95)}
+}
+@media(prefers-reduced-motion:reduce){
+  body.mcw-three-ready #arena .mcw35-health-change{
+    animation:none;opacity:.92;transform:translate(-50%,-50%);
+  }
+}
