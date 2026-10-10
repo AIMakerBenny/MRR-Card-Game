@@ -214,9 +214,9 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     const texture=new THREE.CanvasTexture(cvs);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
 
     // Crop only the illustrated panel, never overlay name, cost or stat text.
-    const art=document.createElement('canvas');art.width=308;art.height=245;
-    art.getContext('2d').drawImage(cvs,35,113,314,251,0,0,308,245);
-    texture.userData.artUrl=art.toDataURL('image/png');
+    const artCrop=document.createElement('canvas');artCrop.width=308;artCrop.height=245;
+    artCrop.getContext('2d').drawImage(cvs,35,113,314,251,0,0,308,245);
+    texture.userData.artUrl=artCrop.toDataURL('image/png');
     return texture;
   }
   function restoreArt(e){
@@ -224,7 +224,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     e.artWell.style.backgroundImage=e.artOriginal.backgroundImage;
     e.artWell.style.backgroundSize=e.artOriginal.backgroundSize;
     e.artWell.style.backgroundPosition=e.artOriginal.backgroundPosition;
-    e.artWell=null;e.artOriginal=null;
+    e.artWell=null;e.artOriginal=null;e.artURL=null;
   }
   function exposeArt(e,card){
     const well=card?.querySelector('.art-well');
@@ -237,8 +237,8 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
         backgroundSize:well.style.backgroundSize,backgroundPosition:well.style.backgroundPosition};
     }
     const art=e.front.material.map?.userData?.artUrl;
-    if(art){well.style.backgroundImage='url("'+art+'")';
-      well.style.backgroundSize='cover';well.style.backgroundPosition='center';}
+    if(art&&e.artURL!==art){well.style.backgroundImage='url("'+art+'")';
+      well.style.backgroundSize='cover';well.style.backgroundPosition='center';e.artURL=art;}
   }
   function makeEntry(id){
     const group=new THREE.Group();scene.add(group);
@@ -271,7 +271,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       new THREE.MeshBasicMaterial({color:0xffe3a0,transparent:true,opacity:.68,side:THREE.DoubleSide,depthWrite:false}));
     halo.position.z=12.6;halo.visible=false;group.add(halo);
     const entry={id,group,plate,edge,front,shadow,halo,meterBg,meterFill,hpRatio:null,
-      artWell:null,artOriginal:null,signature:null,hasCard:false,prevEffect:'',
+      artWell:null,artOriginal:null,artURL:null,signature:null,hasCard:false,prevEffect:'',
       position:new THREE.Vector3(),lift:0,targetLift:0,hovered:false,selected:false};
     entries.set(id,entry);return entry;
   }
