@@ -1,4 +1,4 @@
-name: Marorong Card War Phase52 Validation
+name: Marorong Card War Phase53 Validation
 on:
   push:
   pull_request:
@@ -19,7 +19,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run vendor
-      - name: Build phase 51
+      - name: Build phase 53
         run: python build.py
       - name: Install testing dependencies
         run: |
@@ -39,35 +39,37 @@ jobs:
         run: python tests/webgl_e2e.py
       - name: Real perspective cinematic browser regression
         run: python tests/cinema_e2e.py
-      - name: Phase52 full 3D battlefield Chromium WebGL and screenshots
+      - name: Phase53 full 3D battlefield Chromium WebGL and screenshots
         run: python tests/battlefield_e2e.py
-      - name: Phase52 3D card interaction, native input and targeting Chromium QA
+      - name: Phase53 3D card interaction, native input and targeting Chromium QA
         run: python tests/battlefield_interaction_e2e.py
-      - name: Phase52 native CSS combat events mirrored to real WebGL effects
+      - name: Phase53 native CSS combat events mirrored to real WebGL effects
         run: python tests/battlefield_native_fx_e2e.py
-      - name: Phase52 native-confirmed combat cinematic Chromium WebGL
+      - name: Phase53 native-confirmed combat cinematic Chromium WebGL
         run: python tests/battlefield_cinematics_e2e.py
-      - name: Phase52 real turn-cycle attack Chromium WebGL QA
+      - name: Phase53 real turn-cycle attack Chromium WebGL QA
         run: python tests/real_combat_e2e.py
-      - name: Phase52 illustrated card art and camera preset Chromium QA
+      - name: Phase53 illustrated card art and camera preset Chromium QA
         run: python tests/visual_quality_e2e.py
-      - name: Phase52 3D public HP and status Chromium QA
+      - name: Phase53 3D public HP and status Chromium QA
         run: python tests/health_hud_e2e.py
+      - name: Phase53 actual public-card magnifier Chromium QA
+        run: python tests/card_magnifier_e2e.py
       - name: Collect downloadable build
         run: |
           mkdir -p dist
-          cp Marorong_Card_War_Phase52_3D_Prototype.html dist/index.html
+          cp Marorong_Card_War_Phase53_3D_Prototype.html dist/index.html
           mkdir -p dist/vendor
           cp vendor/three.module.js dist/vendor/three.module.js
           cp build-manifest.json dist/build-manifest.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Phase52-Browser-Screenshots
+          name: Phase53-Browser-Screenshots
           path: tests/*png
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
-          name: Marorong-Card-War-Phase52-3D
+          name: Marorong-Card-War-Phase53-3D
           path: dist/
           if-no-files-found: error
