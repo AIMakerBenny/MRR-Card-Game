@@ -212,7 +212,33 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     c.fillStyle='#edd5a8';c.font='bold 14px sans-serif';c.fillText('MARORONG',192,507);
     if(info.status){c.fillStyle='#283a4b';rounded(c,231,105,120,28,7);c.fill();c.fillStyle='#fff2bd';c.font='bold 15px sans-serif';c.fillText(info.status.slice(0,12),291,119);}
     const texture=new THREE.CanvasTexture(cvs);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+
+    // Crop only the illustrated panel, never overlay name, cost or stat text.
+    const art=document.createElement('canvas');art.width=308;art.height=245;
+    art.getContext('2d').drawImage(cvs,35,113,314,251,0,0,308,245);
+    texture.userData.artUrl=art.toDataURL('image/png');
     return texture;
+  }
+  function restoreArt(e){
+    if(!e.artWell)return;
+    e.artWell.style.backgroundImage=e.artOriginal.backgroundImage;
+    e.artWell.style.backgroundSize=e.artOriginal.backgroundSize;
+    e.artWell.style.backgroundPosition=e.artOriginal.backgroundPosition;
+    e.artWell=null;e.artOriginal=null;
+  }
+  function exposeArt(e,card){
+    const well=card?.querySelector('.art-well');
+    // Existing real illustrations are never replaced.
+    if(!well||well.querySelector('img,video,picture,canvas')){restoreArt(e);return;}
+    if(e.artWell!==well){
+      restoreArt(e);
+      e.artWell=well;
+      e.artOriginal={backgroundImage:well.style.backgroundImage,
+        backgroundSize:well.style.backgroundSize,backgroundPosition:well.style.backgroundPosition};
+    }
+    const art=e.front.material.map?.userData?.artUrl;
+    if(art){well.style.backgroundImage='url("'+art+'")';
+      well.style.backgroundSize='cover';well.style.backgroundPosition='center';}
   }
   function makeEntry(id){
     const group=new THREE.Group();scene.add(group);
@@ -245,11 +271,12 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
       new THREE.MeshBasicMaterial({color:0xffe3a0,transparent:true,opacity:.68,side:THREE.DoubleSide,depthWrite:false}));
     halo.position.z=12.6;halo.visible=false;group.add(halo);
     const entry={id,group,plate,edge,front,shadow,halo,meterBg,meterFill,hpRatio:null,
-      signature:null,hasCard:false,prevEffect:'',
+      artWell:null,artOriginal:null,signature:null,hasCard:false,prevEffect:'',
       position:new THREE.Vector3(),lift:0,targetLift:0,hovered:false,selected:false};
     entries.set(id,entry);return entry;
   }
   function removeEntry(id){const e=entries.get(id);if(!e)return;
+    restoreArt(e);
     e.front.material.map?.dispose();e.front.material.dispose();e.front.geometry.dispose();
     e.plate.material.dispose();e.edge.material.forEach(m=>m.dispose());
     e.shadow.material.dispose();e.shadow.geometry.dispose();
@@ -345,6 +372,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
           for(const idx of [0,1,2])e.edge.material[idx].color.copy(accent);
           e.halo.material.color.copy(accent);
         }
+        exposeArt(e,card);
         const active=slot.classList.contains('selected-slot')||slot.classList.contains('attack-target');
         const hovered=slot.matches(':hover');
         e.hovered=hovered;e.selected=active;e.targetLift=hovered?18:active?10:0;
@@ -352,6 +380,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
         e.halo.scale.set(cw*.75,ch*.75,1);
         e.halo.material.color.set(slot.classList.contains('attack-target')?0xffb66e:hovered?0xffdfa7:0x93e9d6);
       }else{
+        restoreArt(e);
         e.signature=null;e.hasCard=false;e.edge.visible=e.front.visible=e.shadow.visible=false;
         e.lift=e.targetLift=0;e.hovered=e.selected=false;e.halo.visible=false;
         e.meterBg.visible=e.meterFill.visible=false;e.hpRatio=null;
@@ -452,6 +481,7 @@ window.MCW3DSceneFactory = function createMCW3DScene(THREE, mount) {
     return {running,paused,cardCount:active.length,slotCount:entries.size,
       illustrationRevision:29,
       proceduralArtCards:active.filter(e=>e.front.material.map?.image&&e.signature).length,
+      visibleDomArtCards:active.filter(e=>e.artWell&&e.artWell.isConnected).length,
       proceduralArtProfiles:active.filter(e=>e.hasCard).map(e=>({slot:e.id,profile:illustrationKind(cardInfo(document.querySelector('[data-slot="'+e.id+'"]'))||{kind:'',name:''})})),
       hoveredCardCount:active.filter(e=>e.hovered).length,
       liftedCardCount:active.filter(e=>e.lift>3).length,

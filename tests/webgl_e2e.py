@@ -62,7 +62,10 @@ try:
         shown=page.evaluate("MCW3D.scene.state.visibleHealthRatios")
         assert page.evaluate("MCW3D.scene.state.healthMeterRevision === 27")
         assert len(shown)==1 and abs(shown[0]['ratio']-dom_ratio)<.001,(shown,dom_ratio)
-        assert page.evaluate("MCW3D.scene.state.illustrationRevision === 29 && MCW3D.scene.state.proceduralArtCards === 1"), 'Procedural card art not ready'
+        assert page.evaluate("MCW3D.scene.state.illustrationRevision === 29 && MCW3D.scene.state.proceduralArtCards === 1 && MCW3D.scene.state.visibleDomArtCards === 1"), 'Procedural card art is not visible on the original card'
+        assert page.locator('.slot:has(.board-card) .art-well').first.evaluate(
+            "el => getComputedStyle(el).backgroundImage.includes('data:image/png')"
+        ),'Original visible art well does not contain the new generated painting'
         assert page.evaluate("['warrior','ship','citadel','arcane','crystal'].includes(MCW3D.scene.state.proceduralArtProfiles[0].profile)"), 'Unexpected illustration profile'
         # The selected card must remain actually visible in WebGL mode.
         assert page.locator('.slot:has(.board-card) .card-ui').first.evaluate(
@@ -120,6 +123,11 @@ try:
         after_fx=page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);}''')
         assert before_focus==after_fx,'Decorative combat effects changed gameplay data'
         page.screenshot(path=str(ROOT/'tests/webgl_1920x1080.png'))
+        page.locator('#mcw3d-toggle').click()
+        page.wait_for_function("MCW3D.status.renderer === 'legacy'")
+        assert not page.locator('.slot:has(.board-card) .art-well').first.evaluate(
+            "el => getComputedStyle(el).backgroundImage.includes('data:image/png')"
+        ),'Turning off Three.js left behind generated art'
         print('WEBGL PHASE23 PASS - local Three.js, 30 slots, hover lift, return, game state unchanged.')
         browser.close()
 finally:
