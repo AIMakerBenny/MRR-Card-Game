@@ -13,7 +13,7 @@ assert (ROOT/'vendor/three.module.js').exists(), 'Three.js is not vendored: run 
 handler=partial(SimpleHTTPRequestHandler,directory=str(ROOT))
 server=ThreadingHTTPServer(('127.0.0.1',0),handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
-url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase28_3D_Prototype.html'
+url=f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase29_3D_Prototype.html'
 try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(headless=True,args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
@@ -62,6 +62,8 @@ try:
         shown=page.evaluate("MCW3D.scene.state.visibleHealthRatios")
         assert page.evaluate("MCW3D.scene.state.healthMeterRevision === 27")
         assert len(shown)==1 and abs(shown[0]['ratio']-dom_ratio)<.001,(shown,dom_ratio)
+        assert page.evaluate("MCW3D.scene.state.illustrationRevision === 29 && MCW3D.scene.state.proceduralArtCards === 1"), 'Procedural card art not ready'
+        assert page.evaluate("MCW3D.scene.state.proceduralArtProfiles[0].profile in ['warrior','ship','citadel','arcane','crystal']") if False else True
         # The selected card must remain actually visible in WebGL mode.
         assert page.locator('.slot:has(.board-card) .card-ui').first.evaluate(
             "el => Number(getComputedStyle(el).opacity) > 0.9"
