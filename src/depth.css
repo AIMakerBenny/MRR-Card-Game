@@ -267,3 +267,9 @@ body.mcw-three-ready #arena .mcw35-hurt{color:#ffb08a}
 /* Phase40 - explicit public 3D card flip with no game-state mutations. */
 #mcw-cinema-flip{border-color:#d4a567!important;color:#ffebc5!important;}
 #mcw-cinema-flip[aria-pressed="true"]{background:#5b4a32!important;}
+
+/* Phase43: only cinematic stage accepts orbit and wheel interactions. */
+#mcw-cinema-stage{touch-action:none;cursor:grab}
+#mcw-cinema-stage:active{cursor:grabbing}
+#mcw-cinema-stage canvas{pointer-events:none}
+#mcw-cinema-reset-camera{white-space:nowrap}

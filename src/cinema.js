@@ -136,6 +136,49 @@ window.MRRCinemaFactory=function(THREE,mount){
     new THREE.MeshBasicMaterial({color:0xf2d293}));
   stageGeometries.push(portraitGlow.geometry);stageMats.push(portraitGlow.material);
   portraitGlow.position.set(0,4.7,-1.1);stage.add(portraitGlow);
+  // Phase43: real perspective orbit/zoom with clamped angles. Input is
+  // handled exclusively by the optional modal stage, not the game board.
+  let orbitYaw=0,orbitPitch=.13,orbitDistance=9.6;
+  let drag=null;
+  function updateCamera(){
+    const target=new THREE.Vector3(0,1.9,0);
+    const vertical=orbitDistance*Math.sin(orbitPitch);
+    const radius=orbitDistance*Math.cos(orbitPitch);
+    camera.position.set(radius*Math.sin(orbitYaw),1.9+vertical,radius*Math.cos(orbitYaw));
+    camera.lookAt(target);
+  }
+  function orbit(dx,dy){
+    orbitYaw=THREE.MathUtils.clamp(orbitYaw+dx,-1.1,1.1);
+    orbitPitch=THREE.MathUtils.clamp(orbitPitch+dy,-.24,.6);
+    updateCamera();
+  }
+  function zoom(amount){
+    orbitDistance=THREE.MathUtils.clamp(orbitDistance+amount,7.1,13.5);
+    updateCamera();
+  }
+  function resetCamera(){orbitYaw=0;orbitPitch=.13;orbitDistance=9.6;updateCamera();}
+  function onDown(e){
+    if(e.button!==0||disposed)return;
+    drag={id:e.pointerId,x:e.clientX,y:e.clientY};
+    mount.setPointerCapture?.(e.pointerId);
+  }
+  function onMove(e){
+    if(!drag||e.pointerId!==drag.id)return;
+    orbit((e.clientX-drag.x)*.007,(e.clientY-drag.y)*.005);
+    drag.x=e.clientX;drag.y=e.clientY;
+  }
+  function onUp(e){
+    if(!drag||drag.id!==e.pointerId)return;
+    drag=null;
+    try{if(mount.hasPointerCapture?.(e.pointerId))mount.releasePointerCapture(e.pointerId);}catch(_){}
+  }
+  function onWheel(e){e.preventDefault();zoom(e.deltaY*.004);}
+  mount.addEventListener('pointerdown',onDown);
+  mount.addEventListener('pointermove',onMove);
+  mount.addEventListener('pointerup',onUp);
+  mount.addEventListener('pointercancel',onUp);
+  mount.addEventListener('wheel',onWheel,{passive:false});
+  resetCamera();
   let cardToken=0,viewMode='front';
   function setView(value){
     if(disposed)return;
@@ -246,10 +289,17 @@ window.MRRCinemaFactory=function(THREE,mount){
     gold.dispose();core.material.dispose();gem.material.dispose();
     for(const g of stageGeometries)g.dispose();
     for(const m of stageMats)m.dispose();
+    mount.removeEventListener('pointerdown',onDown);
+    mount.removeEventListener('pointermove',onMove);
+    mount.removeEventListener('pointerup',onUp);
+    mount.removeEventListener('pointercancel',onUp);
+    mount.removeEventListener('wheel',onWheel);
     renderer.dispose();renderer.domElement.remove();
   }
   setCard(profile);
-  return {start,stop,dispose,resize,setCard,setView,get state(){return {running,projection:camera.type,frameCount:frame,profile:{...profile},
+  return {start,stop,dispose,resize,setCard,setView,resetCamera,
+    get state(){return {running,projection:camera.type,frameCount:frame,profile:{...profile},
+      orbitRevision:43,orbitYaw,orbitPitch,orbitDistance,
       cardFlipRevision:40,viewMode,
       cardBackRevision:41,cardBackTextureReady:!!back.material.map?.image,
       cinematicLifecycleRevision:42,
