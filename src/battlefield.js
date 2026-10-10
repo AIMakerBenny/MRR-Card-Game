@@ -677,7 +677,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       fxSources:'native-slot-classes',cinematicRevision:49,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       realCombatQaRevision:50,nativeCombatEvents:nativeCombatEvents.slice(),
-      visualArtRevision:51,illustratedCards:cards.length,cameraPreset,focusKey,focusX,focusZ,
+      visualArtRevision:51,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
       combatEvent:latestCombat,stagedStrike:!!pendingStrike,
       liveStrikeCount:liveEffects.filter(x=>(x.group.userData.beams||[]).length).length};}};
 };
