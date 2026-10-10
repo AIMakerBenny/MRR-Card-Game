@@ -2,8 +2,9 @@
  * Source of truth is the visible HTML board. No game state, hidden hand, AI,
  * combat rules, localStorage, or original click targets are read or modified.
  */
-window.MRRBattlefieldFactory=function(THREE,mount,events={}){
+window.MRRBattlefieldFactory=function(THREE,mount,events){
   'use strict';
+  events=events||{};
   const scene=new THREE.Scene();
   scene.background=new THREE.Color(0x080f1a);
   scene.fog=new THREE.FogExp2(0x080f1a,0.018);
