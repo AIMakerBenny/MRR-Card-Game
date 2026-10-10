@@ -301,7 +301,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const fill=el.querySelector('.board-card .hpbar > div');
       const pct=fill?Number.parseFloat(fill.style.width):NaN;
       const chip=el.querySelector('.board-card .status-chip')?.textContent?.trim()||'';
-      return {key,selected:el.classList.contains('selected-slot'),
+      return {key,cardId:card?.getAttribute('data-mrr-public-card-id')||null,
+        selected:el.classList.contains('selected-slot'),
         legal:el.classList.contains('legal'),attackTarget:el.classList.contains('attack-target'),
         name:card?.querySelector('.card-name')?.textContent?.trim()||'',
         kind:card?.querySelector('.card-kind')?.textContent?.trim()||'',
@@ -567,6 +568,30 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const texture=new THREE.CanvasTexture(canvas);
     texture.userData.artArchetype=archetype;
     texture.userData.artPhase=tabletop?57:51;
+    texture.userData.artLoaded=false;
+    if(tabletop){
+      // Match the exact public name/type/faction shown on the already-rendered
+      // card. Do not inspect the hidden decks, opponent hand, or native G.
+      const lookup=window.MRRCardArtRegistry;
+      const id=profile.cardId;
+      const known=typeof id==='string'&&lookup?.knownIds?.includes(id);
+      const src=known?lookup?.assets?.[id]:null;
+      texture.userData.artId=known?id:null;
+      if(typeof src==='string'&&/^data:image\/(png|jpeg);base64,/.test(src)){
+        const img=new Image();
+        img.onload=()=>{
+          if(disposed||texture.userData.artDisposed)return;
+          if(img.naturalWidth!==pcArtSlot.sourceWidth||img.naturalHeight!==pcArtSlot.sourceHeight)return;
+          c.drawImage(img,pcArtSlot.x,pcArtSlot.y,pcArtSlot.width,pcArtSlot.height);
+          texture.userData.artLoaded=true;
+          texture.needsUpdate=true;
+          const item=cardIndex.get(profile.key);
+          if(item?.face.material.map===texture)item.previewUrl=null;
+        };
+        img.onerror=()=>{texture.userData.artLoadFailed=true;};
+        img.src=src;
+      }
+    }
     texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=4;
     madeTextures.push(texture);return texture;
   }
@@ -788,11 +813,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const nextStatusSignature=JSON.stringify(list.map(p=>[p.key,p.selected,p.legal,p.attackTarget,p.hasHealth,p.hpRatio,p.stateChip]));
     const statusChanged=nextStatusSignature!==statusSignature;
     statusSignature=nextStatusSignature;
-    const cardsSignature=JSON.stringify(list.map(p=>[p.key,p.name,p.kind,p.cost,p.stats,p.sigil]));
+    const cardsSignature=JSON.stringify(list.map(p=>[p.key,p.cardId,p.name,p.kind,p.cost,p.stats,p.sigil]));
     const cardChanged=cardsSignature!==signature;
     if(cardChanged){
       signature=cardsSignature;
-      for(const c of cards){scene.remove(c.group);c.face.material.map?.dispose();c.face.material.dispose();}
+      for(const c of cards){scene.remove(c.group);if(c.face.material.map){c.face.material.map.userData.artDisposed=true;c.face.material.map.dispose();}c.face.material.dispose();}
       cards=[];madeTextures.length=0;cardIndex=new Map();pickMeshes=slotPickMeshes.slice();
       for(const p of list){
         if(!p.name)continue;
@@ -980,7 +1005,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(disposed)return;stop();disposed=true;
     for(const fx of liveEffects.splice(0))removeFx(fx);
     recentFx.clear();pendingStrike=null;cinemaImpact=null;impactLamp.intensity=0;
-    for(const c of cards){c.face.material.map.dispose();c.face.material.dispose();}
+    for(const c of cards){c.face.material.map.userData.artDisposed=true;c.face.material.map.dispose();c.face.material.dispose();}
     cards=[];for(const g of madeGeometry)g.dispose();
     for(const m of madeMaterials)m.dispose();
     for(const t of madeTextures)t.dispose();
@@ -1006,7 +1031,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       visualArtRevision:51,pcArtRevision:tabletop?57:0,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
       healthHudRevision:52,healthIndicatorCount,cardHealth:Object.fromEntries(cardHealth),
       previewRevision:53,previewReadyCards:cardIndex.size,
-      artworkSlotRevision:tabletop?58:0,artworkSlotResolution:tabletop?'1200x960':null,
+      artworkSlotRevision:tabletop?58:0,
+      artworkImportRevision:tabletop?59:0,
+      artworkEmbeddedCount:tabletop?Object.keys(window.MRRCardArtRegistry?.assets||{}).length:0,
+      artworkLoadedCount:tabletop?cards.filter(c=>c.face.material.map?.userData.artLoaded).length:0,artworkSlotResolution:tabletop?'1200x960':null,
       artworkSlotBounds:tabletop?{...pcArtSlot}:null,
       desktopArtRevision:tabletop?55:0,tabletopSurface:tabletop?'parchment-and-wood':'legacy-stone',
       proceduralTextureCount:tabletopTextures.length,
