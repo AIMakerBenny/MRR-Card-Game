@@ -179,7 +179,7 @@ window.MRRBattlefieldFactory=function(THREE,mount){
     if(s===signature)return;
     signature=s;
     for(const o of cards){scene.remove(o.group);o.face.material.map.dispose();o.face.material.dispose();}
-    cards=[];publicCardCount=0;
+    cards=[];madeTextures.length=0;publicCardCount=0;
     for(const p of list){
       if(!p.name)continue;
       const slot=boardSlots.get(p.key);
