@@ -4,7 +4,7 @@ import json
 from bs4 import BeautifulSoup
 ROOT=Path(__file__).resolve().parents[1]
 original=(ROOT/'legacy/Phase21_Original.html').read_text('utf-8')
-build=(ROOT/'Marorong_Card_War_Phase37_3D_Prototype.html').read_text('utf-8')
+build=(ROOT/'Marorong_Card_War_Phase38_3D_Prototype.html').read_text('utf-8')
 a=BeautifulSoup(original,'html.parser');b=BeautifulSoup(build,'html.parser')
 scripts_a=a.select('script'); scripts_b=b.select('script')
 assert len(scripts_a)==2,len(scripts_a)

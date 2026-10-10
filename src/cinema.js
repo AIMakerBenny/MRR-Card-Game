@@ -37,6 +37,50 @@ window.MRRCinemaFactory=function(THREE,mount){
   const gem=new THREE.Mesh(new THREE.OctahedronGeometry(.105),
     new THREE.MeshPhysicalMaterial({color:0x63e7e3,emissive:0x0b555a,emissiveIntensity:.75,metalness:.38,roughness:.14}));
   gem.position.set(0,2.1,.24);card.add(gem);
+
+  // Phase38 - a world-space diorama with shadows, material depth and a
+  // physically illuminated platform, not another HTML gradient.
+  const stage=new THREE.Group();scene.add(stage);
+  const stageObjects=[],stageMats=[],stageGeometries=[];
+  function add(mesh){stage.add(mesh);stageObjects.push(mesh);return mesh;}
+  const obsidian=new THREE.MeshStandardMaterial({color:0x101e2b,metalness:.5,roughness:.58});
+  const bronze=new THREE.MeshPhysicalMaterial({color:0x896b48,metalness:.84,roughness:.31,clearcoat:.46});
+  const stone=new THREE.MeshStandardMaterial({color:0x1c303c,metalness:.22,roughness:.81});
+  stageMats.push(obsidian,bronze,stone);
+  const floor=add(new THREE.Mesh(new THREE.PlaneGeometry(60,60),stone));
+  stageGeometries.push(floor.geometry);floor.rotation.x=-Math.PI/2;floor.position.y=-.73;floor.receiveShadow=true;
+  const base=add(new THREE.Mesh(new THREE.CylinderGeometry(2.9,3.17,.42,80,1),obsidian));
+  stageGeometries.push(base.geometry);base.position.y=-.49;base.receiveShadow=true;
+  const lip=add(new THREE.Mesh(new THREE.TorusGeometry(2.85,.055,8,96),bronze));
+  stageGeometries.push(lip.geometry);lip.rotation.x=Math.PI/2;lip.position.y=-.268;
+  const center=add(new THREE.Mesh(new THREE.CylinderGeometry(2.5,2.5,.05,80),bronze));
+  stageGeometries.push(center.geometry);center.position.y=-.24;center.receiveShadow=true;
+  const plaque=add(new THREE.Mesh(new THREE.CylinderGeometry(2.37,2.37,.06,80),obsidian));
+  stageGeometries.push(plaque.geometry);plaque.position.y=-.197;plaque.receiveShadow=true;
+  // Eight architectural columns remain behind and below the interactive card.
+  for(let i=0;i<8;i++){
+    const theta=i*Math.PI/4,rad=6.2;
+    const col=add(new THREE.Mesh(new THREE.CylinderGeometry(.19,.3,4.1,8),stone));
+    stageGeometries.push(col.geometry);
+    col.position.set(Math.cos(theta)*rad,1.18,-2.5+Math.sin(theta)*rad*.55);
+    col.castShadow=true;
+    const cap=add(new THREE.Mesh(new THREE.CylinderGeometry(.37,.24,.23,8),bronze));
+    stageGeometries.push(cap.geometry);cap.position.set(col.position.x,3.3,col.position.z);
+  }
+  // Reflective arcane rings and warm/cool accent lights produce depth cues.
+  const rings=[];
+  const runeMat=new THREE.MeshBasicMaterial({color:0xb4dfd8,transparent:true,opacity:.55,side:THREE.DoubleSide});
+  stageMats.push(runeMat);
+  for(const rad of [1.28,1.72,2.18]){
+    const mesh=add(new THREE.Mesh(new THREE.TorusGeometry(rad,.013,4,96),runeMat));
+    stageGeometries.push(mesh.geometry);mesh.rotation.x=Math.PI/2;mesh.position.y=-.151;rings.push(mesh);
+  }
+  const torch1=new THREE.PointLight(0xe9a760,45,11,2);torch1.position.set(-3.7,2.2,2.1);stage.add(torch1);
+  const torch2=new THREE.PointLight(0x54c5e1,42,11,2);torch2.position.set(3.7,1.9,-.8);stage.add(torch2);
+  const portraitGlow=new THREE.Mesh(new THREE.SphereGeometry(.09,10,10),
+    new THREE.MeshBasicMaterial({color:0xf2d293}));
+  stageGeometries.push(portraitGlow.geometry);stageMats.push(portraitGlow.material);
+  portraitGlow.position.set(0,4.7,-1.1);stage.add(portraitGlow);
   let frame=0,raf=0,running=false,disposed=false,startAt=0,profile={name:'MARORONG',kind:'CARD WAR',cost:'',stats:''};
   function artwork(p){
     const cvs=document.createElement('canvas');cvs.width=640;cvs.height=900;
@@ -100,6 +144,7 @@ window.MRRCinemaFactory=function(THREE,mount){
     card.rotation.x=slow?-.06:-.075+Math.sin(sec*.53)*.055;
     card.position.y=2.15+(slow?0:Math.sin(sec*1.45)*.105);
     gem.rotation.y=sec*.9;
+    for(let i=0;i<rings.length;i++)rings[i].rotation.z=slow?0:Math.sin(sec*.18+i*.8)*.038;
     renderer.render(scene,camera);frame++;
   }
   function start(){if(disposed)return;resize();if(running)return;running=true;startAt=performance.now();raf=requestAnimationFrame(tick);}
@@ -109,8 +154,13 @@ window.MRRCinemaFactory=function(THREE,mount){
     frontMaterial.map?.dispose();frontMaterial.dispose();back.material.dispose();
     for(const m of [bevel,core,front,back,gem,...rails])m.geometry.dispose();
     gold.dispose();core.material.dispose();gem.material.dispose();
+    for(const g of stageGeometries)g.dispose();
+    for(const m of stageMats)m.dispose();
     renderer.dispose();renderer.domElement.remove();
   }
   setCard(profile);
-  return {start,stop,dispose,resize,setCard,get state(){return {running,projection:camera.type,frameCount:frame,profile:{...profile},meshes:6+rails.length,hasCanvas:renderer.domElement.isConnected};}};
+  return {start,stop,dispose,resize,setCard,get state(){return {running,projection:camera.type,frameCount:frame,profile:{...profile},
+      stageRevision:38,stageMeshCount:stageObjects.length,
+      castShadows:renderer.shadowMap.enabled,lightCount:5,
+      meshes:6+rails.length+stageObjects.length,hasCanvas:renderer.domElement.isConnected};}};
 };

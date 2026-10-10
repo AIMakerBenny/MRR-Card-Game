@@ -14,7 +14,7 @@ try:
     browser=p.chromium.launch(**options)
     page=browser.new_page(viewport={'width':1600,'height':900})
     errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-    page.goto(f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase37_3D_Prototype.html')
+    page.goto(f'http://127.0.0.1:{server.server_port}/Marorong_Card_War_Phase38_3D_Prototype.html')
     page.locator('#newGame').click();page.locator('#launchGame').click()
     page.get_by_role('button',name='이 손패로 시작').click()
     before=page.evaluate('''()=>{let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s)}''')
@@ -22,6 +22,7 @@ try:
     page.wait_for_function('MRRCinema.status.open && MRRCinema.scene.state.frameCount>4',timeout=15000)
     state=page.evaluate('MRRCinema.scene.state')
     assert state['projection']=='PerspectiveCamera' and state['hasCanvas'] and state['meshes']>=8,state
+    assert state['stageRevision']==38 and state['stageMeshCount']>=20 and state['castShadows'] and state['lightCount']>=5,state
     assert page.locator('#mcw-cinema-stage canvas').count()==1
     assert page.locator('[data-slot]').count()==30
     assert not errors,errors
