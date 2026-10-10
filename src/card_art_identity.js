@@ -14,7 +14,7 @@
     // facedown enemy backs. Optional owner art is restricted to this visible
     // card and remains a purely decorative <img>.
     const art=window.MRRCardArtRegistry.assets?.[c.id];
-    if(typeof art==='string'&&/^data:image\\/(?:png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(art)){
+    if(typeof art==='string'&&/^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(art)){
       result=result.replace('<div class="art-well">',
         '<div class="art-well"><img class="mrr-owner-art" alt="" draggable="false" decoding="async" src="'+art+'">');
     }
