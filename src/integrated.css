@@ -129,3 +129,33 @@ body.mrr-integrated-active #contextActions button{
   #mrr-integrated-stage .mrr-integrated-heading{top:94px}
   #mrr-integrated-status{top:111px}
 }
+
+/* Phase55 PC art direction: board graphics are Three.js materials, not more
+   HTML panels.  Keep overlaid native controls secondary to the world. */
+@media(min-width:1024px){
+  body.mrr-integrated-active #mrr-integrated-stage{
+    background:radial-gradient(ellipse at 50% 52%,#624733,#261811 85%);
+  }
+  body.mrr-integrated-active #mrr-integrated-stage .mrr-integrated-vignette{
+    background:radial-gradient(ellipse at 50% 49%,transparent 40%,#170e0950 77%,#100a08a9),
+      linear-gradient(0deg,#130e12a3,transparent 21%,transparent 84%,#100a0c78);
+  }
+  body.mrr-integrated-active #mrr-integrated-stage .mrr-integrated-heading{
+    top:69px;color:#f4ddae;text-shadow:0 2px 7px #2a140d,0 0 12px #99652a;
+    letter-spacing:.15em;
+  }
+  body.mrr-integrated-active #mrr-integrated-status{
+    top:92px;color:#ead3ac;text-shadow:0 2px 7px #29180d;
+  }
+  body.mrr-integrated-active #mrr-integrated-hint{
+    bottom:135px;color:#ffebc7;
+    background:linear-gradient(90deg,transparent,#302018c9 18%,#302018c9 82%,transparent);
+  }
+  body.mrr-integrated-active #mrr-integrated-actions button{
+    background:linear-gradient(105deg,#2a201bcc,#513824e5);
+    border-color:#d3b48999;
+  }
+  body.mrr-integrated-active #gameScreen #mrr-integrated-open{
+    background:linear-gradient(120deg,#a57845,#483021)!important;
+  }
+}
