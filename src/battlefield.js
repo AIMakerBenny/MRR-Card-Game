@@ -563,13 +563,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }:slot?{name:slot.classList.contains('legal')?'배치 또는 이동 가능한 슬롯':'빈 슬롯',kind:'',stats:'',target:slot.classList.contains('attack-target'),legal:slot.classList.contains('legal')}:null);
     if(!force)sync();
   }
-  let yaw=0,pitch=.77,distance=29,drag=false,moved=false,lastX=0,lastY=0,startX=0,startY=0;
+  let yaw=0,pitch=.77,distance=29,focusX=0,focusZ=0,cameraPreset='all',focusKey=null;
+  let drag=false,moved=false,lastX=0,lastY=0,startX=0,startY=0;
   function updateCamera(){
     const aspect=mount.clientWidth/Math.max(1,mount.clientHeight);
     const d=distance*(aspect<.75?1.6:aspect<1.1?1.22:1);
-    camera.position.set(Math.sin(yaw)*Math.cos(pitch)*d,
-      1.3+Math.sin(pitch)*d,Math.cos(yaw)*Math.cos(pitch)*d);
-    camera.lookAt(0,.8,0);
+    camera.position.set(focusX+Math.sin(yaw)*Math.cos(pitch)*d,
+      1.3+Math.sin(pitch)*d,focusZ+Math.cos(yaw)*Math.cos(pitch)*d);
+    camera.lookAt(focusX,.8,focusZ);
   }
   function down(e){
     if(e.button!==0||e.target.closest('#mrr-battlefield-commands'))return;
@@ -637,7 +638,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     running=true;lastDraw=0;raf=requestAnimationFrame(tick);
   }
   function stop(){running=false;cancelAnimationFrame(raf);fxObserver.disconnect();}
-  function resetCamera(){yaw=0;pitch=.77;distance=29;updateCamera();}
+  function setCameraPreset(preset){
+    const target=preset==='selected'?(selectedKey||hoveredKey):null;
+    if(preset==='selected'&&!target)return false;
+    if(!['all','ally','enemy','selected'].includes(preset))return false;
+    yaw=0;pitch=preset==='selected'?.64:preset==='all'?.77:.67;
+    focusKey=target;cameraPreset=preset;
+    const slot=target?boardSlots.get(target):null;
+    focusX=slot?.x||0;
+    focusZ=slot?.z||(preset==='ally'?5.6:preset==='enemy'?-5.6:0);
+    distance=preset==='all'?29:preset==='selected'?11.5:18.5;
+    updateCamera();return true;
+  }
+  function resetCamera(){setCameraPreset('all');}
   function dispose(){
     if(disposed)return;stop();disposed=true;
     for(const fx of liveEffects.splice(0))removeFx(fx);
@@ -654,7 +667,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     mount.removeEventListener('wheel',wheel);
     renderer.dispose();renderer.domElement.remove();
   }
-  return {start,stop,dispose,resize,resetCamera,sync,projectCard,projectSlot,stageAttack,
+  return {start,stop,dispose,resize,resetCamera,setCameraPreset,sync,projectCard,projectSlot,stageAttack,
     refreshHover:(key)=>setHover(key,true),
     get state(){return {revision:49,projection:camera.type,frames,slotCount:boardSlots.size,
       publicCardCount,cardMeshCount:cards.length,shadows:renderer.shadowMap.enabled,
@@ -664,7 +677,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       fxSources:'native-slot-classes',cinematicRevision:49,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       realCombatQaRevision:50,nativeCombatEvents:nativeCombatEvents.slice(),
-      visualArtRevision:51,illustratedCards:cards.length,
+      visualArtRevision:51,illustratedCards:cards.length,cameraPreset,focusKey,focusX,focusZ,
       combatEvent:latestCombat,stagedStrike:!!pendingStrike,
       liveStrikeCount:liveEffects.filter(x=>(x.group.userData.beams||[]).length).length};}};
 };
@@ -737,6 +750,7 @@ window.MRRBattlefieldUIInit=function(loadThree){
         const phase=info.attackTargetCount?'  /  공격 대상 '+info.attackTargetCount+'곳':
           info.legalCount?'  /  유효 위치 '+info.legalCount+'곳':'';
         status.textContent='전장 30슬롯  /  공개 카드 '+info.publicCardCount+'장'+phase;
+        if(view)refreshPresetButtons();
       }
       function pickNativeSlot(key){
         const node=document.querySelector('#arena [data-slot="'+key+'"]');
@@ -774,7 +788,30 @@ window.MRRBattlefieldUIInit=function(loadThree){
       overlay=layer;view=window.MRRBattlefieldFactory(THREE,stage,{
         onPick:pickNativeSlot,onHover:describeHover,onState:updateCommands,onCombat:onNativeCombat
       });
-      reset.addEventListener('click',()=>view?.resetCamera());
+      const viewpoints=document.createElement('nav');viewpoints.id='mrr-battlefield-viewpoints';
+      viewpoints.setAttribute('aria-label','3D 전장 카메라 프리셋');
+      const presetSpecs=[
+        ['all','전장 전체'],['ally','아군 전선'],['enemy','적군 전선'],['selected','선택 카드 확대']
+      ];
+      const presetButtons=new Map();
+      function refreshPresetButtons(){
+        const state=view?.state;
+        for(const [id,button] of presetButtons){
+          button.setAttribute('aria-pressed',String(state?.cameraPreset===id));
+          button.disabled=id==='selected'&&!state?.selectedKey&&!state?.hoveredKey;
+        }
+      }
+      for(const [id,label] of presetSpecs){
+        const b=document.createElement('button');b.type='button';b.textContent=label;
+        b.id='mrr-view-'+id;b.setAttribute('aria-pressed',String(id==='all'));
+        b.addEventListener('click',()=>{
+          if(view?.setCameraPreset(id))refreshPresetButtons();
+        });
+        presetButtons.set(id,b);viewpoints.appendChild(b);
+      }
+      stage.appendChild(viewpoints);
+      reset.addEventListener('click',()=>{view?.resetCamera();refreshPresetButtons();});
+      refreshPresetButtons();
       view.start();
       updateCommands(view.state);
       exit.focus();
