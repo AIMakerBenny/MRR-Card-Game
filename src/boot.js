@@ -142,9 +142,10 @@
       console.warn('Cinematic 3D unavailable',err);modalClose();
     }finally{cinemaBusy=false;}
   });
-  // Register on the capture phase of window before the original game's
-  // document-level shortcuts. Escape always belongs to the topmost modal.
-  window.addEventListener('keydown',event=>{
+  // Phase21 captures Escape keydown first at window level and stops its
+  // propagation. The modal therefore closes on keyup, without modifying or
+  // overriding the original game's shortcut handling.
+  window.addEventListener('keyup',event=>{
     if(event.key==='Escape'&&cinemaModal){
       event.preventDefault();event.stopImmediatePropagation();modalClose();
     }
