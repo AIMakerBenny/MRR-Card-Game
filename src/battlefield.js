@@ -952,7 +952,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   mount.addEventListener('pointercancel',up);
   mount.addEventListener('pointerleave',leave);
   mount.addEventListener('wheel',wheel,{passive:false});
-  let frames=0,raf=0,running=false,disposed=false,lastDraw=0;
+  let frames=0,raf=0,running=false,disposed=false,lastDraw=0,lastVisualTime=0;
   function resize(){
     if(disposed)return;
     const w=Math.max(250,mount.clientWidth||900),h=Math.max(240,mount.clientHeight||560);
@@ -966,6 +966,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const interval=mount.clientWidth<650?48:32;
     if(time-lastDraw<interval)return;
     lastDraw=time;
+    const visualDelta=lastVisualTime?Math.max(1,Math.min(220,time-lastVisualTime)):32;
+    lastVisualTime=time;
     if(time-lastSync>220){lastSync=time;sync();}
     const frozen=matchMedia('(prefers-reduced-motion: reduce)').matches;
     if(!frozen)sealCore.rotation.y=time*.00035;
@@ -978,7 +980,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // card at 1.30 scale is 2.886 units, with physical air between cards.
         const targetScale=hover?1.52:c.key===selectedKey?1.35:1.30;
         const targetLift=hover?.86:c.key===selectedKey?.18:0;
-        const blend=frozen?1:.24;
+        // Elapsed-time easing, not per-frame easing: low FPS Chromium/WebGL
+        // must not leave enlarged cards stranded for seconds after pointer exit.
+        const blend=frozen?1:1-Math.exp(-visualDelta/115);
         c.visualScale=(c.visualScale??1.30)+(targetScale-(c.visualScale??1.30))*blend;
         c.visualLift=(c.visualLift??0)+(targetLift-(c.visualLift??0))*blend;
         c.group.scale.setScalar(c.visualScale);
