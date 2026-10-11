@@ -10,7 +10,7 @@ window.MRRIntegratedUIInit=function(loadThree){
   toggle.textContent='통합 전장';toggle.title='손패와 턴 조작이 함께 있는 3D 플레이 화면';
   bar.appendChild(toggle);
   let view=null,stage=null,updating=false,busy=false,lastRefresh=null;
-  let setHandReveal=null,removeHandCapture=null;
+  let setHandReveal=null,removeHandCapture=null,handTabElement=null;
   function nativeButton(selector){
     const el=document.querySelector(selector);
     if(!el||el.disabled)return false;
@@ -20,6 +20,7 @@ window.MRRIntegratedUIInit=function(loadThree){
     const old=view,oldStage=stage;view=null;stage=null;lastRefresh=null;
     setHandReveal?.(false);
     removeHandCapture?.();removeHandCapture=null;setHandReveal=null;
+    handTabElement?.remove();handTabElement=null;
     root.classList.remove('mrr-integrated-playing','mrr-integrated-inspector-open','mrr-integrated-rail-open','mrr-integrated-hand-open');
     document.body.classList.remove('mrr-integrated-active');
     toggle.textContent='통합 전장';toggle.setAttribute('aria-pressed','false');
@@ -109,8 +110,11 @@ window.MRRIntegratedUIInit=function(loadThree){
       attack.addEventListener('click',()=>nativeButton('#inspectBody button[data-actor="attack"]'));
       move.addEventListener('click',()=>nativeButton('#inspectBody button[data-actor="move"]'));
       cancel.addEventListener('click',()=>nativeButton('#inspectBody button[data-cancel-action]'));
-      stage.append(vignette,heading,badge,help,command,context,handTab);
-      root.appendChild(stage);
+      stage.append(vignette,heading,badge,help,command,context);
+      // Keep hand control outside stage's z-index stacking context: the
+      // preserved native #handPreview is z97 and must not block fold/unfold.
+      root.append(stage,handTab);
+      handTabElement=handTab;
       root.classList.add('mrr-integrated-playing');
       document.body.classList.add('mrr-integrated-active');
       function refresh(info){
