@@ -106,11 +106,14 @@ try:
                     handHovered:!!fan.querySelector('.hand-slot:hover'),
                     cssBundled:!!document.querySelector('#mcw3d-extension-css')?.textContent?.includes('Phase68 - PC-only'),
                     cssStyleRules:[...document.querySelector('#mcw3d-extension-css').sheet.cssRules]
-                      .filter(r=>r.conditionText?.includes('min-width:1024px'))
+                      .filter(r=>r.cssRules && [...r.cssRules]
+                        .some(x=>x.selectorText?.includes('mrr-integrated-hand')))
                       .map(r=>({media:r.conditionText,rules:[...r.cssRules]
-                        .filter(x=>x.selectorText?.includes('hand-open'))
+                        .filter(x=>x.selectorText?.includes('mrr-integrated-hand'))
                         .map(x=>({selector:x.selectorText,bottom:x.style.bottom,
                           matches:[...x.selectorText.split(',')].some(a=>{try{return fan.matches(a.trim())}catch(_){return false}})}))})),
+                    tabInsideRoot:root.contains(tab),
+                    tabMatch:tab.matches('body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open #mrr-integrated-hand-tab'),
                     handInline:fan.getAttribute('style'),
                     tabPosition:getComputedStyle(tab).position,
                     tabBottom:getComputedStyle(tab).bottom,
