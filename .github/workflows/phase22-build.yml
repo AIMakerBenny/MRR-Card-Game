@@ -1,4 +1,4 @@
-name: Marorong Card War Phase65 PC Context Dock Validation
+name: Marorong Card War Phase66 PC Native Context Dedup Validation
 on:
   push:
   pull_request:
@@ -19,7 +19,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run vendor
-      - name: Build phase 65
+      - name: Build phase 66
         run: python build.py
       - name: Install testing dependencies
         run: |
@@ -28,7 +28,7 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Check byte-identical game engine
         run: python tests/static_audit.py
-      - name: Phase65 contextual command dock, three-resolution native attack and HP QA
+      - name: Phase66 single card contextual commands, real native attack and HP QA
         run: python tests/phase63_pc_context_e2e.py
       - name: Chromium game and fallback tests
         run: |
@@ -72,7 +72,7 @@ jobs:
       - name: Collect downloadable build
         run: |
           mkdir -p dist
-          cp Marorong_Card_War_Phase65_3D_Prototype.html dist/index.html
+          cp Marorong_Card_War_Phase66_3D_Prototype.html dist/index.html
           mkdir -p dist/assets
           cp assets/CARD_ART_SPEC.md assets/card_art_index.csv dist/assets/
           mkdir -p dist/vendor
@@ -81,11 +81,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Phase65-Browser-Screenshots
+          name: Phase66-Browser-Screenshots
           path: tests/*png
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
-          name: Marorong-Card-War-Phase65-3D
+          name: Marorong-Card-War-Phase66-3D
           path: dist/
           if-no-files-found: error
