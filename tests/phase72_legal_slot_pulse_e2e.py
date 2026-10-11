@@ -84,13 +84,29 @@ try:
             page.set_viewport_size({'width':w,'height':h})
             page.mouse.move(4,h//2)
             page.wait_for_timeout(400)
-            samples=[]
-            for _ in range(6):
-                page.wait_for_timeout(110)
-                samples.append(page.evaluate("""key=>MRRIntegrated.state.scene
-                    .pcLegalPulseScales[key]""",target))
-            assert all(v is not None and 1.02<=v<=1.12 for v in samples),(w,h,samples)
-            assert max(samples)-min(samples)>=.012,(w,h,samples)
+            # Software WebGL can take seconds per actual rendered frame at 2K.
+            # Do not confuse six wall-clock samples of the same frame with a
+            # static halo. Require the THREE render frame to advance and the
+            # *rendered* legal halo scale to change meaningfully.
+            first=page.evaluate("""key=>{
+                const s=MRRIntegrated.state.scene;
+                return {frame:s.frames,scale:s.pcLegalPulseScales[key]};
+            }""",target)
+            assert first['scale'] is not None and 1.02<=first['scale']<=1.12,(w,h,first)
+            page.wait_for_function("""o=>{
+                const s=MRRIntegrated.state.scene;
+                const scale=s.pcLegalPulseScales[o.key];
+                return s.frames>o.frame && Number.isFinite(scale)
+                    && Math.abs(scale-o.scale)>=.012;
+            }""",arg={'key':target,'frame':first['frame'],'scale':first['scale']},
+                polling=250,timeout=50000)
+            last=page.evaluate("""key=>{
+                const s=MRRIntegrated.state.scene;
+                return {frame:s.frames,scale:s.pcLegalPulseScales[key]};
+            }""",target)
+            assert 1.02<=last['scale']<=1.12,(w,h,last)
+            assert last['frame']>first['frame'],(w,h,first,last)
+            samples=[first['scale'],last['scale']]
             assert snap()==native_selected,'Legal pulse must not affect native selection'
             page.screenshot(path=str(ROOT/f'tests/phase72_pulse_{w}x{h}.png'),
                 animations='disabled')
