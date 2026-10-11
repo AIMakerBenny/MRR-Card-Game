@@ -88,6 +88,12 @@ try:
         "e=>getComputedStyle(e).display") == 'none'
     for action in ('inspector','rail','exit'):
       assert page.locator('#mrr-integrated-'+action).is_visible()
+    # Phase66: do not show the original native floating menu at the same time
+    # as the genuinely equivalent 3D card-following commands. It remains in
+    # the DOM, so the Phase21 engine and 2D gameplay are not altered.
+    assert page.locator('#contextActions').count() == 1
+    assert page.locator('#contextActions').evaluate(
+      "e => getComputedStyle(e).visibility") == 'hidden'
     for w,h in ((1920,1080),(1366,768),(2560,1440)):
       page.set_viewport_size({'width':w,'height':h})
       page.wait_for_timeout(330)
@@ -123,6 +129,6 @@ try:
     page.locator('#mrr-integrated-exit').evaluate('e=>e.click()')
     assert page.evaluate('MRRIntegrated.scene===null')
     browser.close()
-    print('PHASE65 PC DOCK PASS: native action parity, nonduplicated dock, real HP damage and three desktop viewports')
+    print('PHASE66 CONTEXT DEDUP PASS: native action parity, nonduplicated dock, real HP damage and three desktop viewports')
 finally:
   server.shutdown();server.server_close()
