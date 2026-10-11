@@ -149,7 +149,11 @@ window.MRRIntegratedUIInit=function(loadThree){
           const show=valid&&(!quickAttack.hidden||!quickMove.hidden||!quickCancel.hidden);
           context.hidden=!show;
           if(show){
-            const pos=view.projectCard(info.selectedKey);
+            // Phase70: use the fixed native slot, not the animated card mesh.
+            // Card hover/selection lifts the mesh every frame, which made the
+            // nearby real attack button drift and become unclickable on slow WebGL.
+            // Slot projection follows camera/resizes without following hover scale.
+            const pos=view.projectSlot(info.selectedKey);
             const rect=stage.getBoundingClientRect();
             if(pos&&rect.width>0&&rect.height>0){
               // Measure the real contextual command group, not a guessed 230px.
