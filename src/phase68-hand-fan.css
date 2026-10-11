@@ -35,7 +35,7 @@
   /* "Peek" explicitly raises existing native fan only when the player wants
      to read their hand. The slot target mode always wins, so 3D board picks
      cannot be blocked by the raised fan during placement. */
-  body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open:not(:has(#arena .slot.legal)) .hand-wrap,
+  body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open:has(#hand .hand-slot):not(:has(#arena .slot.legal)) .hand-wrap,
   body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open:has(#arena .board-card):not(:has(#arena .slot.legal)) .hand-wrap:has(.hand-slot:hover){
     bottom:calc(clamp(194px,24vh,270px) - var(--fc-hand-h))!important;
   }
