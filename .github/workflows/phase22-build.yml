@@ -1,4 +1,4 @@
-name: Marorong Card War Phase71 Context Action Visual Contrast Validation
+name: Marorong Card War Phase72 Native Legal Slot Pulse Validation
 on:
   push:
   pull_request:
@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,7 +19,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run vendor
-      - name: Build phase 71
+      - name: Build phase 72
         run: python build.py
       - name: Install testing dependencies
         run: |
@@ -28,6 +28,8 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Check byte-identical game engine
         run: python tests/static_audit.py
+      - name: Phase72 animated legal-slot halo, native placement, 3 PC viewport Chromium QA
+        run: python tests/phase72_legal_slot_pulse_e2e.py
       - name: Phase71 semantic context action colors, real attack and PC Chromium QA
         run: python tests/phase71_action_semantics_e2e.py
       - name: Phase70 stable card context button during hover, genuine attack and 3-resolution Chromium QA
@@ -82,7 +84,7 @@ jobs:
       - name: Collect downloadable build
         run: |
           mkdir -p dist
-          cp Marorong_Card_War_Phase71_3D_Prototype.html dist/index.html
+          cp Marorong_Card_War_Phase72_3D_Prototype.html dist/index.html
           mkdir -p dist/assets
           cp assets/CARD_ART_SPEC.md assets/card_art_index.csv dist/assets/
           mkdir -p dist/vendor
@@ -91,11 +93,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Phase71-Browser-Screenshots
+          name: Phase72-Browser-Screenshots
           path: tests/*png
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
-          name: Marorong-Card-War-Phase71-3D
+          name: Marorong-Card-War-Phase72-3D
           path: dist/
           if-no-files-found: error
