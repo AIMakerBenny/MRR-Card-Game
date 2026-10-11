@@ -18,10 +18,10 @@ boot = (ROOT/'src/boot.js').read_text(encoding='utf-8')
 owner_art_registry, owner_art_ids = bundle(ROOT)
 card_art_identity = (ROOT/'src/card_art_identity.js').read_text(encoding='utf-8')
 assert '</script' not in integrated.lower() and '</script' not in scene.lower() and '</script' not in cinema.lower() and '</script' not in battlefield.lower() and '</script' not in boot.lower() and '</script' not in card_art_identity.lower()
-source = source.replace('<title>MARORONG CARD WAR · Phase 21 UI Fixed</title>', '<title>MARORONG CARD WAR · Phase 70 Stable Card Commands</title>')
+source = source.replace('<title>MARORONG CARD WAR · Phase 21 UI Fixed</title>', '<title>MARORONG CARD WAR · Phase 71 Clear Field Actions</title>')
 source = source.replace('</head>',f'<style id="mcw3d-extension-css">\n{css}\n</style>\n</head>')
 source = source.replace('</body>', f'<script type="module" id="mcw3d-extension-js">\n{owner_art_registry}{card_art_identity}\n{scene}\n{cinema}\n{battlefield}\n{integrated}\n{boot}\n</script>\n</body>')
-output = ROOT/'Marorong_Card_War_Phase70_3D_Prototype.html'
+output = ROOT/'Marorong_Card_War_Phase71_3D_Prototype.html'
 output.write_text(source, encoding='utf-8')
 # Retain the prior artifact path for pre-existing, unmodified regression scripts.
 (ROOT/'Marorong_Card_War_Phase55_3D_Prototype.html').write_bytes(output.read_bytes())
@@ -36,14 +36,16 @@ output.write_text(source, encoding='utf-8')
 (ROOT/'Marorong_Card_War_Phase67_3D_Prototype.html').write_bytes(output.read_bytes())
 (ROOT/'Marorong_Card_War_Phase68_3D_Prototype.html').write_bytes(output.read_bytes())
 (ROOT/'Marorong_Card_War_Phase69_3D_Prototype.html').write_bytes(output.read_bytes())
+(ROOT/'Marorong_Card_War_Phase70_3D_Prototype.html').write_bytes(output.read_bytes())
 manifest = {
-    'build': 'Phase70 fixed-slot anchored native card commands',
+    'build': 'Phase71 native contextual action color hierarchy',
     'source': 'Phase21_UI_Fixed',
     'source_sha256': sha,
     'output_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
     'three_version': '0.160.1',
     'changes_to_rules': False,
-    'pc_batch_phases': [60,61,62,63,64,65,66,67,68,69,70],
+    'pc_batch_phases': [60,61,62,63,64,65,66,67,68,69,70,71],
+    'pc_context_action_visual_revision': 71,
     'pc_stable_context_anchor_revision': 70,
     'pc_zone_contrast_revision': 69,
     'pc_native_hand_fan_revision': 68,
