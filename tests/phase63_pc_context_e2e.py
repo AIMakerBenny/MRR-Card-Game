@@ -79,6 +79,15 @@ try:
     page.wait_for_function("""()=>!document.querySelector('#mrr-integrated-context')?.hidden""",timeout=7000)
     assert page.locator('#mrr-quick-attack').is_visible()
     assert not page.locator('#mrr-integrated-attack').is_disabled()
+    # Phase65: no redundant fixed attack/move/cancel buttons while a selected
+    # 3D card exposes the native commands beside the card itself.
+    assert page.locator('#mrr-integrated-actions').evaluate(
+      "e=>getComputedStyle(e).flexDirection") == 'row'
+    for action in ('attack','move','cancel'):
+      assert page.locator('#mrr-integrated-'+action).evaluate(
+        "e=>getComputedStyle(e).display") == 'none'
+    for action in ('inspector','rail','exit'):
+      assert page.locator('#mrr-integrated-'+action).is_visible()
     for w,h in ((1920,1080),(1366,768),(2560,1440)):
       page.set_viewport_size({'width':w,'height':h})
       page.wait_for_timeout(330)
@@ -86,6 +95,10 @@ try:
       assert context.is_visible(),(w,h)
       rect=context.bounding_box()
       assert rect and rect['x']>=0 and rect['x']+rect['width']<=w and rect['y']>=0 and rect['y']+rect['height']<=h,(w,h,rect)
+      dock=page.locator('#mrr-integrated-actions').bounding_box()
+      assert dock and dock['x']>=0 and dock['x']+dock['width']<=w,(w,h,dock)
+      assert page.locator('#mrr-integrated-exit').is_visible()
+      assert page.locator('#mrr-integrated-inspector').is_visible()
       page.screenshot(path=str(ROOT/f'tests/phase63_context_{w}x{h}.png'))
     page.set_viewport_size({'width':1920,'height':1080})
     page.wait_for_timeout(200)
@@ -110,6 +123,6 @@ try:
     page.locator('#mrr-integrated-exit').evaluate('e=>e.click()')
     assert page.evaluate('MRRIntegrated.scene===null')
     browser.close()
-    print('PHASE63 PC CONTEXT PASS: native delegated 3D commands, actual HP damage, 3 resolutions and game state parity')
+    print('PHASE65 PC DOCK PASS: native action parity, nonduplicated dock, real HP damage and three desktop viewports')
 finally:
   server.shutdown();server.server_close()

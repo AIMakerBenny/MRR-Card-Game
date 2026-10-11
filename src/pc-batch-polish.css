@@ -52,3 +52,41 @@
   #mrr-integrated-context,#mrr-integrated-context button,
   body.mrr-integrated-active #hand .hand-slot:hover .card-ui{transition:none!important}
 }
+
+/* Phase65: scene-first PC command dock. The actual game controls still
+   delegate to the Phase21 native buttons; this only reduces visual chrome. */
+@media(min-width:1024px){
+  body.mrr-integrated-active #mrr-integrated-actions{
+    flex-direction:row;align-items:center;gap:6px;
+    right:18px;bottom:106px;
+    padding:5px 7px;border:1px solid #b89b6a55;border-radius:24px;
+    background:linear-gradient(120deg,#211b17bd,#241e18d1);
+    box-shadow:0 9px 26px #1009059a,inset 0 1px 0 #ffdfa51b;
+    backdrop-filter:blur(9px);
+  }
+  body.mrr-integrated-active #mrr-integrated-actions button{
+    min-width:0;min-height:32px;height:32px;padding:4px 11px;
+    border-radius:17px;
+  }
+  body.mrr-integrated-active #mrr-integrated-actions #mrr-integrated-exit{
+    min-width:66px;
+  }
+  /* Never display duplicate attack/move/cancel actions when the contextual
+     actions already follow a selected card. Keep utility panels and exit. */
+  body.mrr-integrated-active #mrr-integrated-stage:has(#mrr-integrated-context:not([hidden]))
+    #mrr-integrated-actions :is(#mrr-integrated-attack,#mrr-integrated-move,#mrr-integrated-cancel){
+    display:none!important;
+  }
+  body.mrr-integrated-active #mrr-integrated-context{
+    max-width:calc(100% - 24px);
+  }
+  body.mrr-integrated-active #mrr-integrated-context button{
+    flex:0 0 auto;
+  }
+}
+@media(min-width:1024px) and (max-height:850px){
+  body.mrr-integrated-active #mrr-integrated-actions{right:10px;bottom:94px}
+}
+@media(prefers-reduced-motion:reduce){
+  body.mrr-integrated-active #mrr-integrated-actions{backdrop-filter:none}
+}
