@@ -90,3 +90,17 @@
 @media(prefers-reduced-motion:reduce){
   body.mrr-integrated-active #mrr-integrated-actions{backdrop-filter:none}
 }
+
+/* Phase66: the Phase21 context menu is a real native gameplay control, but
+   displaying it *alongside* the integrated 3D mesh-following command strip
+   creates duplicate buttons far from the selected card. Hide only its visual
+   presentation while those same commands are visible at the 3D card.
+   The original DOM/actions stay intact and reappear in ordinary 2D mode. */
+@media(min-width:1024px){
+  body.mrr-integrated-active #gameScreen:has(#mrr-integrated-context:not([hidden]))
+    #contextActions{
+    opacity:0!important;
+    visibility:hidden!important;
+    pointer-events:none!important;
+  }
+}
