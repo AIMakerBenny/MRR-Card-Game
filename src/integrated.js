@@ -102,8 +102,16 @@ window.MRRIntegratedUIInit=function(loadThree){
             const pos=view.projectCard(info.selectedKey);
             const rect=stage.getBoundingClientRect();
             if(pos&&rect.width>0&&rect.height>0){
-              context.style.left=Math.max(12,Math.min(rect.width-230,pos.x-rect.left+48))+'px';
-              context.style.top=Math.max(90,Math.min(rect.height-130,pos.y-rect.top-48))+'px';
+              // Measure the real contextual command group, not a guessed 230px.
+              // Selection near an edge, smaller laptop windows and translated
+              // canvas positions must never push a clickable action off-screen.
+              const width=context.offsetWidth;
+              const height=context.offsetHeight;
+              const maxX=Math.max(12,rect.width-width-12);
+              const topBound=82+height/2;
+              const bottomBound=Math.max(topBound,rect.height-118-height/2);
+              context.style.left=Math.max(12,Math.min(maxX,pos.x-rect.left+48))+'px';
+              context.style.top=Math.max(topBound,Math.min(bottomBound,pos.y-rect.top-48))+'px';
             }else context.hidden=true;
           }
         }finally{updating=false;}
