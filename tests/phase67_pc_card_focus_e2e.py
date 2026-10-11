@@ -68,9 +68,15 @@ try:
             page.wait_for_timeout(250)
             assert page.locator('#endTurn').is_visible()
             page.mouse.move(5,h//2)
-            page.wait_for_timeout(450)
+            # A freshly placed native card can remain SELECTED: 1.35 is then
+            # its intentional resting size rather than the idle 1.30 size.
+            state=page.evaluate('MRRIntegrated.state.scene')
+            resting=1.35 if state['selectedKey']==key else 1.30
+            page.wait_for_function("""a => Math.abs(
+                MRRIntegrated.state.scene.pcRenderedCardScales[a.key]-a.resting
+              ) < .018""",arg={'key':key,'resting':resting},timeout=12000)
             idle=page.evaluate('(key)=>MRRIntegrated.state.scene.pcRenderedCardScales[key]',key)
-            assert 1.29<=idle<=1.31,('idle scale',w,h,idle)
+            assert abs(idle-resting)<.02,('resting scale',w,h,idle,resting)
             center=page.evaluate('(key)=>MRRIntegrated.scene.projectCard(key)',key)
             assert center and 0<center['x']<w and 0<center['y']<h,(w,h,center)
             actual=page.evaluate("""p=>!!document.elementFromPoint(p.x,p.y)
@@ -79,16 +85,20 @@ try:
             page.mouse.move(center['x'],center['y'])
             page.wait_for_function('(key)=>MRRIntegrated.state.scene.hoveredKey===key',
                                    arg=key,timeout=9000)
-            page.wait_for_timeout(510)
+            page.wait_for_function("""key =>
+                MRRIntegrated.state.scene.pcRenderedCardScales[key]>=1.46""",
+                arg=key,timeout=12000)
             hovered=page.evaluate('(key)=>MRRIntegrated.state.scene.pcRenderedCardScales[key]',key)
             assert 1.46<=hovered<=1.53,('hovered focus scale',w,h,hovered)
             assert snapshot()==after_placement,('Hover mutated original game',w,h)
             page.screenshot(path=str(ROOT/f'tests/phase67_card_focus_{w}x{h}.png'),
                             animations='disabled')
             page.mouse.move(5,h//2)
-            page.wait_for_timeout(420)
+            page.wait_for_function("""a=>Math.abs(
+                MRRIntegrated.state.scene.pcRenderedCardScales[a.key]-a.resting
+              ) < .02""",arg={'key':key,'resting':resting},timeout=12000)
             returned=page.evaluate('(key)=>MRRIntegrated.state.scene.pcRenderedCardScales[key]',key)
-            assert 1.29<=returned<=1.32,('hover focus failed to settle',w,h,returned)
+            assert abs(returned-resting)<.02,('focus failed to settle',w,h,returned,resting)
             assert snapshot()==after_placement
             print(f'PHASE67 {w}x{h}: idle={idle:.3f}, focused={hovered:.3f}, returned={returned:.3f}',flush=True)
 
