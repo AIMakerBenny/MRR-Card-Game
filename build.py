@@ -18,10 +18,10 @@ boot = (ROOT/'src/boot.js').read_text(encoding='utf-8')
 owner_art_registry, owner_art_ids = bundle(ROOT)
 card_art_identity = (ROOT/'src/card_art_identity.js').read_text(encoding='utf-8')
 assert '</script' not in integrated.lower() and '</script' not in scene.lower() and '</script' not in cinema.lower() and '</script' not in battlefield.lower() and '</script' not in boot.lower() and '</script' not in card_art_identity.lower()
-source = source.replace('<title>MARORONG CARD WAR · Phase 21 UI Fixed</title>', '<title>MARORONG CARD WAR · Phase 65 PC Context Command Dock</title>')
+source = source.replace('<title>MARORONG CARD WAR · Phase 21 UI Fixed</title>', '<title>MARORONG CARD WAR · Phase 66 PC Single Context Menu</title>')
 source = source.replace('</head>',f'<style id="mcw3d-extension-css">\n{css}\n</style>\n</head>')
 source = source.replace('</body>', f'<script type="module" id="mcw3d-extension-js">\n{owner_art_registry}{card_art_identity}\n{scene}\n{cinema}\n{battlefield}\n{integrated}\n{boot}\n</script>\n</body>')
-output = ROOT/'Marorong_Card_War_Phase65_3D_Prototype.html'
+output = ROOT/'Marorong_Card_War_Phase66_3D_Prototype.html'
 output.write_text(source, encoding='utf-8')
 # Retain the prior artifact path for pre-existing, unmodified regression scripts.
 (ROOT/'Marorong_Card_War_Phase55_3D_Prototype.html').write_bytes(output.read_bytes())
@@ -31,14 +31,16 @@ output.write_text(source, encoding='utf-8')
 (ROOT/'Marorong_Card_War_Phase59_3D_Prototype.html').write_bytes(output.read_bytes())
 (ROOT/'Marorong_Card_War_Phase63_3D_Prototype.html').write_bytes(output.read_bytes())
 (ROOT/'Marorong_Card_War_Phase64_3D_Prototype.html').write_bytes(output.read_bytes())
+(ROOT/'Marorong_Card_War_Phase65_3D_Prototype.html').write_bytes(output.read_bytes())
 manifest = {
-    'build': 'Phase65 PC native-command contextual dock and responsive bounds',
+    'build': 'Phase66 PC single native-derived contextual command presentation',
     'source': 'Phase21_UI_Fixed',
     'source_sha256': sha,
     'output_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
     'three_version': '0.160.1',
     'changes_to_rules': False,
-    'pc_batch_phases': [60,61,62,63,64,65],
+    'pc_batch_phases': [60,61,62,63,64,65,66],
+    'pc_native_context_dedup_revision': 66,
     'pc_native_command_dock_revision': 65,
     'owner_art_on_visible_native_cards': True,
     'context_actions_delegate_to_native': True,
