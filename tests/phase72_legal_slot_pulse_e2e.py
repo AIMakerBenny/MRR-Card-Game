@@ -35,9 +35,26 @@ try:
                i,cost:Number(e.querySelector('.cost-bubble')?.textContent||99),
                board:/type-(몬스터|시설|영웅유닛)/.test(e.querySelector('.card-ui')?.className||'')
             }))""")
-            affordable=next((c for c in hand if c['board'] and c['cost']<=2),None)
-            if affordable:break
-        assert affordable,'No real affordable original field card found'
+            # A low printed card cost does not guarantee native legal placement:
+            # original match resource and lane restrictions are authoritative.
+            # Probe only the actual Phase21 native hand/slots, then recreate the
+            # exact seeded game so the baseline remains completely unselected.
+            affordable=None
+            for candidate in hand:
+                if not candidate['board'] or candidate['cost']>2:continue
+                page.locator('#hand .hand-slot').nth(candidate['i']).evaluate(
+                    'e=>e.click()')
+                if page.locator('#arena .slot.legal').count():
+                    affordable=candidate
+                    break
+            if affordable:
+                page.goto(url+f'?qa_seed={seed}',wait_until='domcontentloaded')
+                page.locator('#newGame').click()
+                page.locator('#launchGame').click()
+                page.get_by_role('button',name='이 손패로 시작').click()
+                assert page.locator('#arena .slot.legal').count()==0
+                break
+        assert affordable,'No truly native-legal original field card found'
         def snap():
             return page.evaluate("""() => {
               const s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);
