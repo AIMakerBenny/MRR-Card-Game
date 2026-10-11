@@ -1,0 +1,58 @@
+/* Phase68 - PC-only native hand fan, not an independent deck/player UI.
+   The Phase21 hand owns every card click, mulligan, drag, tooltip and rule.
+   This extension changes only the vertical reveal of those original cards. */
+@media (min-width:1024px) and (min-height:700px){
+  body.mrr-integrated-active #gameScreen .hand-wrap{
+    transition:bottom .24s cubic-bezier(.2,.78,.2,1)!important;
+    will-change:bottom;
+  }
+  body.mrr-integrated-active #mrr-integrated-hand-tab{
+    position:absolute;left:50%;bottom:clamp(53px,7.1vh,85px);
+    transform:translateX(-50%);z-index:94;
+    min-width:117px;max-width:220px;min-height:30px;
+    padding:4px 16px 5px;
+    border-radius:18px 18px 8px 8px;
+    border:1px solid #c2a275b8;
+    background:linear-gradient(175deg,#806145ed,#34251be9 64%,#1a1715ed);
+    color:#ffebc4;font:600 12px 'Malgun Gothic',sans-serif;
+    text-shadow:0 1px 5px #120b07;
+    box-shadow:0 5px 15px #0806059e,inset 0 1px 0 #ffe2a455;
+    cursor:pointer;pointer-events:auto;white-space:nowrap;
+    transition:bottom .24s cubic-bezier(.2,.78,.2,1),filter .15s ease;
+  }
+  body.mrr-integrated-active #mrr-integrated-hand-tab::before{
+    content:'⌃';margin-right:9px;color:#f1ca8a;font:700 15px Georgia,serif;
+  }
+  body.mrr-integrated-active #mrr-integrated-hand-tab[aria-expanded="true"]::before{
+    content:'⌄';
+  }
+  body.mrr-integrated-active #mrr-integrated-hand-tab:is(:hover,:focus-visible){
+    filter:brightness(1.18);border-color:#f4d19a;
+  }
+  body.mrr-integrated-active #mrr-integrated-hand-tab:focus-visible{
+    outline:2px solid #ffe7ae;outline-offset:3px;
+  }
+  /* "Peek" explicitly raises existing native fan only when the player wants
+     to read their hand. The slot target mode always wins, so 3D board picks
+     cannot be blocked by the raised fan during placement. */
+  body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open:not(:has(#arena .slot.legal)) .hand-wrap,
+  body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open:has(#arena .board-card):not(:has(#arena .slot.legal)) .hand-wrap:has(.hand-slot:hover){
+    bottom:calc(clamp(194px,24vh,270px) - var(--fc-hand-h))!important;
+  }
+  body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open:not(:has(#arena .slot.legal)) #mrr-integrated-hand-tab{
+    bottom:calc(clamp(194px,24vh,270px) + 12px);
+  }
+  body.mrr-integrated-active #gameScreen:has(#arena .slot.legal) #mrr-integrated-hand-tab{
+    visibility:hidden;opacity:0;pointer-events:none;
+  }
+  /* Native preview must be above the opened fan. Its own existing hover
+     position and content stay fully governed by the original engine. */
+  body.mrr-integrated-active #handPreview.on{z-index:97!important}
+}
+@media(max-width:1023px), (max-height:699px){
+  #mrr-integrated-hand-tab{display:none!important}
+}
+@media(prefers-reduced-motion:reduce){
+  body.mrr-integrated-active #gameScreen .hand-wrap,
+  body.mrr-integrated-active #mrr-integrated-hand-tab{transition:none!important;will-change:auto}
+}
