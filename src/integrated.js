@@ -17,7 +17,7 @@ window.MRRIntegratedUIInit=function(loadThree){
   }
   function close(){
     const old=view,oldStage=stage;view=null;stage=null;lastRefresh=null;
-    root.classList.remove('mrr-integrated-playing','mrr-integrated-inspector-open','mrr-integrated-rail-open');
+    root.classList.remove('mrr-integrated-playing','mrr-integrated-inspector-open','mrr-integrated-rail-open','mrr-integrated-hand-open');
     document.body.classList.remove('mrr-integrated-active');
     toggle.textContent='통합 전장';toggle.setAttribute('aria-pressed','false');
     try{old?.dispose();}catch(e){console.warn('Integrated battlefield dispose:',e);}
@@ -51,6 +51,17 @@ window.MRRIntegratedUIInit=function(loadThree){
       const rail=control('mrr-integrated-rail','▣ 보급 / 영역');
       const exit=control('mrr-integrated-exit','2D 보기','기존 게임 화면으로 돌아가기');
       for(const b of [attack,move,cancel,inspect,rail,exit])command.appendChild(b);
+      // Phase68: an on-demand PC hand fan. Only changes CSS presentation of
+      // the already existing native hand; it neither clones nor reads cards.
+      const handTab=control('mrr-integrated-hand-tab','손패 펼치기','손패를 펼쳐서 읽거나 전장을 다시 볼 수 있습니다.');
+      handTab.setAttribute('aria-controls','hand');
+      handTab.setAttribute('aria-expanded','false');
+      handTab.addEventListener('click',()=>{
+        if(document.querySelector('#arena .slot.legal'))return;
+        const opened=root.classList.toggle('mrr-integrated-hand-open');
+        handTab.setAttribute('aria-expanded',String(opened));
+        handTab.textContent=opened?'손패 접기':'손패 펼치기';
+      });
       // Phase62: commands follow the selected *public* 3D card. All buttons
       // delegate to the existing original-game action buttons.
       const context=document.createElement('div');context.id='mrr-integrated-context';
@@ -71,7 +82,7 @@ window.MRRIntegratedUIInit=function(loadThree){
       attack.addEventListener('click',()=>nativeButton('#inspectBody button[data-actor="attack"]'));
       move.addEventListener('click',()=>nativeButton('#inspectBody button[data-actor="move"]'));
       cancel.addEventListener('click',()=>nativeButton('#inspectBody button[data-cancel-action]'));
-      stage.append(vignette,heading,badge,help,command,context);
+      stage.append(vignette,heading,badge,help,command,context,handTab);
       root.appendChild(stage);
       root.classList.add('mrr-integrated-playing');
       document.body.classList.add('mrr-integrated-active');
@@ -81,6 +92,16 @@ window.MRRIntegratedUIInit=function(loadThree){
         try{
           // The native HTML board is read-only and remains the source of truth.
           const selection=!!info.selectedKey;
+          // Legal placements retain first priority over the readable hand:
+          // do not cover a target when the original engine awaits a slot.
+          if(info.legalCount&&root.classList.contains('mrr-integrated-hand-open')){
+            root.classList.remove('mrr-integrated-hand-open');
+            handTab.setAttribute('aria-expanded','false');
+          }
+          const count=document.querySelectorAll('#hand .hand-slot').length;
+          handTab.hidden=!count;
+          handTab.disabled=!!info.legalCount;
+          handTab.textContent=(root.classList.contains('mrr-integrated-hand-open')?'손패 접기':'손패 펼치기')+(count?' · '+count+'장':'');
           const nativeAttack=document.querySelector('#inspectBody button[data-actor="attack"]');
           const nativeMove=document.querySelector('#inspectBody button[data-actor="move"]');
           attack.disabled=!selection||!nativeAttack||nativeAttack.disabled;
