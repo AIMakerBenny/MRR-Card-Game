@@ -9,7 +9,7 @@ original = (ROOT/'legacy/Phase21_Original.html').read_bytes()
 sha = hashlib.sha256(original).hexdigest()
 source = original.decode('utf-8')
 assert source.count('</head>') == 1 and source.count('</body>') == 1
-css = (ROOT/'src/depth.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/integrated.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/phase56.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/pc-batch-polish.css').read_text(encoding='utf-8')
+css = (ROOT/'src/depth.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/integrated.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/phase56.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/pc-batch-polish.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/phase68-hand-fan.css').read_text(encoding='utf-8')
 scene = (ROOT/'src/scene.js').read_text(encoding='utf-8')
 cinema = (ROOT/'src/cinema.js').read_text(encoding='utf-8')
 battlefield = (ROOT/'src/battlefield.js').read_text(encoding='utf-8')
@@ -18,10 +18,10 @@ boot = (ROOT/'src/boot.js').read_text(encoding='utf-8')
 owner_art_registry, owner_art_ids = bundle(ROOT)
 card_art_identity = (ROOT/'src/card_art_identity.js').read_text(encoding='utf-8')
 assert '</script' not in integrated.lower() and '</script' not in scene.lower() and '</script' not in cinema.lower() and '</script' not in battlefield.lower() and '</script' not in boot.lower() and '</script' not in card_art_identity.lower()
-source = source.replace('<title>MARORONG CARD WAR · Phase 21 UI Fixed</title>', '<title>MARORONG CARD WAR · Phase 67 PC Card-First Focus and Readability</title>')
+source = source.replace('<title>MARORONG CARD WAR · Phase 21 UI Fixed</title>', '<title>MARORONG CARD WAR · Phase 68 PC Hand Fan Reveal</title>')
 source = source.replace('</head>',f'<style id="mcw3d-extension-css">\n{css}\n</style>\n</head>')
 source = source.replace('</body>', f'<script type="module" id="mcw3d-extension-js">\n{owner_art_registry}{card_art_identity}\n{scene}\n{cinema}\n{battlefield}\n{integrated}\n{boot}\n</script>\n</body>')
-output = ROOT/'Marorong_Card_War_Phase67_3D_Prototype.html'
+output = ROOT/'Marorong_Card_War_Phase68_3D_Prototype.html'
 output.write_text(source, encoding='utf-8')
 # Retain the prior artifact path for pre-existing, unmodified regression scripts.
 (ROOT/'Marorong_Card_War_Phase55_3D_Prototype.html').write_bytes(output.read_bytes())
@@ -33,14 +33,17 @@ output.write_text(source, encoding='utf-8')
 (ROOT/'Marorong_Card_War_Phase64_3D_Prototype.html').write_bytes(output.read_bytes())
 (ROOT/'Marorong_Card_War_Phase65_3D_Prototype.html').write_bytes(output.read_bytes())
 (ROOT/'Marorong_Card_War_Phase66_3D_Prototype.html').write_bytes(output.read_bytes())
+(ROOT/'Marorong_Card_War_Phase67_3D_Prototype.html').write_bytes(output.read_bytes())
 manifest = {
-    'build': 'Phase67 PC larger physical cards, readable type and smooth focused elevation',
+    'build': 'Phase68 PC native hand fan reveal and automatic legal-target collapse',
     'source': 'Phase21_UI_Fixed',
     'source_sha256': sha,
     'output_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
     'three_version': '0.160.1',
     'changes_to_rules': False,
-    'pc_batch_phases': [60,61,62,63,64,65,66,67],
+    'pc_batch_phases': [60,61,62,63,64,65,66,67,68],
+    'pc_native_hand_fan_revision': 68,
+    'pc_hand_fan_open_height': 'clamp(194px,24vh,270px)',
     'pc_card_focus_revision': 67,
     'pc_card_idle_scale': 1.30,
     'pc_card_focus_scale': 1.52,

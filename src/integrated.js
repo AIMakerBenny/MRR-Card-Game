@@ -10,6 +10,7 @@ window.MRRIntegratedUIInit=function(loadThree){
   toggle.textContent='통합 전장';toggle.title='손패와 턴 조작이 함께 있는 3D 플레이 화면';
   bar.appendChild(toggle);
   let view=null,stage=null,updating=false,busy=false,lastRefresh=null;
+  let setHandReveal=null,removeHandCapture=null,handTabElement=null;
   function nativeButton(selector){
     const el=document.querySelector(selector);
     if(!el||el.disabled)return false;
@@ -17,7 +18,10 @@ window.MRRIntegratedUIInit=function(loadThree){
   }
   function close(){
     const old=view,oldStage=stage;view=null;stage=null;lastRefresh=null;
-    root.classList.remove('mrr-integrated-playing','mrr-integrated-inspector-open','mrr-integrated-rail-open');
+    setHandReveal?.(false);
+    removeHandCapture?.();removeHandCapture=null;setHandReveal=null;
+    handTabElement?.remove();handTabElement=null;
+    root.classList.remove('mrr-integrated-playing','mrr-integrated-inspector-open','mrr-integrated-rail-open','mrr-integrated-hand-open');
     document.body.classList.remove('mrr-integrated-active');
     toggle.textContent='통합 전장';toggle.setAttribute('aria-pressed','false');
     try{old?.dispose();}catch(e){console.warn('Integrated battlefield dispose:',e);}
@@ -51,6 +55,41 @@ window.MRRIntegratedUIInit=function(loadThree){
       const rail=control('mrr-integrated-rail','▣ 보급 / 영역');
       const exit=control('mrr-integrated-exit','2D 보기','기존 게임 화면으로 돌아가기');
       for(const b of [attack,move,cancel,inspect,rail,exit])command.appendChild(b);
+      // Phase68: an on-demand PC hand fan. Only changes CSS presentation of
+      // the already existing native hand; it neither clones nor reads cards.
+      const handTab=control('mrr-integrated-hand-tab','손패 펼치기','손패를 펼쳐서 읽거나 전장을 다시 볼 수 있습니다.');
+      handTab.setAttribute('aria-controls','hand');
+      handTab.setAttribute('aria-expanded','false');
+      const nativeHandWrap=root.querySelector('.hand-wrap');
+      // CSS handles the visual transition and material, while these two
+      // display-only coordinates avoid legacy stylesheet-cascade conflicts.
+      // Neither card markup nor the Phase21 game engine is ever changed.
+      setHandReveal=(requestOpen)=>{
+        const open=!!requestOpen&&innerWidth>=1024&&innerHeight>=700
+          &&!!root.querySelector('#hand .hand-slot')
+          &&!root.querySelector('#arena .slot.legal');
+        root.classList.toggle('mrr-integrated-hand-open',open);
+        handTab.setAttribute('aria-expanded',String(open));
+        if(open){
+          const exposed=Math.min(270,Math.max(194,innerHeight*.24));
+          const nativeHeight=nativeHandWrap?.offsetHeight||336;
+          nativeHandWrap?.style.setProperty('bottom',(exposed-nativeHeight).toFixed(2)+'px','important');
+          handTab.style.setProperty('bottom',(exposed+12).toFixed(2)+'px');
+        }else{
+          nativeHandWrap?.style.removeProperty('bottom');
+          handTab.style.removeProperty('bottom');
+        }
+      };
+      handTab.addEventListener('click',()=>setHandReveal(!root.classList.contains('mrr-integrated-hand-open')));
+      // A real native hand-card click immediately returns the hand below the
+      // battlefield *before* original HTML delegates placement. No animation
+      // or extra click is allowed to intercept a projected legal slot.
+      const onNativeHandClick=e=>{
+        if(e.target.closest?.('#hand .hand-slot')&&root.classList.contains('mrr-integrated-hand-open'))
+          setHandReveal(false);
+      };
+      root.addEventListener('click',onNativeHandClick,true);
+      removeHandCapture=()=>root.removeEventListener('click',onNativeHandClick,true);
       // Phase62: commands follow the selected *public* 3D card. All buttons
       // delegate to the existing original-game action buttons.
       const context=document.createElement('div');context.id='mrr-integrated-context';
@@ -72,7 +111,10 @@ window.MRRIntegratedUIInit=function(loadThree){
       move.addEventListener('click',()=>nativeButton('#inspectBody button[data-actor="move"]'));
       cancel.addEventListener('click',()=>nativeButton('#inspectBody button[data-cancel-action]'));
       stage.append(vignette,heading,badge,help,command,context);
-      root.appendChild(stage);
+      // Keep hand control outside stage's z-index stacking context: the
+      // preserved native #handPreview is z97 and must not block fold/unfold.
+      root.append(stage,handTab);
+      handTabElement=handTab;
       root.classList.add('mrr-integrated-playing');
       document.body.classList.add('mrr-integrated-active');
       function refresh(info){
@@ -81,6 +123,14 @@ window.MRRIntegratedUIInit=function(loadThree){
         try{
           // The native HTML board is read-only and remains the source of truth.
           const selection=!!info.selectedKey;
+          // Legal placements retain first priority over the readable hand:
+          // do not cover a target when the original engine awaits a slot.
+          if(info.legalCount&&root.classList.contains('mrr-integrated-hand-open'))
+            setHandReveal?.(false);
+          const count=document.querySelectorAll('#hand .hand-slot').length;
+          handTab.hidden=!count;
+          handTab.disabled=!!info.legalCount;
+          handTab.textContent=(root.classList.contains('mrr-integrated-hand-open')?'손패 접기':'손패 펼치기')+(count?' · '+count+'장':'');
           const nativeAttack=document.querySelector('#inspectBody button[data-actor="attack"]');
           const nativeMove=document.querySelector('#inspectBody button[data-actor="move"]');
           attack.disabled=!selection||!nativeAttack||nativeAttack.disabled;
@@ -140,7 +190,12 @@ window.MRRIntegratedUIInit=function(loadThree){
     finally{busy=false;}
   }
   toggle.addEventListener('click',()=>view?close():open());
-  window.addEventListener('resize',()=>{view?.resize();if(view&&lastRefresh)lastRefresh(view.state);});
+  window.addEventListener('resize',()=>{
+    view?.resize();
+    if(view&&root.classList.contains('mrr-integrated-hand-open'))
+      setHandReveal?.(true);
+    if(view&&lastRefresh)lastRefresh(view.state);
+  });
   document.addEventListener('visibilitychange',()=>{
     if(!view)return;
     if(document.hidden)view.stop();else view.start();

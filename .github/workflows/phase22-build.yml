@@ -1,4 +1,4 @@
-name: Marorong Card War Phase67 PC Card-First Focus Validation
+name: Marorong Card War Phase68 PC Native Hand Fan Validation
 on:
   push:
   pull_request:
@@ -19,7 +19,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run vendor
-      - name: Build phase 67
+      - name: Build phase 68
         run: python build.py
       - name: Install testing dependencies
         run: |
@@ -28,6 +28,8 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Check byte-identical game engine
         run: python tests/static_audit.py
+      - name: Phase68 native hand fan reveal, automatic legal target collapse and 3 viewport Chromium QA
+        run: python tests/phase68_pc_hand_fan_e2e.py
       - name: Phase66 single card contextual commands, real native attack and HP QA
         run: python tests/phase63_pc_context_e2e.py
       - name: Phase67 physically larger public 3D cards and eased hover focus across PC viewports
@@ -74,7 +76,7 @@ jobs:
       - name: Collect downloadable build
         run: |
           mkdir -p dist
-          cp Marorong_Card_War_Phase67_3D_Prototype.html dist/index.html
+          cp Marorong_Card_War_Phase68_3D_Prototype.html dist/index.html
           mkdir -p dist/assets
           cp assets/CARD_ART_SPEC.md assets/card_art_index.csv dist/assets/
           mkdir -p dist/vendor
@@ -83,11 +85,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Phase67-Browser-Screenshots
+          name: Phase68-Browser-Screenshots
           path: tests/*png
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
-          name: Marorong-Card-War-Phase67-3D
+          name: Marorong-Card-War-Phase68-3D
           path: dist/
           if-no-files-found: error
