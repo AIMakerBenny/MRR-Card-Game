@@ -103,7 +103,18 @@ try:
                     fanBottom:getComputedStyle(fan).bottom,
                     tabShown:getComputedStyle(tab).visibility,
                     tabExpanded:tab.getAttribute('aria-expanded'),
-                    handHovered:!!fan.querySelector('.hand-slot:hover')
+                    handHovered:!!fan.querySelector('.hand-slot:hover'),
+                    cssBundled:!!document.querySelector('#mcw3d-extension-css')?.textContent?.includes('Phase68 - PC-only'),
+                    cssStyleRules:[...document.querySelector('#mcw3d-extension-css').sheet.cssRules]
+                      .filter(r=>r.conditionText?.includes('min-width:1024px'))
+                      .map(r=>({media:r.conditionText,rules:[...r.cssRules]
+                        .filter(x=>x.selectorText?.includes('hand-open'))
+                        .map(x=>({selector:x.selectorText,bottom:x.style.bottom,
+                          matches:[...x.selectorText.split(',')].some(a=>{try{return fan.matches(a.trim())}catch(_){return false}})}))})),
+                    handInline:fan.getAttribute('style'),
+                    tabPosition:getComputedStyle(tab).position,
+                    tabBottom:getComputedStyle(tab).bottom,
+                    mediaMatched:matchMedia('(min-width:1024px) and (min-height:700px)').matches
                   };
                 }""")
                 print('PHASE68 OPEN DEBUG',w,h,before,lifted,debug,flush=True)
