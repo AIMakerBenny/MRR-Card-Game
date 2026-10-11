@@ -42,6 +42,13 @@
   body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open:not(:has(#arena .slot.legal)) #mrr-integrated-hand-tab{
     bottom:calc(clamp(194px,24vh,270px) + 12px);
   }
+  /* Critical for real immediate native placement clicks: the mouse must not
+     encounter a hand card still sliding through a projected WebGL slot.
+     Manual reveal animates, but legal target selection retracts instantly. */
+  body.mrr-integrated-active #gameScreen:has(#arena .slot.legal) .hand-wrap{
+    transition:none!important;
+    will-change:auto;
+  }
   body.mrr-integrated-active #gameScreen:has(#arena .slot.legal) #mrr-integrated-hand-tab{
     visibility:hidden;opacity:0;pointer-events:none;
   }
