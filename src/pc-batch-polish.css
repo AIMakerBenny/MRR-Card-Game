@@ -104,3 +104,27 @@
     pointer-events:none!important;
   }
 }
+
+/* Phase71: distinguish existing native context commands at a glance.
+   Pure PC visual styling: no new buttons, actions, or game state. */
+@media(min-width:1024px){
+  body.mrr-integrated-active #mrr-integrated-context #mrr-quick-attack{
+    border-color:#ed9878;
+    background:linear-gradient(155deg,#733a2df5,#35201be9);
+    color:#ffe5d5;box-shadow:inset 0 1px 0 #ffdbb466,0 3px 9px #000a;
+  }
+  body.mrr-integrated-active #mrr-integrated-context #mrr-quick-move{
+    border-color:#78c7bc;
+    background:linear-gradient(155deg,#275d5cf5,#182d31e9);
+    color:#ddfff8;box-shadow:inset 0 1px 0 #c3fff155,0 3px 9px #000a;
+  }
+  body.mrr-integrated-active #mrr-integrated-context #mrr-quick-cancel{
+    border-color:#9d9fa5;
+    background:linear-gradient(155deg,#3e434af5,#25262be9);
+    color:#e9e8e3;box-shadow:inset 0 1px 0 #ffffff33,0 3px 9px #000a;
+  }
+  body.mrr-integrated-active #mrr-integrated-context
+  :is(#mrr-quick-attack,#mrr-quick-move,#mrr-quick-cancel):hover{
+    filter:brightness(1.18);
+  }
+}
