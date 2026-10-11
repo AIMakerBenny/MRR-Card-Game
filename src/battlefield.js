@@ -864,6 +864,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     attackTargetCount=list.filter(p=>p.attackTarget).length;
     for(const p of list){
       const slot=boardSlots.get(p.key);
+      // Phase72: follow the original native .legal class; never change rules.
+      slot.legalPulse=tabletop&&!!p.legal&&!p.selected&&!p.attackTarget;
       slot.halo.visible=!!(p.selected||p.attackTarget||p.legal||hoveredKey===p.key);
       slot.halo.material=p.attackTarget?attackGlow:p.selected?selectGlow:p.legal?legalGlow:hoverGlow;
       const item=cardIndex.get(p.key);
@@ -975,6 +977,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(time-lastSync>220){lastSync=time;sync();}
     const frozen=matchMedia('(prefers-reduced-motion: reduce)').matches;
     if(!frozen)sealCore.rotation.y=time*.00035;
+    // Phase72: decorative slot halos never enter raycast target meshes.
+    if(tabletop)for(const slot of boardSlots.values()){
+      slot.halo.scale.setScalar(slot.legalPulse&&!frozen?
+        1.035+.075*(.5+.5*Math.sin(time*.0046)):1);
+    }
     for(const [i,c] of cards.entries()){
       const hover=c.key===hoveredKey;
       if(tabletop){
@@ -1059,6 +1066,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       artworkEmbeddedCount:tabletop?Object.keys(window.MRRCardArtRegistry?.assets||{}).length:0,
       artworkLoadedCount:tabletop?cards.filter(c=>c.face.material.map?.userData.artLoaded).length:0,artworkSlotResolution:tabletop?'1200x960':null,
       artworkSlotBounds:tabletop?{...pcArtSlot}:null,
+      pcLegalPulseRevision:tabletop?72:0,
+      pcLegalPulseScales:tabletop?Object.fromEntries([...boardSlots].filter(([,s])=>s.legalPulse).map(([k,s])=>[k,Number(s.halo.scale.x.toFixed(3))])):{},
       pcZoneContrastRevision:tabletop?69:0,desktopArtRevision:tabletop?55:0,tabletopSurface:tabletop?'parchment-and-wood':'legacy-stone',
       proceduralTextureCount:tabletopTextures.length,
       combatEvent:latestCombat,stagedStrike:!!pendingStrike,
