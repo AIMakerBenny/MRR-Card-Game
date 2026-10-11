@@ -549,20 +549,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     c.strokeStyle='#fff0b8';c.lineWidth=3;c.strokeRect(31,31,450,642);
     c.fillStyle='#071923';c.fillRect(47,49,420,97);
     c.textAlign='center';c.textBaseline='middle';
-    c.fillStyle='#f6e3b6';c.font='bold 37px sans-serif';
+    c.fillStyle='#f6e3b6';c.font=tabletop?'bold 43px sans-serif':'bold 37px sans-serif';
     c.fillText(profile.name.slice(0,24),262,96,365);
-    c.fillStyle='#aacdcd';c.font='22px sans-serif';
+    c.fillStyle='#aacdcd';c.font=tabletop?'bold 27px sans-serif':'22px sans-serif';
     c.fillText(profile.kind.slice(0,30),260,163,425);
     const archetype=drawCardIllustration(c,profile,ally);
     c.fillStyle='#0a1927';c.fillRect(52,542,408,112);
     c.strokeStyle='#c9aa70';c.lineWidth=3;c.strokeRect(52,542,408,112);
-    c.fillStyle='#dce9e6';c.font='bold 23px sans-serif';
+    c.fillStyle='#dce9e6';c.font=tabletop?'bold 29px sans-serif':'bold 23px sans-serif';
     c.fillText(profile.stats.slice(0,42)||'공개 전장 카드',256,597,380);
-    c.fillStyle='#ead7ac';c.font='bold 24px sans-serif';
+    c.fillStyle='#ead7ac';c.font=tabletop?'bold 27px sans-serif':'bold 24px sans-serif';
     c.fillText(ally?'ALLY':'OPPONENT',256,630);
     c.fillStyle='#102637';c.beginPath();c.arc(58,92,31,0,Math.PI*2);c.fill();
     c.strokeStyle='#efcd89';c.lineWidth=5;c.stroke();
-    c.fillStyle='#ffffff';c.font='bold 33px sans-serif';
+    c.fillStyle='#ffffff';c.font=tabletop?'bold 37px sans-serif':'bold 33px sans-serif';
     c.fillText(profile.cost.slice(0,3),58,96);
     if(tabletop)pc57Engrave(c,profile,ally,'frame');
     const texture=new THREE.CanvasTexture(canvas);
@@ -968,14 +968,26 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     lastDraw=time;
     if(time-lastSync>220){lastSync=time;sync();}
     const frozen=matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if(!frozen){
-      sealCore.rotation.y=time*.00035;
-      for(const [i,c] of cards.entries())c.group.position.y=1.76+(c.key===hoveredKey ? .78 : 0)+Math.sin(time*.0015+i*.67)*.045;
-    }
-    for(const c of cards){
+    if(!frozen)sealCore.rotation.y=time*.00035;
+    for(const [i,c] of cards.entries()){
       const hover=c.key===hoveredKey;
-      c.group.scale.setScalar(tabletop?(hover?1.36:1.16):(hover?1.26:1));
-      if(frozen)c.group.position.y=1.76+(hover?.78:0);
+      if(tabletop){
+        // Phase67: physical cards must read like cards, not miniatures on an
+        // oversized app canvas. Smoothly elevate only the focused card.
+        // 3.37 world units separate adjacent columns: the 2.22-wide idle
+        // card at 1.30 scale is 2.886 units, with physical air between cards.
+        const targetScale=hover?1.52:c.key===selectedKey?1.35:1.30;
+        const targetLift=hover?.86:c.key===selectedKey?.18:0;
+        const blend=frozen?1:.24;
+        c.visualScale=(c.visualScale??1.30)+(targetScale-(c.visualScale??1.30))*blend;
+        c.visualLift=(c.visualLift??0)+(targetLift-(c.visualLift??0))*blend;
+        c.group.scale.setScalar(c.visualScale);
+        c.group.position.y=1.76+c.visualLift+(frozen?0:Math.sin(time*.0015+i*.67)*.025);
+      }else{
+        // Keep the existing standalone battlefield presentation unchanged.
+        c.group.scale.setScalar(hover?1.26:1);
+        c.group.position.y=1.76+(hover?.78:0)+(frozen?0:Math.sin(time*.0015+i*.67)*.045);
+      }
     }
     advanceEffects(time);
     advanceCinematics(time);
@@ -1033,7 +1045,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       previewRevision:53,previewReadyCards:cardIndex.size,
       artworkSlotRevision:tabletop?58:0,
       artworkImportRevision:tabletop?59:0,
-      pcLegibilityRevision:tabletop?64:0,pcCardScale:tabletop?1.16:1,
+      pcLegibilityRevision:tabletop?67:0,pcCardScale:tabletop?1.30:1,
+      pcCardHoverScale:tabletop?1.52:1.26,pcCardSelectedScale:tabletop?1.35:1,
+      pcRenderedCardScales:tabletop?Object.fromEntries(cards.map(c=>[c.key,Number(c.group.scale.x.toFixed(3))])):null,
       artworkEmbeddedCount:tabletop?Object.keys(window.MRRCardArtRegistry?.assets||{}).length:0,
       artworkLoadedCount:tabletop?cards.filter(c=>c.face.material.map?.userData.artLoaded).length:0,artworkSlotResolution:tabletop?'1200x960':null,
       artworkSlotBounds:tabletop?{...pcArtSlot}:null,
