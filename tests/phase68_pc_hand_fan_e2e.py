@@ -88,6 +88,27 @@ try:
             assert hand_tab.get_attribute('aria-expanded')=='true'
             assert page.locator('#gameScreen.mrr-integrated-hand-open').count()==1
             lifted=page.locator('.hand-wrap').bounding_box()
+            if not lifted or before['y']-lifted['y']<=85:
+                debug=page.evaluate("""() => {
+                  const root=document.querySelector('#gameScreen');
+                  const fan=root.querySelector('.hand-wrap');
+                  const tab=document.querySelector('#mrr-integrated-hand-tab');
+                  return {
+                    classes:root.className,
+                    legal:root.querySelectorAll('#arena .slot.legal').length,
+                    boardCards:root.querySelectorAll('#arena .board-card').length,
+                    previewOpen:root.matches('.mrr-integrated-hand-open:not(:has(#arena .slot.legal))'),
+                    selectorMatch:fan.matches(
+                      'body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open:not(:has(#arena .slot.legal)) .hand-wrap'),
+                    fanBottom:getComputedStyle(fan).bottom,
+                    tabShown:getComputedStyle(tab).visibility,
+                    tabExpanded:tab.getAttribute('aria-expanded'),
+                    handHovered:!!fan.querySelector('.hand-slot:hover')
+                  };
+                }""")
+                print('PHASE68 OPEN DEBUG',w,h,before,lifted,debug,flush=True)
+                page.screenshot(path=str(ROOT/f'tests/phase68_failed_open_{w}x{h}.png'),
+                                animations='disabled')
             assert lifted and before['y']-lifted['y']>85,(w,h,before,lifted)
             viewport_cards=hand.evaluate_all("""(els,h)=>els.map(e=>{
               const r=e.getBoundingClientRect(),s=getComputedStyle(e);
