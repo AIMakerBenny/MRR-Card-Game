@@ -2,9 +2,11 @@
    The Phase21 hand owns every card click, mulligan, drag, tooltip and rule.
    This extension changes only the vertical reveal of those original cards. */
 @media (min-width:1024px) and (min-height:700px){
+  /* Native WebGL software backends can starve CSS bottom transitions.
+     Reveal instantly so a half-animated hand never blocks a legal slot. */
   body.mrr-integrated-active #gameScreen .hand-wrap{
-    transition:bottom .24s cubic-bezier(.2,.78,.2,1)!important;
-    will-change:bottom;
+    transition:none!important;
+    will-change:auto;
   }
   body.mrr-integrated-active #mrr-integrated-hand-tab{
     position:absolute;left:50%;bottom:clamp(53px,7.1vh,85px);
@@ -18,7 +20,7 @@
     text-shadow:0 1px 5px #120b07;
     box-shadow:0 5px 15px #0806059e,inset 0 1px 0 #ffe2a455;
     cursor:pointer;pointer-events:auto;white-space:nowrap;
-    transition:bottom .24s cubic-bezier(.2,.78,.2,1),filter .15s ease;
+    transition:filter .15s ease;
   }
   body.mrr-integrated-active #mrr-integrated-hand-tab::before{
     content:'⌃';margin-right:9px;color:#f1ca8a;font:700 15px Georgia,serif;
