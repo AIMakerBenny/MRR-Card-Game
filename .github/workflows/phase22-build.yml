@@ -1,4 +1,4 @@
-name: Marorong Card War Phase66 PC Native Context Dedup Validation
+name: Marorong Card War Phase67 PC Card-First Focus Validation
 on:
   push:
   pull_request:
@@ -19,7 +19,7 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run vendor
-      - name: Build phase 66
+      - name: Build phase 67
         run: python build.py
       - name: Install testing dependencies
         run: |
@@ -30,6 +30,8 @@ jobs:
         run: python tests/static_audit.py
       - name: Phase66 single card contextual commands, real native attack and HP QA
         run: python tests/phase63_pc_context_e2e.py
+      - name: Phase67 physically larger public 3D cards and eased hover focus across PC viewports
+        run: python tests/phase67_pc_card_focus_e2e.py
       - name: Chromium game and fallback tests
         run: |
           python tests/parity_smoke.py
@@ -72,7 +74,7 @@ jobs:
       - name: Collect downloadable build
         run: |
           mkdir -p dist
-          cp Marorong_Card_War_Phase66_3D_Prototype.html dist/index.html
+          cp Marorong_Card_War_Phase67_3D_Prototype.html dist/index.html
           mkdir -p dist/assets
           cp assets/CARD_ART_SPEC.md assets/card_art_index.csv dist/assets/
           mkdir -p dist/vendor
@@ -81,11 +83,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Phase66-Browser-Screenshots
+          name: Phase67-Browser-Screenshots
           path: tests/*png
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
-          name: Marorong-Card-War-Phase66-3D
+          name: Marorong-Card-War-Phase67-3D
           path: dist/
           if-no-files-found: error
