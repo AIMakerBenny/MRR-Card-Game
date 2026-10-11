@@ -231,6 +231,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const attackGlow=material({color:0xffaf66,emissive:0xe65d20,emissiveIntensity:1.85,metalness:.15,roughness:.35});
   const hoverGlow=material({color:0xffffff,emissive:0xc9a66b,emissiveIntensity:.9,metalness:.18,roughness:.33});
   const glowGeo=geometry(new THREE.TorusGeometry(1.04,.07,8,48));
+  // Phase73: secondary, physically separate golden focus ring on PC only.
+  // Render-only mesh: it is deliberately absent from slotPickMeshes.
+  const pcFocusGeo=tabletop?geometry(new THREE.TorusGeometry(1.32,.055,8,48)):null;
   const cardGeometry=geometry(new THREE.BoxGeometry(tabletop?2.22:2.08,2.84,.22));
   const cardFaceGeometry=geometry(new THREE.PlaneGeometry(tabletop?2.10:1.96,2.71));
   // Phase57: dimensional gilt trims are scenery, not selectable meshes.
@@ -264,9 +267,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const halo=new THREE.Mesh(glowGeo,legalGlow);
       halo.rotation.x=-Math.PI/2;halo.position.set(x,tabletop?.24:.38,lane.z);
       halo.visible=false;scene.add(halo);
+      const focusRing=tabletop?new THREE.Mesh(pcFocusGeo,selectGlow):null;
+      if(focusRing){
+        focusRing.rotation.x=-Math.PI/2;
+        focusRing.position.set(x,.29,lane.z);
+        focusRing.visible=false;scene.add(focusRing);
+      }
       const crest=new THREE.Mesh(geometry(new THREE.TorusGeometry(.5,.035,7,32)),tabletop?parchmentInk:laneMaterial);
       crest.rotation.x=-Math.PI/2;crest.position.set(x,tabletop?.175:.32,lane.z);scene.add(crest);
-      boardSlots.set(key,{x,z:lane.z,owner:lane.owner,row:lane.row,col,base,halo});
+      boardSlots.set(key,{x,z:lane.z,owner:lane.owner,row:lane.row,col,base,halo,focusRing});
     }
   }
   const attackArrowGeo=geometry(new THREE.BufferGeometry());
@@ -866,6 +875,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const slot=boardSlots.get(p.key);
       // Phase72: follow the original native .legal class; never change rules.
       slot.legalPulse=tabletop&&!!p.legal&&!p.selected&&!p.attackTarget;
+      // Phase74: warm target animation uses only the native attack-target class.
+      slot.attackPulse=tabletop&&!!p.attackTarget&&!p.selected;
+      // Phase73: the source marker follows native selection, never inferred AI.
+      if(slot.focusRing)slot.focusRing.visible=!!p.selected;
       slot.halo.visible=!!(p.selected||p.attackTarget||p.legal||hoveredKey===p.key);
       slot.halo.material=p.attackTarget?attackGlow:p.selected?selectGlow:p.legal?legalGlow:hoverGlow;
       const item=cardIndex.get(p.key);
@@ -978,9 +991,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const frozen=matchMedia('(prefers-reduced-motion: reduce)').matches;
     if(!frozen)sealCore.rotation.y=time*.00035;
     // Phase72: decorative slot halos never enter raycast target meshes.
-    if(tabletop)for(const slot of boardSlots.values()){
-      slot.halo.scale.setScalar(slot.legalPulse&&!frozen?
-        1.035+.075*(.5+.5*Math.sin(time*.0046)):1);
+    if(tabletop)for(const [key,slot] of boardSlots){
+      // Phases74-76: semantic targets share existing halos/materials;
+      // there are no added click surfaces and no per-frame GPU allocations.
+      const pulse=frozen?0:.5+.5*Math.sin(time*.0046);
+      const size=frozen?1:slot.attackPulse?1.07+.16*pulse:
+        slot.legalPulse?1.035+.075*pulse:hoveredKey===key?1.055:1;
+      slot.halo.scale.setScalar(size);
     }
     for(const [i,c] of cards.entries()){
       const hover=c.key===hoveredKey;
@@ -1066,6 +1083,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       artworkEmbeddedCount:tabletop?Object.keys(window.MRRCardArtRegistry?.assets||{}).length:0,
       artworkLoadedCount:tabletop?cards.filter(c=>c.face.material.map?.userData.artLoaded).length:0,artworkSlotResolution:tabletop?'1200x960':null,
       artworkSlotBounds:tabletop?{...pcArtSlot}:null,
+      pcFieldGuideRevision:tabletop?76:0,
+      pcSelectedFocusKeys:tabletop?[...boardSlots].filter(([,s])=>s.focusRing?.visible).map(([k])=>k):[],
+      pcAttackTargetScales:tabletop?Object.fromEntries([...boardSlots].filter(([,s])=>s.attackPulse).map(([k,s])=>[k,Number(s.halo.scale.x.toFixed(3))])):{},
       pcLegalPulseRevision:tabletop?72:0,
       pcLegalPulseScales:tabletop?Object.fromEntries([...boardSlots].filter(([,s])=>s.legalPulse).map(([k,s])=>[k,Number(s.halo.scale.x.toFixed(3))])):{},
       pcZoneContrastRevision:tabletop?69:0,desktopArtRevision:tabletop?55:0,tabletopSurface:tabletop?'parchment-and-wood':'legacy-stone',
