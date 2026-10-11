@@ -28,12 +28,12 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Check byte-identical game engine
         run: python tests/static_audit.py
+      - name: Phase68 native hand fan reveal, automatic legal target collapse and 3 viewport Chromium QA
+        run: python tests/phase68_pc_hand_fan_e2e.py
       - name: Phase66 single card contextual commands, real native attack and HP QA
         run: python tests/phase63_pc_context_e2e.py
       - name: Phase67 physically larger public 3D cards and eased hover focus across PC viewports
         run: python tests/phase67_pc_card_focus_e2e.py
-      - name: Phase68 native hand fan reveal, automatic legal target collapse and 3 viewport Chromium QA
-        run: python tests/phase68_pc_hand_fan_e2e.py
       - name: Chromium game and fallback tests
         run: |
           python tests/parity_smoke.py
