@@ -123,8 +123,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const woodSurface=tabletop?material({map:tabletopTexture('wood'),color:0xffffff,roughness:.83}):null;
   const parchmentSurface=tabletop?material({map:tabletopTexture('parchment'),color:0xffffff,roughness:.98}):null;
   const woodEdge=tabletop?material({color:0x51301d,roughness:.82}):null;
-  const parchmentSlot=tabletop?material({color:0xd7bd90,roughness:.94,transparent:true,opacity:.018}):null;
-  const parchmentInk=tabletop?material({color:0x80603b,roughness:.9,transparent:true,opacity:.055}):null;
+  // Phase69: quiet but readable physical placement beds. Distinguish the
+  // two publicly visible territories without adding GUI panels or cards.
+  // These are non-textured, non-interactive materials; no hidden data.
+  const allySlot=tabletop?material({color:0x497b79,roughness:.94,transparent:true,opacity:.16}):null;
+  const enemySlot=tabletop?material({color:0x946451,roughness:.94,transparent:true,opacity:.16}):null;
+  const parchmentInk=tabletop?material({color:0x80603b,roughness:.9,transparent:true,opacity:.20}):null;
   const softZone=tabletop?material({color:0x9a7150,metalness:.25,roughness:.77}):null;
 
   const black=material({color:0x223746,metalness:.18,roughness:.72});
@@ -253,7 +257,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const x=(col-2)*3.37;
       const inset=new THREE.Mesh(edgeGeo,tabletop?parchmentInk:bronze);inset.position.set(x,tabletop?.134:.15,lane.z);
       inset.receiveShadow=true;scene.add(inset);
-      const base=new THREE.Mesh(tileGeo,tabletop?parchmentSlot:black);base.position.set(x,tabletop?.156:.23,lane.z);
+      const base=new THREE.Mesh(tileGeo,tabletop?(lane.owner===0?allySlot:enemySlot):black);base.position.set(x,tabletop?.156:.23,lane.z);
       base.receiveShadow=true;scene.add(base);
       const key=lane.owner+':'+lane.row+':'+col;
       base.userData.mrrSlotKey=key;slotPickMeshes.push(base);
@@ -1055,7 +1059,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       artworkEmbeddedCount:tabletop?Object.keys(window.MRRCardArtRegistry?.assets||{}).length:0,
       artworkLoadedCount:tabletop?cards.filter(c=>c.face.material.map?.userData.artLoaded).length:0,artworkSlotResolution:tabletop?'1200x960':null,
       artworkSlotBounds:tabletop?{...pcArtSlot}:null,
-      desktopArtRevision:tabletop?55:0,tabletopSurface:tabletop?'parchment-and-wood':'legacy-stone',
+      pcZoneContrastRevision:tabletop?69:0,desktopArtRevision:tabletop?55:0,tabletopSurface:tabletop?'parchment-and-wood':'legacy-stone',
       proceduralTextureCount:tabletopTextures.length,
       combatEvent:latestCombat,stagedStrike:!!pendingStrike,
       liveStrikeCount:liveEffects.filter(x=>(x.group.userData.beams||[]).length).length};}};
