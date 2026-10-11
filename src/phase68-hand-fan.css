@@ -35,17 +35,18 @@
   /* "Peek" explicitly raises existing native fan only when the player wants
      to read their hand. The slot target mode always wins, so 3D board picks
      cannot be blocked by the raised fan during placement. */
-  body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open:has(#hand .hand-slot):not(:has(#arena .slot.legal)) .hand-wrap,
-  body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open:has(#arena .board-card):not(:has(#arena .slot.legal)) .hand-wrap:has(.hand-slot:hover){
+  body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open:has(#hand .hand-slot) .hand-wrap,
+  body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open:has(#arena .board-card) .hand-wrap:has(.hand-slot:hover){
     bottom:calc(clamp(194px,24vh,270px) - var(--fc-hand-h))!important;
   }
-  body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open:not(:has(#arena .slot.legal)) #mrr-integrated-hand-tab{
+  body.mrr-integrated-active #gameScreen.mrr-integrated-hand-open #mrr-integrated-hand-tab{
     bottom:calc(clamp(194px,24vh,270px) + 12px);
   }
   /* Critical for real immediate native placement clicks: the mouse must not
      encounter a hand card still sliding through a projected WebGL slot.
      Manual reveal animates, but legal target selection retracts instantly. */
   body.mrr-integrated-active #gameScreen:has(#arena .slot.legal) .hand-wrap{
+    bottom:calc(clamp(68px,10.3vh,112px) - var(--fc-hand-h))!important;
     transition:none!important;
     will-change:auto;
   }
