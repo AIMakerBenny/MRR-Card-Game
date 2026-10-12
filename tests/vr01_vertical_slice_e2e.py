@@ -242,14 +242,41 @@ try:
           if(a.left<b.right-2&&a.right>b.left+2&&
              a.top<b.bottom-2&&a.bottom>b.top+2)overlap.push([i,j]);
         }
+        // Actual public card faces must be less occluded in occupied
+        // adjacent rows; plaque collision checks alone cannot prove this.
+        const scene=MRRIntegrated.scene;
+        const field=[...document.querySelectorAll('#arena [data-slot]')]
+          .filter(s=>s.querySelector('.board-card .card-ui')).map(s=>{
+            const key=s.dataset.slot;
+            return {parts:key.split(':'),rect:scene.projectCardBounds(key),key};
+          }).filter(s=>s.rect);
+        const occlusion=[];
+        for(let i=0;i<field.length;i++)for(let j=i+1;j<field.length;j++){
+          const a=field[i],b=field[j];
+          if(a.parts[0]!==b.parts[0]||a.parts[2]!==b.parts[2])continue;
+          const ra=a.rect,rb=b.rect;
+          const h=Math.min(ra.bottom,rb.bottom)-Math.max(ra.top,rb.top);
+          const w=Math.min(ra.right,rb.right)-Math.max(ra.left,rb.left);
+          if(h<=0||w<=0)continue;
+          occlusion.push({keys:[a.key,b.key],
+            fraction:Math.round(h/Math.min(ra.bottom-ra.top,rb.bottom-rb.top)*1000)/1000});
+        }
+        const scales=MRRIntegrated.state.scene.vrAdaptiveCardScales||{};
         return {visible:nodes.length,overlap,compact:nodes.filter(e=>e.classList.contains('vr-unit-compact')).length,
           cards:MRRIntegrated.state.scene.cardMeshCount,
           seats:MRRIntegrated.state.scene.vrOccupiedSeats,
-          textures:MRRIntegrated.state.scene.vrLiveCardTextures};
+          textures:MRRIntegrated.state.scene.vrLiveCardTextures,
+          rowFaceOcclusion:occlusion,maxRowFaceOcclusion:Math.max(0,...occlusion.map(v=>v.fraction)),
+          smallerCards:Object.values(scales).filter(v=>v<=1.09).length,
+          autoDistance:MRRIntegrated.state.scene.distance};
       }""")
       print('VR01-D DENSE',w,h,layout,flush=True)
       assert layout['cards']==count and layout['seats']==count and layout['textures']==count,(w,h,layout)
       assert len(layout['overlap'])==0,(w,h,'nameplates collided',layout)
+      # V1.0 showed legible nameplates but cards themselves overlapped.
+      assert layout['smallerCards']>=8,(w,h,'crowded rows did not shrink',layout)
+      assert layout['maxRowFaceOcclusion']<=.26,(w,h,'actual public card faces overlap',layout)
+      assert layout['autoDistance']>31.4,(w,h,'all-row camera did not expand',layout)
       assert layout['visible']>=(16 if w==1920 else 12),(w,h,'too many nameplates hidden',layout)
       assert snap()==dense_native,'Dense DISPLAY fixture must not mutate native Phase21 state'
       page.screenshot(path=str(ROOT/f'tests/vr01_dense_public_{w}x{h}.png'),animations='disabled')
