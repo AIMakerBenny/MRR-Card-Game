@@ -250,3 +250,20 @@ body.mrr-vr-active #mrr-vr-shell .vr-unit-compact .vr-unit-name{
  font-size:10px;line-height:14px;width:100%;text-align:center
 }
 body.mrr-vr-active #mrr-vr-shell .vr-unit-compact .vr-unit-stats{display:none}
+
+/* VR01G: heavily populated battlefields use unobtrusive tabletop captions,
+   not the floating HUD rectangles that covered the actual card faces. */
+body.mrr-vr-active #mrr-vr-shell.vr-dense-public .vr-unit-plaque{
+ height:25px;min-height:25px;padding:3px 4px 2px;
+ border:1px solid #6fafa69a;border-top:1px solid #93cab9b0;
+ border-radius:4px;background:#11292ddd;box-shadow:0 2px 5px #07101199;
+ filter:none;
+}
+body.mrr-vr-active #mrr-vr-shell.vr-dense-public .vr-unit-plaque.vr-enemy-unit{
+ border-color:#b38e7a99;background:#2b2227dc;
+}
+body.mrr-vr-active #mrr-vr-shell.vr-dense-public .vr-unit-plaque .vr-unit-name{
+ font:600 10px/15px 'Malgun Gothic',sans-serif;letter-spacing:0;
+ max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+body.mrr-vr-active #mrr-vr-shell.vr-dense-public .vr-unit-plaque .vr-unit-stats{display:none}
