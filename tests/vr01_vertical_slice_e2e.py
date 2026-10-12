@@ -85,6 +85,29 @@ try:
       visible_public=page.locator('#arena [data-slot] .board-card .card-ui').count()
       plaques=page.locator('#vr-public-plaques .vr-unit-plaque')
       assert plaques.count()==visible_public,(w,h,plaques.count(),visible_public)
+      # VR01H uses only the same publicly rendered CURRENT Phase21 values.
+      public_badges=page.evaluate("""() => {
+        const host=document.querySelector('#vr-public-plaques');
+        const source=[...document.querySelectorAll('#arena [data-slot]')]
+          .filter(e=>e.querySelector('.board-card .card-ui'));
+        const examples=[];
+        for(const el of source){
+          const stats=[...el.querySelectorAll('.card-stats > span')]
+            .map(e=>e.textContent.replace(/\\s+/g,' ').trim());
+          const atk=stats.map(s=>s.match(/^(검|공)(?:격력)?\\s*(\\d+)/)).find(Boolean);
+          const hp=stats.map(s=>s.match(/^체(?:력)?\\s*(\\d+)/)).find(Boolean);
+          const badge=host.querySelector('.vr-public-combat[data-slot="'+el.dataset.slot+'"]');
+          if(!atk||!hp)continue;
+          const actual=badge?{attack:badge.dataset.publicAttack,health:badge.dataset.publicHealth,
+            visible:!badge.hidden,pointer:getComputedStyle(badge).pointerEvents}:null;
+          examples.push({key:el.dataset.slot,expected:[atk[2],hp[1]],actual});
+        }
+        return {examples,allBadges:host.querySelectorAll('.vr-public-combat').length};
+      }""")
+      assert public_badges['allBadges']==len(public_badges['examples']),public_badges
+      assert all(e['actual'] and e['actual']['visible'] and
+        [e['actual']['attack'],e['actual']['health']]==e['expected'] and
+        e['actual']['pointer']=='none' for e in public_badges['examples']),public_badges
       assert page.evaluate('MRRIntegrated.state.scene.vrOccupiedSeats')==visible_public,(
         w,h,'Decorative seats must follow public native cards only')
       assert page.locator('#vr-public-plaques').evaluate("e=>getComputedStyle(e).pointerEvents")=='none'
@@ -287,6 +310,41 @@ try:
       }""")
       print('VR01-D DENSE',w,h,layout,flush=True)
       assert layout['cards']==count and layout['seats']==count and layout['textures']==count,(w,h,layout)
+      # Every synthetic dense unit is a CLONE of an already-public original.
+      # Verify all 24 corner badges reflect their matching public DOM and
+      # lie within their original projected 3D faces, with no hidden reads.
+      combat=page.evaluate("""() => {
+        const cards=[...document.querySelectorAll('#arena [data-slot]')]
+          .filter(e=>e.querySelector('.board-card .card-ui'));
+        const errors=[],rects=[],scene=MRRIntegrated.scene;
+        for(const slot of cards){
+          const values=[...slot.querySelectorAll('.card-stats > span')]
+            .map(s=>s.textContent.replace(/\\s+/g,' ').trim());
+          const a=values.map(s=>s.match(/^(검|공)(?:격력)?\\s*(\\d+)/)).find(Boolean);
+          const h=values.map(s=>s.match(/^체(?:력)?\\s*(\\d+)/)).find(Boolean);
+          if(!a||!h)continue;
+          const key=slot.dataset.slot,overlay=document.querySelector(
+            '#vr-public-plaques .vr-public-combat[data-slot="'+key+'"]');
+          if(!overlay||overlay.hidden){errors.push([key,'missing']);continue;}
+          if(overlay.dataset.publicAttack!==a[2]||overlay.dataset.publicHealth!==h[1])
+            errors.push([key,'not-live-public',overlay.dataset.publicAttack,overlay.dataset.publicHealth]);
+          const face=scene.projectCardBounds(key),box=overlay.getBoundingClientRect();
+          if(!face||box.left<face.left-3||box.right>face.right+3||
+              box.top<face.top-3||box.bottom>face.bottom+3)
+            errors.push([key,'outside-own-card',face,box.toJSON()]);
+          if(getComputedStyle(overlay).pointerEvents!=='none')
+            errors.push([key,'blocks-native-hit']);
+          rects.push({key,rect:box});
+        }
+        const overlap=[];
+        for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++){
+          const a=rects[i].rect,b=rects[j].rect;
+          if(a.left<b.right-1&&a.right>b.left+1&&a.top<b.bottom-1&&a.bottom>b.top+1)
+            overlap.push([rects[i].key,rects[j].key]);
+        }
+        return {verified:rects.length,errors,overlap};
+      }""")
+      assert combat['verified']==count and not combat['errors'] and not combat['overlap'],(w,h,combat)
       assert len(layout['overlap'])==0,(w,h,'nameplates collided',layout)
       # V1.0 showed legible nameplates but cards themselves overlapped.
       assert layout['smallerCards']>=8,(w,h,'crowded rows did not shrink',layout)
