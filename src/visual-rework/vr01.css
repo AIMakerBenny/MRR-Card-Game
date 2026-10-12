@@ -302,3 +302,32 @@ body.mrr-vr-active #mrr-vr-shell .vr-public-combat .vr-combat-hp{
 @media(max-width:1500px){
  body.mrr-vr-active #mrr-vr-shell .vr-public-combat>span{font-size:11px}
 }
+
+/* VR01I: one restrained action marker per public 3D card, derived only
+   from original native DOM status and target/selection classes. */
+body.mrr-vr-active #mrr-vr-shell .vr-public-action{
+ position:absolute;display:flex;justify-content:center;align-items:center;
+ z-index:4;box-sizing:border-box;pointer-events:none;
+ border-radius:5px;color:#f0efdf;line-height:1;font-family:'Malgun Gothic',sans-serif;
+ border:1px solid #afb7af;box-shadow:0 2px 5px #000a,inset 0 1px 2px #fff2;
+ text-shadow:0 1px 3px #000;
+}
+body.mrr-vr-active #mrr-vr-shell .vr-public-action[hidden]{display:none!important}
+body.mrr-vr-active #mrr-vr-shell .vr-public-action[data-state=target]{
+ background:#88462e;border-color:#efaa74;color:#fff2d0
+}
+body.mrr-vr-active #mrr-vr-shell .vr-public-action[data-state=selected]{
+ background:#286f63;border-color:#a0e4d5;color:#d8fff3
+}
+body.mrr-vr-active #mrr-vr-shell .vr-public-action[data-state=acted]{
+ background:#40484e;border-color:#929fa1;color:#c4d0d0
+}
+body.mrr-vr-active #mrr-vr-shell .vr-public-action[data-state=waiting]{
+ background:#655332;border-color:#cfb778;color:#f6e5b5
+}
+body.mrr-vr-active #mrr-vr-shell .vr-public-action[data-state=ward]{
+ background:#244e78;border-color:#8db9e5;color:#d4ebff
+}
+body.mrr-vr-active #mrr-vr-shell .vr-public-action[data-state=other]{
+ background:#4d4762;border-color:#a49aba;color:#ece4ff
+}
