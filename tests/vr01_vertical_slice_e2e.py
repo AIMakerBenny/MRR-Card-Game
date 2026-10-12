@@ -162,6 +162,67 @@ try:
     after=snap()
     assert after!=baseline
     page.screenshot(path=str(ROOT/'tests/vr01_attack_confirmed_1920x1080.png'),animations='disabled')
+
+    # VR01-D: deliberately dense DISPLAY-ONLY stress fixture. Clone only
+    # native, already-public board-card DOM; never edit G, decks, hands or AI.
+    # Real attack / placement / turn tests remain separately authoritative.
+    dense_native=snap()
+    stress=page.evaluate("""() => {
+      const cells=[...document.querySelectorAll('#arena .slot[data-slot]')];
+      const original=cells.find(s=>s.querySelector('.board-card'))?.querySelector('.board-card');
+      if(!original)return {error:'No real public board-card to clone'};
+      const clones=[];
+      for(const cell of cells){
+        if(clones.length>=22)break;
+        if(cell.querySelector('.board-card'))continue;
+        const copy=original.cloneNode(true);
+        copy.dataset.vrStressClone='true';
+        cell.append(copy);clones.push(cell.dataset.slot);
+      }
+      return {cloned:clones.length,originals:cells.filter(c=>c.querySelector('.board-card:not([data-vr-stress-clone])')).length};
+    }""")
+    assert stress.get('cloned')==22,stress
+    count=stress['originals']+stress['cloned']
+    page.evaluate('MRRIntegrated.scene.sync()')
+    page.wait_for_function("""n=>MRRIntegrated.state.scene.cardMeshCount===n &&
+      MRRIntegrated.state.scene.vrOccupiedSeats===n &&
+      document.querySelectorAll('#vr-public-plaques .vr-unit-plaque').length===n""",
+      arg=count,timeout=40000)
+    for w,h in ((1920,1080),(1366,768)):
+      page.set_viewport_size({'width':w,'height':h})
+      page.mouse.move(4,h//2)
+      page.wait_for_timeout(1300)
+      layout=page.evaluate("""() => {
+        const nodes=[...document.querySelectorAll('#vr-public-plaques .vr-unit-plaque')]
+          .filter(e=>!e.hidden);
+        const rects=nodes.map(e=>e.getBoundingClientRect());
+        const overlap=[];
+        for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++){
+          const a=rects[i],b=rects[j];
+          if(a.left<b.right-2&&a.right>b.left+2&&
+             a.top<b.bottom-2&&a.bottom>b.top+2)overlap.push([i,j]);
+        }
+        return {visible:nodes.length,overlap,compact:nodes.filter(e=>e.classList.contains('vr-unit-compact')).length,
+          cards:MRRIntegrated.state.scene.cardMeshCount,
+          seats:MRRIntegrated.state.scene.vrOccupiedSeats};
+      }""")
+      print('VR01-D DENSE',w,h,layout,flush=True)
+      assert layout['cards']==count and layout['seats']==count,(w,h,layout)
+      assert len(layout['overlap'])==0,(w,h,'nameplates collided',layout)
+      assert layout['visible']>=(16 if w==1920 else 12),(w,h,'too many nameplates hidden',layout)
+      assert snap()==dense_native,'Dense DISPLAY fixture must not mutate native Phase21 state'
+      page.screenshot(path=str(ROOT/f'tests/vr01_dense_public_{w}x{h}.png'),animations='disabled')
+    removed=page.evaluate("""() => {
+      const clones=[...document.querySelectorAll('[data-vr-stress-clone]')];
+      clones.forEach(e=>e.remove());
+      MRRIntegrated.scene.sync();
+      return clones.length;
+    }""")
+    assert removed==22,removed
+    page.wait_for_function("""n=>MRRIntegrated.state.scene.cardMeshCount===n &&
+      MRRIntegrated.state.scene.vrOccupiedSeats===n""",arg=stress['originals'],timeout=30000)
+    assert snap()==dense_native,'Removing display-only stress fixture changed engine'
+    page.set_viewport_size({'width':1920,'height':1080})
     page.locator('#vr-return').click()
     assert not page.evaluate('MRRVR.status.open')
     assert page.locator('#arena').is_visible()
