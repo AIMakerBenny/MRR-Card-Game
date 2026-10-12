@@ -128,13 +128,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   const woodSurface=tabletop?material({map:tabletopTexture('wood'),color:0xffffff,roughness:.83}):null;
   const parchmentSurface=tabletop?material({map:tabletopTexture('parchment'),color:0xffffff,roughness:.98}):null;
+  // VR01 has no constant, loudly outlined empty cells. Slot pick meshes are
+  // retained and raycastable; only their passive appearance changes.
+  const vrGround=vrMode?material({color:0x12282d,roughness:.94,metalness:.06}):null;
   const woodEdge=tabletop?material({color:0x51301d,roughness:.82}):null;
   // Phase69: quiet but readable physical placement beds. Distinguish the
   // two publicly visible territories without adding GUI panels or cards.
   // These are non-textured, non-interactive materials; no hidden data.
-  const allySlot=tabletop?material({color:0x497b79,roughness:.94,transparent:true,opacity:.16}):null;
-  const enemySlot=tabletop?material({color:0x946451,roughness:.94,transparent:true,opacity:.16}):null;
-  const parchmentInk=tabletop?material({color:vrMode?0x6d9992:0x80603b,roughness:.9,transparent:true,opacity:vrMode?.09:.20}):null;
+  const allySlot=tabletop?material({color:0x497b79,roughness:.94,transparent:true,opacity:vrMode?.008:.16}):null;
+  const enemySlot=tabletop?material({color:0x946451,roughness:.94,transparent:true,opacity:vrMode?.008:.16}):null;
+  const parchmentInk=tabletop?material({color:vrMode?0x6d9992:0x80603b,roughness:.9,transparent:true,opacity:vrMode?.005:.20}):null;
   const softZone=tabletop?material({color:0x9a7150,metalness:.25,roughness:.77}):null;
 
   const black=material({color:0x223746,metalness:.18,roughness:.72});
@@ -147,15 +150,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const edgeGeo=geometry(new THREE.BoxGeometry(2.38,tabletop?.023:.08,2.58));
   const platformGeo=geometry(new THREE.BoxGeometry(22,.65,22.1));
   const floor=new THREE.Mesh(geometry(new THREE.PlaneGeometry(180,180)),tabletop?woodSurface:black);
+  if(vrMode)floor.material=vrGround;
   floor.rotation.x=-Math.PI/2;floor.position.y=-.52;floor.receiveShadow=true;scene.add(floor);
-  const platform=new THREE.Mesh(platformGeo,tabletop?woodEdge:stone);
+  const platform=new THREE.Mesh(platformGeo,vrMode?vrGround:tabletop?woodEdge:stone);
   platform.position.y=-.22;platform.receiveShadow=true;scene.add(platform);
   if(tabletop){
     const sheet=new THREE.Mesh(geometry(new THREE.PlaneGeometry(21.95,21.94)),parchmentSurface);
     sheet.rotation.x=-Math.PI/2;sheet.position.y=.113;
     sheet.receiveShadow=true;scene.add(sheet);
   }
-  const border=new THREE.Mesh(geometry(new THREE.BoxGeometry(22.45,.17,22.55)),bronze);
+  const border=new THREE.Mesh(geometry(new THREE.BoxGeometry(22.45,.17,22.55)),vrMode?stone:bronze);
   border.position.y=-.58;scene.add(border);
   for(const sx of [-1,1]){
     const rail=new THREE.Mesh(geometry(new THREE.BoxGeometry(.17,.24,22.2)),gold);
@@ -185,7 +189,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   // Small dimensional tabletop props fill the unused PC desktop margins.
   // Purely decorative; they never enter the board raycaster or game state.
-  if(tabletop){
+  if(tabletop&&!vrMode){
     const leather=material({color:0x533022,roughness:.75,metalness:.08});
     const paper=material({color:0xe3c9a0,roughness:.95});
     const ink=material({color:0x242622,roughness:.26,metalness:.35});
@@ -261,7 +265,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   for(const lane of lanes){
     const laneMaterial=tabletop?softZone:(lane.owner===0?blue:red);
     const laneBorder=new THREE.Mesh(stripGeo,laneMaterial);
-    laneBorder.position.set(0,tabletop?.15:.17,lane.z-1.36);scene.add(laneBorder);
+    laneBorder.position.set(0,tabletop?.15:.17,lane.z-1.36);
+    if(!vrMode)scene.add(laneBorder);
     for(let col=0;col<5;col++){
       const x=(col-2)*3.37;
       const inset=new THREE.Mesh(edgeGeo,tabletop?parchmentInk:bronze);inset.position.set(x,tabletop?.134:.15,lane.z);
