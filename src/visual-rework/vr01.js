@@ -14,7 +14,7 @@ const native=selector=>{const n=q(selector);if(!n||n.disabled)return false;n.cli
 const entry=el('button','','VR01 새 게임 화면');entry.id='mrr-vr-open';entry.type='button';bar.append(entry);
 let open=false,busy=false,ui=null,stage=null,observer=null,interval=null,scheduled=0,handSignature='',backCount=-1;
 let tacticalCamera='tabletop';
-const nativeCardLabels=new Map(),nativeStatBadges=new Map();
+const nativeCardLabels=new Map(),nativeStatBadges=new Map(),nativeActionMarks=new Map();
 const button=(id,txt,fn)=>{const e=el('button','vr-btn',txt);e.id=id;e.type='button';e.onclick=fn;return e;};
 function buildUI(){
   ui=el('section','vr-shell');ui.id='mrr-vr-shell';ui.setAttribute('aria-label','3D 카드게임 통합 화면');
@@ -208,6 +208,43 @@ function updatePublicPlaques(){
         badge.style.setProperty('--vr-combat-size',size.toFixed(1)+'px');
       }
     }
+    // VR01I: use only explicit, publicly rendered Phase21 status and native
+    // selected/attack-target slot classes. An absent status-chip does NOT
+    // imply ready-to-act: legal actions depend on native turn/rule conditions.
+    const chipText=clean(q('.board-card .status-chip',slot)?.textContent);
+    const action=slot.classList.contains('attack-target')?
+      {kind:'target',glyph:'⚔',label:'공격 대상'}:
+      slot.classList.contains('selected-slot')?
+      {kind:'selected',glyph:'◆',label:'선택됨'}:
+      /행동 완료/.test(chipText)?
+      {kind:'acted',glyph:'✓',label:'행동 완료'}:
+      /^대기/.test(chipText)?
+      {kind:'waiting',glyph:'⌛',label:chipText}:
+      /^보호/.test(chipText)?
+      {kind:'ward',glyph:'◇',label:chipText}:
+      chipText?{kind:'other',glyph:'•',label:chipText}:null;
+    let mark=nativeActionMarks.get(key);
+    if(action&&!mark){
+      mark=el('span','vr-public-action');
+      mark.setAttribute('data-slot',key);host.append(mark);
+      nativeActionMarks.set(key,mark);
+    }
+    if(mark){
+      const faceWidth=p.rect.right-p.rect.left,faceHeight=p.rect.bottom-p.rect.top;
+      const size=Math.min(19,Math.max(12,faceWidth*.26));
+      const available=!!action&&faceWidth>=size+7&&faceHeight>=size+12;
+      mark.hidden=!available;
+      mark.dataset.state=action?.kind||'none';
+      if(available){
+        if(mark.textContent!==action.glyph)mark.textContent=action.glyph;
+        mark.title=action.label;
+        mark.setAttribute('aria-label',action.label);
+        mark.style.left=(p.rect.right-bounds.left-size-3).toFixed(1)+'px';
+        mark.style.top=(p.rect.top-bounds.top+3).toFixed(1)+'px';
+        mark.style.width=mark.style.height=size.toFixed(1)+'px';
+        mark.style.fontSize=Math.max(9,size*.72).toFixed(1)+'px';
+      }
+    }
     plaque.classList.toggle('vr-enemy-unit',key.startsWith('1:'));
     plaque.classList.toggle('vr-selected-unit',key===selected);
     plaque.classList.toggle('vr-target-unit',slot.classList.contains('attack-target'));
@@ -255,6 +292,10 @@ function updatePublicPlaques(){
     if(seen.has(key))continue;
     badge.remove();nativeStatBadges.delete(key);
   }
+  for(const [key,mark] of nativeActionMarks){
+    if(seen.has(key))continue;
+    mark.remove();nativeActionMarks.delete(key);
+  }
 }
 function refresh(){
  if(!open||!ui)return;
@@ -285,7 +326,7 @@ function cleanup(){
  observer?.disconnect();observer=null;clearInterval(interval);interval=null;
  if(scheduled)cancelAnimationFrame(scheduled);scheduled=0;
  stage?.removeEventListener('pointermove',updateAim);ui?.remove();ui=stage=null;
- handSignature='';backCount=-1;tacticalCamera='tabletop';nativeCardLabels.clear();nativeStatBadges.clear();
+ handSignature='';backCount=-1;tacticalCamera='tabletop';nativeCardLabels.clear();nativeStatBadges.clear();nativeActionMarks.clear();
 }
 function closeUI(){
  open=false;busy=false;cleanup();
