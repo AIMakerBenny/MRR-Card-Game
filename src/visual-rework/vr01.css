@@ -1,0 +1,151 @@
+/* VR01: new PC-only game composition. No native game display changes outside VR. */
+#mrr-vr-open{background:linear-gradient(125deg,#123b43,#31696c)!important;border:1px solid #8cc6bf!important;color:#f6ecd7!important}
+body.mrr-vr-active #gameScreen{background:#0b191e!important}
+body.mrr-vr-active #mrr-integrated-stage{background:#0b191e!important}
+body.mrr-vr-active #mrr-integrated-stage .mrr-integrated-vignette{
+ background:radial-gradient(ellipse at 50% 48%,transparent 37%,#091d215a 74%,#050d11d6 100%),
+ linear-gradient(to bottom,#07151bbb,transparent 24%,transparent 77%,#07151bd4)!important;
+}
+body.mrr-vr-active #gameScreen .combat-top,
+body.mrr-vr-active #gameScreen .game-footer,
+body.mrr-vr-active #gameScreen .hand-wrap,
+body.mrr-vr-active #gameScreen .mcw-top-controls,
+body.mrr-vr-active #gameScreen #turnDock,
+body.mrr-vr-active #mrr-integrated-stage .mrr-integrated-heading,
+body.mrr-vr-active #mrr-integrated-stage #mrr-integrated-status,
+body.mrr-vr-active #mrr-integrated-stage #mrr-integrated-hint,
+body.mrr-vr-active #mrr-integrated-stage #mrr-integrated-actions,
+body.mrr-vr-active #mrr-integrated-hand-tab{
+ visibility:hidden!important;opacity:0!important;pointer-events:none!important;
+}
+body.mrr-vr-active #gameScreen.mrr-integrated-inspector-open #inspector,
+body.mrr-vr-active #gameScreen.mrr-integrated-rail-open #areaRail{
+ opacity:1!important;visibility:visible!important;pointer-events:auto!important;z-index:115!important;
+}
+body.mrr-vr-active #mrr-integrated-context{
+ z-index:28!important;max-width:calc(100% - 50px)!important;
+}
+body.mrr-vr-active #mrr-integrated-context button{
+ min-height:34px!important;height:34px!important;padding:5px 14px!important;
+ border-radius:8px!important;background:linear-gradient(#213b41,#101f24)!important;
+ border:1px solid #bbab8b!important;color:#f4ead5!important;
+ box-shadow:0 5px 19px #03090bbd!important;font-size:13px!important;
+}
+body.mrr-vr-active #mrr-integrated-context #mrr-quick-attack{
+ background:linear-gradient(#583b33,#251d1d)!important;border-color:#e2a281!important;
+}
+#mrr-vr-shell{
+ position:absolute;inset:0;z-index:19;pointer-events:none;overflow:hidden;
+ font-family:'Malgun Gothic','Segoe UI',sans-serif;color:#eae8dc;
+ --card-w:clamp(184px,12.5vw,280px);--card-h:calc(var(--card-w)*1.4);
+ --peek:clamp(88px,9.3vh,133px);
+}
+#mrr-vr-shell *{box-sizing:border-box}
+#mrr-vr-shell .vr-outline{position:absolute;inset:10px;border-radius:31px;
+ border:1px solid #83a89b38;box-shadow:inset 0 0 80px #051115ac;pointer-events:none}
+#mrr-vr-shell .vr-header{position:absolute;top:0;left:0;right:0;height:92px;
+ padding:14px clamp(22px,3.2vw,66px);display:flex;align-items:center;gap:32px;
+ background:linear-gradient(#071519f2,#07161b9c 77%,transparent)}
+#mrr-vr-shell .vr-logo{min-width:168px;display:flex;flex-direction:column;gap:2px}
+#mrr-vr-shell .vr-logo small{font:9px Georgia,serif;letter-spacing:.31em;color:#8eb6ad}
+#mrr-vr-shell .vr-logo strong{font:normal 23px Georgia,serif;letter-spacing:.12em;color:#e0c69b;
+ text-shadow:0 2px 9px #000a}
+#mrr-vr-shell .vr-hero{display:flex;align-items:center;gap:11px;min-width:200px;
+ filter:drop-shadow(0 6px 10px #0009)}
+#mrr-vr-shell .vr-portrait{width:57px;height:57px;flex:0 0 57px;border-radius:50%;
+ display:grid;place-items:center;border:2px solid #bea47b;
+ background:radial-gradient(circle at 37% 25%,#52736f,#192f35 72%);color:#e2ca97;
+ box-shadow:inset 0 0 0 5px #182d30,0 0 0 2px #091719;font:25px Georgia,serif}
+#mrr-vr-shell .vr-enemy .vr-portrait{border-color:#b98a78;
+ background:radial-gradient(circle at 35% 22%,#69524a,#34262b 75%)}
+#mrr-vr-shell .vr-profile{display:flex;flex-direction:column;gap:5px;min-width:0;max-width:168px}
+#mrr-vr-shell .vr-profile strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#mrr-vr-shell .vr-profile small{font-size:11px;color:#9ac8c1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#mrr-vr-shell .vr-hp{white-space:nowrap;font:16px Georgia,serif;color:#edcf9c;
+ padding:7px 8px;background:#141e20d9;border-radius:24px;border:1px solid #ab906b82}
+#mrr-vr-shell .vr-tools{display:flex;gap:7px;margin-left:auto;pointer-events:auto}
+#mrr-vr-shell .vr-btn{cursor:pointer;min-height:34px;min-width:0;
+ padding:8px 14px;color:#e8e2ce;background:linear-gradient(#233e43ee,#142b30f3);
+ border:1px solid #849d9382;border-radius:7px;box-shadow:inset 0 1px #e8eed425,0 5px 15px #0009;
+ font:600 12px 'Malgun Gothic',sans-serif}
+#mrr-vr-shell .vr-btn:hover{background:#36565c;border-color:#c5b390}
+#mrr-vr-shell .vr-btn:disabled{opacity:.4;cursor:default}
+#mrr-vr-shell #vr-return{color:#abd6d1}
+#mrr-vr-shell .vr-enemy-fan{position:absolute;left:50%;top:0;width:min(44vw,700px);
+ height:80px;transform:translateX(-50%)}
+#mrr-vr-shell .vr-back{position:absolute;left:calc(50% + var(--x));top:-132px;
+ width:140px;height:196px;border-radius:10px;transform:translateX(-50%) rotate(var(--angle));
+ transform-origin:50% 87%;border:5px solid #9d835e;
+ background:radial-gradient(circle at center,#c1b28b 0 4%,#1e454e 5% 13%,#b49a6b 14% 16%,transparent 17%),
+ repeating-conic-gradient(from 45deg at 50% 50%,#193b45 0deg 20deg,#2b5360 20deg 40deg);
+ box-shadow:0 6px 19px #000e,inset 0 0 0 3px #142f37,inset 0 0 0 7px #a28c65}
+#mrr-vr-shell .vr-field-ornament{position:absolute;left:9%;right:8%;top:13%;bottom:15%}
+#mrr-vr-shell .vr-zone{position:absolute;right:0;writing-mode:vertical-rl;
+ font:10px Georgia,serif;letter-spacing:.32em;color:#c6b99a90}
+#mrr-vr-shell .vr-zone-enemy{top:12%}
+#mrr-vr-shell .vr-zone-ally{bottom:12%}
+#mrr-vr-shell .vr-centerline{position:absolute;top:50%;left:7%;right:5%;border-top:1px solid #acbbb22b}
+#mrr-vr-shell .vr-pile-display{position:absolute;top:39%;left:clamp(15px,3vw,62px);
+ display:flex;flex-direction:column;gap:16px}
+#mrr-vr-shell .vr-pile{display:grid;place-items:center;width:68px;height:68px;
+ border-radius:50%;border:2px solid #aa95747d;background:radial-gradient(circle,#37545a,#182f35 65%,#0b2229);
+ color:#cdbb99;font:10px Georgia,serif;letter-spacing:.05em;
+ box-shadow:0 7px 22px #000d,inset 0 1px 7px #bcd3c33e}
+#mrr-vr-shell .vr-pile:nth-child(2){width:59px;height:59px;margin-left:11px;opacity:.86}
+#mrr-vr-shell .vr-pile:nth-child(3){width:51px;height:51px;margin-left:6px;opacity:.75}
+#mrr-vr-shell .vr-footer{position:absolute;left:clamp(22px,3.2vw,66px);right:clamp(22px,3.2vw,66px);
+ bottom:17px;display:flex;justify-content:space-between;align-items:flex-end}
+#mrr-vr-shell .vr-ally{padding-bottom:10px}
+#mrr-vr-shell #vr-end-turn{min-width:107px;min-height:45px;border-radius:9px;pointer-events:auto;
+ color:#f5e5c8;background:linear-gradient(145deg,#8e7149,#423528);
+ border:2px solid #ddbb81;font:600 16px Georgia,serif;box-shadow:0 8px 22px #000e,inset 0 2px #ffefca40}
+#mrr-vr-shell .vr-hand{position:absolute;left:0;right:0;bottom:0;height:var(--card-h);pointer-events:none}
+#mrr-vr-shell .vr-card{position:absolute;left:calc(50% + var(--x));
+ bottom:calc(-1 * var(--card-h) + var(--peek));width:var(--card-w);height:var(--card-h);
+ padding:0;border:0;background:transparent;aspect-ratio:5/7;color:inherit;cursor:pointer;
+ transform:translateX(-50%) rotate(var(--angle));transform-origin:50% 87%;
+ filter:drop-shadow(0 7px 13px #000d);pointer-events:auto;
+ transition:bottom .18s ease,transform .18s ease,filter .18s ease}
+#mrr-vr-shell .vr-card.raised,#mrr-vr-shell .vr-card:hover,#mrr-vr-shell .vr-card:focus-visible{
+ bottom:12px;transform:translateX(-50%) rotate(0) scale(1.03);
+ z-index:60!important;filter:drop-shadow(0 12px 26px #000e)}
+#mrr-vr-shell .vr-card-face{width:100%;height:100%;position:relative;overflow:hidden;
+ background:linear-gradient(140deg,#bba075 0%,#1b3338 6%,#1b2d31 92%,#a78c64 100%);
+ border:5px solid #baa178;border-radius:13px;
+ box-shadow:inset 0 0 0 2px #e5d3a687,inset 0 0 35px #091519}
+#mrr-vr-shell .vr-mana{position:absolute;top:6px;left:5px;display:grid;place-items:center;
+ width:34px;height:34px;border-radius:50%;border:2px solid #b8dadc;
+ background:radial-gradient(circle at 36% 25%,#74d5e5,#18657a 73%);color:#fff;
+ font:700 19px Georgia,serif}
+#mrr-vr-shell .vr-name{position:absolute;top:15px;left:44px;right:7px;text-align:left;font-size:14px;
+ font-weight:700;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+#mrr-vr-shell .vr-art-blank{position:absolute;top:24%;left:10%;width:80%;height:45%;
+ border:2px solid #899b9387;border-radius:5px;background:#24363b}
+#mrr-vr-shell .vr-kind{position:absolute;top:72%;left:6%;right:6%;
+ font-size:12px;text-align:center;color:#e5cb9c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mrr-vr-shell .vr-stats{position:absolute;bottom:6%;left:8%;right:8%;padding-top:7px;
+ min-height:28px;border-top:1px solid #a49c828a;font-size:12px;line-height:1.25;text-align:center}
+#mrr-vr-shell.vr-placing .vr-card{pointer-events:none;bottom:calc(-1 * var(--card-h) + 44px)}
+#mrr-vr-shell .vr-hint{position:absolute;bottom:calc(var(--peek) + 16px);left:50%;
+ transform:translateX(-50%);font-size:11px;white-space:nowrap;padding:5px 18px;
+ color:#e0e5d8;background:#091a1cbd;border-radius:24px;border:1px solid #b2c4b343}
+#mrr-vr-shell #vr-aim{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+@media(max-width:1500px){
+ #mrr-vr-shell .vr-header{height:77px;padding:8px 18px;gap:18px}
+ #mrr-vr-shell .vr-logo{min-width:124px}
+ #mrr-vr-shell .vr-logo strong{font-size:18px}
+ #mrr-vr-shell .vr-logo small:last-child{display:none}
+ #mrr-vr-shell .vr-portrait{width:44px;height:44px;flex-basis:44px;font-size:20px}
+ #mrr-vr-shell .vr-profile{max-width:116px}
+ #mrr-vr-shell .vr-hp{padding:5px 7px;font-size:13px}
+ #mrr-vr-shell .vr-tools{gap:4px}
+ #mrr-vr-shell .vr-btn{font-size:11px;padding:7px 9px;min-height:30px}
+ #mrr-vr-shell .vr-back{width:112px;height:157px;top:-105px}
+ #mrr-vr-shell .vr-pile{width:48px;height:48px;font-size:8px}
+ #mrr-vr-shell .vr-pile:nth-child(2){width:43px;height:43px}
+ #mrr-vr-shell .vr-pile:nth-child(3){width:39px;height:39px}
+ #mrr-vr-shell .vr-footer{bottom:9px}
+ #mrr-vr-shell #vr-end-turn{min-width:88px;min-height:40px;font-size:13px}
+}
+@media(min-width:2200px){#mrr-vr-shell .vr-back{width:180px;height:252px;top:-174px}}
+@media(prefers-reduced-motion:reduce){#mrr-vr-shell .vr-card{transition:none!important}}
