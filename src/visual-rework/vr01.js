@@ -109,7 +109,16 @@ function updateHand(){
     card.append(surface);
     card.addEventListener('click',()=>{
       const original=qa('#hand .hand-slot')[d.i];
-      if(original)original.click(); // Exactly one original hand click.
+      if(original){
+        // Arm a visual launch at the hand card's actual onscreen position.
+        // The 3D scene waits until original Phase21 rules really create a
+        // public allied card before animating; no imaginary summon is made.
+        const origin=surface.getBoundingClientRect();
+        window.MRRIntegrated?.scene?.armDeployment?.({
+          name:d.name,x:origin.left+origin.width/2,
+          y:Math.min(origin.bottom-20,window.innerHeight-20)});
+        original.click(); // Exactly one original hand click.
+      }
       schedule();
     });
     card.addEventListener('mouseenter',()=>card.classList.add('raised'));
