@@ -15,6 +15,8 @@ const entry=el('button','','VR01 새 게임 화면');entry.id='mrr-vr-open';entr
 let open=false,busy=false,ui=null,stage=null,observer=null,interval=null,scheduled=0,handSignature='',backCount=-1;
 let tacticalCamera='tabletop';
 const nativeCardLabels=new Map(),nativeStatBadges=new Map(),nativeActionMarks=new Map();
+let nativeHpSnapshot=new Map(),recentHpChanges=new Map(),lastCombatTime=null,vrOutcomeCount=0,lastOutcome=null;
+const outcomeNodes=[];
 const button=(id,txt,fn)=>{const e=el('button','vr-btn',txt);e.id=id;e.type='button';e.onclick=fn;return e;};
 function buildUI(){
   ui=el('section','vr-shell');ui.id='mrr-vr-shell';ui.setAttribute('aria-label','3D 카드게임 통합 화면');
@@ -45,6 +47,8 @@ function buildUI(){
   const plaques=el('div','vr-public-plaques');plaques.id='vr-public-plaques';
   plaques.setAttribute('aria-label','공개 전장 카드 이름과 능력치');
   ui.append(plaques);
+  const outcomes=el('div','vr-combat-outcomes');outcomes.id='vr-combat-outcomes';
+  outcomes.setAttribute('aria-label','실제 전투 결과 연출');ui.append(outcomes);
   const piles=el('div','vr-pile-display');
   for(const word of ['DECK','GRAVE','EXILE']){const token=button('vr-token-'+word.toLowerCase(),word,()=>native('#mrr-integrated-rail'));token.className='vr-pile';piles.append(token);}
   ui.append(piles);
@@ -328,8 +332,65 @@ function updatePublicPlaques(){
     mark.remove();nativeActionMarks.delete(key);
   }
 }
+function reconcileConfirmedOutcomes(){
+  if(!open||!ui)return;
+  const scene=window.MRRIntegrated?.scene,st=scene?.state;
+  if(!st)return;
+  const now=performance.now(),current=new Map();
+  for(const slot of qa('#arena [data-slot]')){
+    const card=q('.board-card .card-ui',slot);
+    if(!card)continue;
+    const value=qa('.card-stats > span',card).map(n=>clean(n.textContent))
+      .map(t=>t.match(/^체(?:력)?\s*(\d+)/)).find(Boolean);
+    if(value)current.set(slot.dataset.slot,Number(value[1]));
+  }
+  // Retain a public HP change briefly until the matching native FX arrives,
+  // regardless of which mutation observer runs first.
+  for(const [key,oldHp] of nativeHpSnapshot){
+    const hp=current.get(key);
+    if(hp!==oldHp)recentHpChanges.set(key,{before:oldHp,after:hp,at:now});
+  }
+  nativeHpSnapshot=current;
+  for(const [key,item] of recentHpChanges)if(now-item.at>1800)recentHpChanges.delete(key);
+  const events=st.nativeCombatEvents||[];
+  if(lastCombatTime===null){
+    lastCombatTime=Math.max(0,...events.map(x=>x.at||0));
+    return;
+  }
+  const host=q('#vr-combat-outcomes',ui);
+  for(const event of events){
+    if(!event||event.at<=lastCombatTime)continue;
+    if(event.type!=='hit'&&event.type!=='heal')continue;
+    const changed=recentHpChanges.get(event.key),heal=event.type==='heal';
+    const diff=changed&&Number.isFinite(changed.before)&&Number.isFinite(changed.after)?
+      changed.after-changed.before:null;
+    const exact=(heal&&diff>0)||(!heal&&diff<0);
+    // A confirmed FX with no verified public change is only an impact,
+    // never a fabricated numerical damage/heal amount.
+    const msg=exact?(heal?'+':'−')+Math.abs(diff):heal?'회복':'명중';
+    const point=scene.projectCard(event.key)||scene.projectSlot(event.key);
+    if(!point)continue;
+    const rect=stage.getBoundingClientRect();
+    const node=el('span','vr-combat-outcome',msg);
+    node.dataset.slot=event.key;node.dataset.kind=event.type;
+    node.dataset.amount=exact?String(Math.abs(diff)):'';
+    node.setAttribute('aria-label',heal?'회복 결과 '+msg:'피격 결과 '+msg);
+    node.style.left=Math.max(42,Math.min(rect.width-42,point.x-rect.left)).toFixed(1)+'px';
+    node.style.top=Math.max(92,Math.min(rect.height-88,point.y-rect.top-30)).toFixed(1)+'px';
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches)node.classList.add('vr-no-motion');
+    host.append(node);outcomeNodes.push({node,at:now});
+    lastOutcome={key:event.key,type:event.type,amount:exact?Math.abs(diff):null,label:msg};
+    vrOutcomeCount++;
+  }
+  lastCombatTime=Math.max(lastCombatTime,...events.map(x=>x.at||0));
+  for(let i=outcomeNodes.length-1;i>=0;i--){
+    if(now-outcomeNodes[i].at<1500)continue;
+    outcomeNodes[i].node.remove();outcomeNodes.splice(i,1);
+  }
+}
 function refresh(){
  if(!open||!ui)return;
+ reconcileConfirmedOutcomes();
  updateHand();updateBacks();updatePublicPlaques();
  for(const [sel,portrait,mana,fallback] of [
    ['#vr-ally','#myPortrait','#myMana','아군'],
@@ -358,6 +419,7 @@ function cleanup(){
  if(scheduled)cancelAnimationFrame(scheduled);scheduled=0;
  stage?.removeEventListener('pointermove',updateAim);ui?.remove();ui=stage=null;
  handSignature='';backCount=-1;tacticalCamera='tabletop';nativeCardLabels.clear();nativeStatBadges.clear();nativeActionMarks.clear();
+  nativeHpSnapshot.clear();recentHpChanges.clear();lastCombatTime=null;vrOutcomeCount=0;lastOutcome=null;outcomeNodes.length=0;
 }
 function closeUI(){
  open=false;busy=false;cleanup();
@@ -395,5 +457,5 @@ window.addEventListener('beforeunload',cleanup);
 window.MRRVR={open:openUI,close:closeUI,get status(){
  return {open,hand:q('#vr-hand',ui||document)?.childElementCount||0,
   enemyBacks:q('#vr-enemy-fan',ui||document)?.childElementCount||0,
-  integrated:!!window.MRRIntegrated?.state.open};}};
+  integrated:!!window.MRRIntegrated?.state.open,nativeOutcomes:vrOutcomeCount,lastOutcome};}};
 })();
