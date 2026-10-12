@@ -14,7 +14,7 @@ const native=selector=>{const n=q(selector);if(!n||n.disabled)return false;n.cli
 const entry=el('button','','VR01 새 게임 화면');entry.id='mrr-vr-open';entry.type='button';bar.append(entry);
 let open=false,busy=false,ui=null,stage=null,observer=null,interval=null,scheduled=0,handSignature='',backCount=-1;
 let tacticalCamera='tabletop';
-const nativeCardLabels=new Map();
+const nativeCardLabels=new Map(),nativeStatBadges=new Map();
 const button=(id,txt,fn)=>{const e=el('button','vr-btn',txt);e.id=id;e.type='button';e.onclick=fn;return e;};
 function buildUI(){
   ui=el('section','vr-shell');ui.id='mrr-vr-shell';ui.setAttribute('aria-label','3D 카드게임 통합 화면');
@@ -170,6 +170,44 @@ function updatePublicPlaques(){
     if(nameEl.textContent!==name)nameEl.textContent=name;
     if(statsEl.textContent!==stats)statsEl.textContent=stats;
     plaque.title=[name,stats].filter(Boolean).join(' · ');
+    // VR01H: current combat values from PUBLIC Phase21 rendered elements.
+    // Never infer stats from deck registry, card ID or private G objects.
+    const publicSpans=qa('.card-stats > span',card);
+    const atkText=clean(publicSpans.find(node=>/^(검|공)(?:격력)?\s*\d+/.test(clean(node.textContent)))?.textContent);
+    const hpText=clean(publicSpans.find(node=>/^체(?:력)?\s*\d+/.test(clean(node.textContent)))?.textContent);
+    const atkMatch=atkText.match(/^(검|공)(?:격력)?\s*(\d+)/);
+    const hpMatch=hpText.match(/^체(?:력)?\s*(\d+)/);
+    let badge=nativeStatBadges.get(key);
+    if(!badge&&atkMatch&&hpMatch){
+      badge=el('div','vr-public-combat');
+      badge.setAttribute('data-slot',key);
+      badge.append(el('span','vr-combat-atk'),el('span','vr-combat-hp'));
+      host.append(badge);nativeStatBadges.set(key,badge);
+    }
+    if(badge){
+      const faceWidth=Math.max(0,p.rect.right-p.rect.left);
+      const size=Math.min(23,Math.max(14,faceWidth*.26));
+      // Badge pair sits entirely WITHIN its projected public card face.
+      const canShow=!!(atkMatch&&hpMatch&&faceWidth>=2*size+4&&
+        p.rect.bottom-p.rect.top>=size+12);
+      badge.hidden=!canShow;
+      if(canShow){
+        const attack=q('.vr-combat-atk',badge),health=q('.vr-combat-hp',badge);
+        const attackValue=atkMatch[2],hpValue=hpMatch[1];
+        if(attack.textContent!==attackValue)attack.textContent=attackValue;
+        if(health.textContent!==hpValue)health.textContent=hpValue;
+        attack.setAttribute('aria-label',atkMatch[1]+' '+attackValue);
+        health.setAttribute('aria-label','체력 '+hpValue);
+        badge.setAttribute('aria-label',atkMatch[1]+' '+attackValue+' · 체력 '+hpValue);
+        badge.title=[name,atkMatch[1]+' '+attackValue,'체력 '+hpValue].join(' · ');
+        badge.dataset.publicAttack=attackValue;
+        badge.dataset.publicHealth=hpValue;
+        badge.style.left=(p.rect.left-bounds.left+2).toFixed(1)+'px';
+        badge.style.top=(p.rect.bottom-bounds.top-size-4).toFixed(1)+'px';
+        badge.style.width=(faceWidth-4).toFixed(1)+'px';
+        badge.style.setProperty('--vr-combat-size',size.toFixed(1)+'px');
+      }
+    }
     plaque.classList.toggle('vr-enemy-unit',key.startsWith('1:'));
     plaque.classList.toggle('vr-selected-unit',key===selected);
     plaque.classList.toggle('vr-target-unit',slot.classList.contains('attack-target'));
@@ -213,6 +251,10 @@ function updatePublicPlaques(){
     if(seen.has(key))continue;
     plaque.remove();nativeCardLabels.delete(key);
   }
+  for(const [key,badge] of nativeStatBadges){
+    if(seen.has(key))continue;
+    badge.remove();nativeStatBadges.delete(key);
+  }
 }
 function refresh(){
  if(!open||!ui)return;
@@ -243,7 +285,7 @@ function cleanup(){
  observer?.disconnect();observer=null;clearInterval(interval);interval=null;
  if(scheduled)cancelAnimationFrame(scheduled);scheduled=0;
  stage?.removeEventListener('pointermove',updateAim);ui?.remove();ui=stage=null;
- handSignature='';backCount=-1;tacticalCamera='tabletop';nativeCardLabels.clear();
+ handSignature='';backCount=-1;tacticalCamera='tabletop';nativeCardLabels.clear();nativeStatBadges.clear();
 }
 function closeUI(){
  open=false;busy=false;cleanup();
