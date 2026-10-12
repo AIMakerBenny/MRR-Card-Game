@@ -232,10 +232,11 @@ try:
         }
         return {visible:nodes.length,overlap,compact:nodes.filter(e=>e.classList.contains('vr-unit-compact')).length,
           cards:MRRIntegrated.state.scene.cardMeshCount,
-          seats:MRRIntegrated.state.scene.vrOccupiedSeats};
+          seats:MRRIntegrated.state.scene.vrOccupiedSeats,
+          textures:MRRIntegrated.state.scene.vrLiveCardTextures};
       }""")
       print('VR01-D DENSE',w,h,layout,flush=True)
-      assert layout['cards']==count and layout['seats']==count,(w,h,layout)
+      assert layout['cards']==count and layout['seats']==count and layout['textures']==count,(w,h,layout)
       assert len(layout['overlap'])==0,(w,h,'nameplates collided',layout)
       assert layout['visible']>=(16 if w==1920 else 12),(w,h,'too many nameplates hidden',layout)
       assert snap()==dense_native,'Dense DISPLAY fixture must not mutate native Phase21 state'
@@ -252,9 +253,10 @@ try:
       MRRIntegrated.scene.sync();
       return {total:MRRIntegrated.state.scene.cardMeshCount,
         reused:MRRIntegrated.state.scene.vrReusedCards,
+        textures:MRRIntegrated.state.scene.vrLiveCardTextures,
         animationCount:MRRIntegrated.state.scene.vrDeployTransitions};
     }""")
-    assert reuse['total']==count+1 and reuse['reused']==count,reuse
+    assert reuse['total']==count+1 and reuse['reused']==count and reuse['textures']==count+1,reuse
     assert reuse['animationCount']==0,'Synthetic DOM should not animate like a real hand play'
     assert snap()==dense_native,'Public-only card re-use changed Phase21 engine'
     removed=page.evaluate("""() => {
@@ -265,7 +267,8 @@ try:
     }""")
     assert removed==23,removed
     page.wait_for_function("""n=>MRRIntegrated.state.scene.cardMeshCount===n &&
-      MRRIntegrated.state.scene.vrOccupiedSeats===n""",arg=stress['originals'],timeout=30000)
+      MRRIntegrated.state.scene.vrOccupiedSeats===n &&
+      MRRIntegrated.state.scene.vrLiveCardTextures===n""",arg=stress['originals'],timeout=30000)
     assert snap()==dense_native,'Removing display-only stress fixture changed engine'
     page.set_viewport_size({'width':1920,'height':1080})
     page.mouse.move(950,400)
