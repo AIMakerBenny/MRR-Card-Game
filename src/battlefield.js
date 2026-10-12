@@ -1256,14 +1256,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(time-lastSync>220){lastSync=time;sync();}
     const frozen=matchMedia('(prefers-reduced-motion: reduce)').matches;
     if(vrMode&&cameraPreset==='tabletop'&&!manualCamera){
-      // Twenty-four cards must feel like a compact strategy battlefield,
-      // not vertically stacked panels. A gentler top-down angle exposes
-      // both the real card faces and all six legal rows. Never alter a
-      // manually dragged or wheeled camera.
-      const desired=cards.length>=16?1.30:cards.length>=9?1.225:1.17;
+      // VR01G: a crowded 6-row table needs more vertical screen real
+      // estate. Move the camera back a little while preserving true slot
+      // coordinates and the player's absolute priority over auto views.
+      const dense=cards.length>=16;
+      const desiredPitch=dense?1.31:cards.length>=9?1.245:1.17;
+      const desiredDistance=dense?32.2:cards.length>=9?30.2:28.8;
       const alpha=frozen?1:1-Math.exp(-visualDelta/330);
-      const next=pitch+(desired-pitch)*alpha;
-      if(Math.abs(next-pitch)>.0002){pitch=next;updateCamera();}
+      const np=pitch+(desiredPitch-pitch)*alpha;
+      const nd=distance+(desiredDistance-distance)*alpha;
+      if(Math.abs(np-pitch)>.0002||Math.abs(nd-distance)>.001){
+        pitch=np;distance=nd;updateCamera();
+      }
     }
     if(!frozen)sealCore.rotation.y=time*.00035;
     // Phase72: decorative slot halos never enter raycast target meshes.
@@ -1282,11 +1286,25 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // room. Dense battles retain a non-overlapping normal scale; lone
         // cards must not look like thumbnails in a nearly empty arena.
         // Only publicly rendered slot coordinates are considered.
-        const near=vrMode&&cards.some(other=>other!==c&&
-          Math.abs(other.slot.x-c.slot.x)<3.42&&
-          Math.abs(other.slot.z-c.slot.z)<2.94);
-        const adaptive=vrMode&&cameraPreset==='tabletop'?(near?1.42:1.61):1.30;
-        const targetScale=vrMode?adaptive+(hover?.25:c.key===selectedKey?.12:0):
+        // VR01G: measure actual occupied row direction, not just nearest
+        // radial neighbor. Card HEIGHT is the limiting dimension when
+        // adjacent native rows share a column; a 1.42 face can cover most
+        // of the face behind it even though native slot clicks still work.
+        const sameColumnRow=vrMode&&cards.some(other=>other!==c&&
+          Math.abs(other.slot.x-c.slot.x)<.65&&
+          Math.abs(other.slot.z-c.slot.z)<3.05);
+        const sameRowNeighbor=vrMode&&cards.some(other=>other!==c&&
+          Math.abs(other.slot.x-c.slot.x)<3.43&&
+          Math.abs(other.slot.z-c.slot.z)<.65);
+        const dense=vrMode&&cards.length>=16;
+        const adaptive=vrMode&&cameraPreset==='tabletop'?
+          sameColumnRow?(dense?.96:1.04):
+          sameRowNeighbor?(dense?1.19:1.31):dense?1.13:1.61:1.30;
+        // A focused card may rise for inspection, but never expand enough
+        // to hide an unrelated occupied row in a dense battlefield.
+        const emphasis=hover?(sameColumnRow?.10:.23):
+          c.key===selectedKey?(sameColumnRow?.045:.12):0;
+        const targetScale=vrMode?adaptive+emphasis:
           hover?1.52:c.key===selectedKey?1.35:1.30;
         const targetLift=hover?.86:c.key===selectedKey?.18:0;
         // Time-based smoothing stays stable on low-FPS software WebGL.
@@ -1390,6 +1408,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       publicCardCount,cardMeshCount:cards.length,shadows:renderer.shadowMap.enabled,
       rendererAlive:renderer.domElement.isConnected,yaw,pitch,distance,
       vrCameraAuto:vrMode?!manualCamera:null,
+      vrCrowdedComposition:vrMode&&cameraPreset==='tabletop'&&cards.length>=16,
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
       nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,peakLiveFxCount,
       fxSources:'native-slot-classes',cinematicRevision:49,
