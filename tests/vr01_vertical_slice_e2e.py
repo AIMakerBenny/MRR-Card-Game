@@ -141,6 +141,15 @@ try:
     assert snap()==baseline,'Card magnification must not change original gameplay'
     focus_box=page.locator('#mrr-vr-card-focus').bounding_box()
     assert focus_box and focus_box['width']>=200 and focus_box['height']>=270,focus_box
+    dock=page.locator('#mrr-vr-card-focus').get_attribute('data-dock')
+    assert dock in ('left','right'),dock
+    focus_occlusion=page.evaluate('Number(document.querySelector("#mrr-vr-card-focus").dataset.publicOcclusion)')
+    assert focus_occlusion>=0,focus_occlusion
+    main_card=page.evaluate('key=>MRRIntegrated.scene.projectCardBounds(key)',mine)
+    assert main_card and (focus_box['x']+focus_box['width']<=main_card['left']+8 or
+      focus_box['x']>=main_card['right']-8 or
+      focus_box['y']+focus_box['height']<=main_card['top']+8 or
+      focus_box['y']>=main_card['bottom']-8),('focus occludes hovered public card',focus_box,main_card)
     page.screenshot(path=str(ROOT/'tests/vr01_card_focus_1920x1080.png'),animations='disabled')
     page.mouse.click(xy['x'],xy['y'])
     page.wait_for_function("""()=>MRRIntegrated.state.scene.selectedKey!==null &&
@@ -161,6 +170,9 @@ try:
       arg={'key':opponent,'hp':before_hp},timeout=13000)
     after=snap()
     assert after!=baseline
+    if page.locator(f'#arena [data-slot="{opponent}"] .board-card').count():
+      page.wait_for_function('MRRIntegrated.state.scene.vrHitReactions>=1',timeout=13000)
+    assert page.evaluate('MRRIntegrated.state.scene.vrHitReactions')>=0
     page.screenshot(path=str(ROOT/'tests/vr01_attack_confirmed_1920x1080.png'),animations='disabled')
 
     # VR01-D: deliberately dense DISPLAY-ONLY stress fixture. Clone only
@@ -337,6 +349,9 @@ try:
         page.wait_for_function("""() => MRRIntegrated.state.scene.vrDeployTransitions>=1""",timeout=22000)
         page.wait_for_function("""() => MRRIntegrated.state.scene.vrDeployActive===0""",timeout=27000)
         assert page.evaluate('MRRIntegrated.state.scene.vrDeployTransitions')==1
+        assert page.evaluate('MRRIntegrated.state.scene.vrLandingDustStarted')==1,(
+          'Real confirmed landing should create exactly one temporary ground-contact puff')
+        page.wait_for_function('MRRIntegrated.state.scene.vrLandingDustActive===0',timeout=15000)
         assert page.evaluate('MRRIntegrated.state.scene.vrOccupiedSeats')>=1
         page.screenshot(path=str(ROOT/'tests/vr01_native_deploy_landed_1920x1080.png'),animations='disabled')
         page.locator('#vr-end-turn').click()
