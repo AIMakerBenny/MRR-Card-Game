@@ -56,20 +56,49 @@ function buildUI(){
   const hint=el('div','vr-hint','손패를 선택하여 전장에 배치하세요');hint.id='vr-hint';ui.append(hint);
   const aim=document.createElementNS('http://www.w3.org/2000/svg','svg');
   aim.id='vr-aim';aim.setAttribute('preserveAspectRatio','none');
-  aim.innerHTML='<defs><marker id="vr-arrow" markerWidth="7" markerHeight="7" refX="8" refY="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#f0b982"/></marker></defs><path id="vr-aim-line" fill="none" stroke="#f0b982" stroke-width="3" marker-end="url(#vr-arrow)" />';
+  aim.innerHTML='<defs><marker id="vr-arrow" markerWidth="7" markerHeight="7" refX="8" refY="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#f0b982"/></marker></defs><g id="vr-guide-targets"></g><path id="vr-aim-line" fill="none" stroke="#f0b982" stroke-width="3" marker-end="url(#vr-arrow)" />';
   ui.append(aim);
   stage.append(ui);
   stage.addEventListener('pointermove',updateAim);
 }
-function updateAim(event){
+function updateAim(){
   if(!open||!ui)return;
-  const path=q('#vr-aim-line',ui),state=window.MRRIntegrated?.state.scene;
-  if(!state?.selectedKey||!state.attackTargetCount){path.setAttribute('d','');return;}
-  const start=window.MRRIntegrated.scene?.projectCard(state.selectedKey),box=stage.getBoundingClientRect();
-  if(!start)return;
-  const sx=start.x-box.left,sy=start.y-box.top,ex=event.clientX-box.left,ey=event.clientY-box.top;
-  const cy=Math.min(sy,ey)-65;
-  path.setAttribute('d','M'+sx+' '+sy+' Q'+((sx+ex)/2)+' '+cy+' '+ex+' '+ey);
+  const path=q('#vr-aim-line',ui),guides=q('#vr-guide-targets',ui);
+  const scene=window.MRRIntegrated?.scene,state=scene?.state;
+  const targets=state?.selectedKey&&state.attackTargetCount?
+    qa('#arena .slot.attack-target').filter(slot=>slot.querySelector('.board-card .card-ui')):[];
+  const box=stage.getBoundingClientRect();
+  q('#vr-aim',ui).setAttribute('viewBox','0 0 '+box.width+' '+box.height);
+  const ns='http://www.w3.org/2000/svg';
+  const old=new Map([...guides.children].map(node=>[node.dataset.slot,node]));
+  for(const slot of targets){
+    const key=slot.getAttribute('data-slot'),point=scene.projectCard(key);
+    if(!point)continue;
+    let circle=old.get(key);
+    if(!circle){
+      circle=document.createElementNS(ns,'circle');
+      circle.dataset.slot=key;circle.setAttribute('r','20');
+      circle.setAttribute('class','vr-target-guide');
+      guides.append(circle);
+    }
+    circle.setAttribute('cx',(point.x-box.left).toFixed(1));
+    circle.setAttribute('cy',(point.y-box.top).toFixed(1));
+    circle.classList.toggle('vr-target-hover',state.hoveredKey===key);
+    old.delete(key);
+  }
+  for(const stale of old.values())stale.remove();
+  // Attack guides must terminate at a NATIVE target, never at arbitrary
+  // cursor locations, hidden cards or illegal field slots.
+  const target=targets.find(slot=>slot.getAttribute('data-slot')===state?.hoveredKey);
+  const src=target?scene.projectCard(state.selectedKey):null;
+  const dst=target?scene.projectCard(state.hoveredKey):null;
+  if(!src||!dst){path.setAttribute('d','');path.dataset.target='';return;}
+  const sx=src.x-box.left,sy=src.y-box.top,ex=dst.x-box.left,ey=dst.y-box.top;
+  const bend=Math.max(20,Math.min(65,Math.abs(ex-sx)*.15));
+  path.setAttribute('d','M'+sx.toFixed(1)+' '+sy.toFixed(1)+' Q'+
+    ((sx+ex)/2).toFixed(1)+' '+(Math.min(sy,ey)-bend).toFixed(1)+' '+
+    ex.toFixed(1)+' '+ey.toFixed(1));
+  path.dataset.target=state.hoveredKey;
 }
 function updateBacks(){
   // Read only publicly displayed opponent backs. Never read the opponent hand array.
@@ -321,7 +350,7 @@ function refresh(){
    placing?'전장의 합법 위치를 선택하세요':
    window.MRRIntegrated?.state.scene?.selectedKey?'선택 카드의 명령을 실행하세요':'손패를 선택하여 배치하세요';
  q('#vr-end-turn',ui).disabled=!!q('#endTurn')?.disabled;
- if(!target)q('#vr-aim-line',ui)?.setAttribute('d','');
+ updateAim();
 }
 function schedule(){if(!open||scheduled)return;scheduled=requestAnimationFrame(()=>{scheduled=0;refresh();});}
 function cleanup(){
