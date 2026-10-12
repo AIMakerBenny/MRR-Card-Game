@@ -12,7 +12,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const scene=new THREE.Scene();
   scene.background=new THREE.Color(vrMode?0x0b2024:tabletop?0x261a15:0x080f1a);
   scene.fog=new THREE.FogExp2(vrMode?0x0b2024:tabletop?0x261a15:0x080f1a,tabletop?.008:.018);
-  const camera=new THREE.PerspectiveCamera(44,1,.1,130);
+  const camera=new THREE.PerspectiveCamera(vrMode?40:44,1,.1,130);
   const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;
@@ -289,31 +289,91 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       boardSlots.set(key,{x,z:lane.z,owner:lane.owner,row:lane.row,col,base,halo,focusRing});
     }
   }
-  // VR01 physical battlefield insignia. Decorative world geometry only:
-  // no slot addresses, event handlers, raycast targets or original engine writes.
+  // VR01-B: the game world is an arena, not a 30-box grid. These physical
+  // surfaces are never added to pickMeshes, and all 30 original coordinates
+  // remain exactly where the Phase21 renderer expects them.
   if(vrMode){
-    const inlay=material({color:0x65988d,metalness:.48,roughness:.46,transparent:true,opacity:.26});
-    const patina=material({color:0x29474a,metalness:.48,roughness:.63});
-    const darkGold=material({color:0x907c54,metalness:.68,roughness:.36,transparent:true,opacity:.6});
-    const core=new THREE.Mesh(geometry(new THREE.CylinderGeometry(.84,.91,.075,48)),patina);
-    core.position.set(0,.18,0);scene.add(core);
-    const discRim=new THREE.Mesh(geometry(new THREE.TorusGeometry(.95,.045,10,64)),darkGold);
-    discRim.rotation.x=-Math.PI/2;discRim.position.y=.24;scene.add(discRim);
-    for(const angle of [-Math.PI/4,Math.PI/4]){
-      const cut=new THREE.Mesh(geometry(new THREE.BoxGeometry(1.04,.018,.046)),inlay);
-      cut.rotation.y=angle;cut.position.set(0,.235,0);scene.add(cut);
+    const enemyInk=material({color:0x976b5b,roughness:.76,metalness:.11,transparent:true,opacity:.23});
+    const allyInk=material({color:0x73b4a6,roughness:.72,metalness:.13,transparent:true,opacity:.25});
+    const brassInlay=material({color:0xb9a57b,metalness:.61,roughness:.35,transparent:true,opacity:.65});
+    const emboss=material({color:0x19373e,roughness:.66,metalness:.4});
+    // Two distinct territorial fabrics and three subtly carved paths per
+    // side. The background is generated geometrically, not supplied card art.
+    for(const [owner,tint] of [[1,[94,52,55]],[0,[25,95,92]]]){
+      const surface=document.createElement('canvas');
+      surface.width=1024;surface.height=512;
+      const c=surface.getContext('2d');
+      const wash=c.createLinearGradient(0,0,0,512);
+      const rgba=(alpha)=>'rgba('+tint.join(',')+','+alpha+')';
+      wash.addColorStop(0,rgba('.03'));
+      wash.addColorStop(.26,rgba('.44'));
+      wash.addColorStop(.75,rgba('.39'));
+      wash.addColorStop(1,rgba('.03'));
+      c.fillStyle=wash;c.fillRect(0,0,1024,512);
+      // Wide woven strips imply physical ranks, without outlining empty cells.
+      for(let i=0;i<3;i++){
+        const cy=84+i*169;
+        const lane=c.createLinearGradient(0,cy-56,0,cy+56);
+        lane.addColorStop(0,'rgba(230,221,188,0)');
+        lane.addColorStop(.5,'rgba(216,224,195,.055)');
+        lane.addColorStop(1,'rgba(230,221,188,0)');
+        c.fillStyle=lane;c.fillRect(25,cy-57,974,114);
+        c.lineWidth=1;c.strokeStyle='rgba(207,199,172,.11)';
+        c.beginPath();c.moveTo(45,cy-74);c.lineTo(979,cy-74);c.stroke();
+        // Stone direction markers, symmetric but unobtrusive.
+        for(const side of [-1,1]){
+          const x=side<0?47:977;
+          c.fillStyle='rgba(209,192,154,.30)';
+          c.beginPath();c.moveTo(x,cy-10);
+          c.lineTo(x-side*11,cy);c.lineTo(x,cy+10);c.closePath();c.fill();
+        }
+      }
+      // Fine diagonal fabric fibers are batched into one texture.
+      c.strokeStyle='rgba(242,231,207,.045)';c.lineWidth=1;
+      for(let x=-512;x<1500;x+=26){
+        c.beginPath();c.moveTo(x,0);c.lineTo(x+512,512);c.stroke();
+      }
+      const tex=new THREE.CanvasTexture(surface);
+      tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;
+      madeTextures.push(tex);
+      const mat=material({map:tex,transparent:true,depthWrite:false,roughness:.84,
+        metalness:.08,side:THREE.DoubleSide});
+      const carpet=new THREE.Mesh(geometry(new THREE.PlaneGeometry(20.72,10.05)),mat);
+      carpet.rotation.x=-Math.PI/2;
+      carpet.position.set(0,.129,owner===1?-5.54:5.54);
+      scene.add(carpet);
     }
-    // Large organic territory arcs sit below actual playing cards.
-    for(const z of [-5.9,5.9]){
-      const circle=new THREE.Mesh(geometry(new THREE.RingGeometry(5.6,5.64,80,1,0,Math.PI)),inlay);
-      circle.rotation.x=-Math.PI/2;circle.rotation.z=z>0?Math.PI:0;
-      circle.position.set(0,.147,z);scene.add(circle);
+    // The center emblem visually divides territories. All it does is reflect
+    // existing world ownership; combat simulation and pathing never read it.
+    const medallion=new THREE.Group();
+    medallion.position.set(0,.155,0);
+    const disc=new THREE.Mesh(geometry(new THREE.CylinderGeometry(1.11,1.16,.048,64)),emboss);
+    disc.position.y=.04;medallion.add(disc);
+    for(const radius of [1.23,.93]){
+      const ring=new THREE.Mesh(geometry(new THREE.TorusGeometry(radius,.045,8,80)),brassInlay);
+      ring.rotation.x=-Math.PI/2;ring.position.y=.087;medallion.add(ring);
+    }
+    for(let i=0;i<8;i++){
+      const a=i*Math.PI/4;
+      const stud=new THREE.Mesh(geometry(new THREE.BoxGeometry(.075,.028,.23)),brassInlay);
+      stud.rotation.y=-a;stud.position.set(Math.sin(a)*1.05,.094,Math.cos(a)*1.05);
+      medallion.add(stud);
+    }
+    scene.add(medallion);
+    // Lanes are engraved on the physical side edge, not empty slot frames.
+    for(const lane of lanes){
+      const ally=lane.owner===0;
+      const m=ally?allyInk:enemyInk;
       for(const side of [-1,1]){
-        const small=new THREE.Mesh(geometry(new THREE.TorusGeometry(.25,.025,8,36)),darkGold);
-        small.rotation.x=-Math.PI/2;small.position.set(side*9.9,.15,z);
-        scene.add(small);
+        const block=new THREE.Mesh(geometry(new THREE.BoxGeometry(.64,.035,1.62)),m);
+        block.position.set(side*9.92,.145,lane.z);scene.add(block);
+        const dot=new THREE.Mesh(geometry(new THREE.CylinderGeometry(.075,.075,.023,18)),brassInlay);
+        dot.position.set(side*9.92,.188,lane.z);scene.add(dot);
       }
     }
+    // A thin metallic fracture between two territories, below every card.
+    const borderline=new THREE.Mesh(geometry(new THREE.BoxGeometry(20.5,.014,.07)),brassInlay);
+    borderline.position.set(0,.155,0);scene.add(borderline);
   }
   const attackArrowGeo=geometry(new THREE.BufferGeometry());
   attackArrowGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));
