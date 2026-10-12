@@ -98,10 +98,14 @@ try:
     page.set_viewport_size({'width':1920,'height':1080})
     # VR camera buttons change only the Three.js view, not game state.
     for label,preset in [('시점: 아군','ally'),('시점: 상대','enemy'),('시점: 전체','tabletop')]:
+      previous_frames=page.evaluate('MRRIntegrated.state.scene.frames')
       page.locator('#vr-camera').click()
       assert page.locator('#vr-camera').inner_text()==label
       assert page.evaluate('MRRIntegrated.state.scene.cameraPreset')==preset
+      # Wait for the actual rendered frame, not only the camera setter.
+      page.wait_for_function('old=>MRRIntegrated.state.scene.frames>old',arg=previous_frames,timeout=25000)
       assert snap()==baseline,('camera changed engine',preset)
+      page.screenshot(path=str(ROOT/f'tests/vr01_camera_{preset}_1920x1080.png'),animations='disabled')
     xy=page.evaluate('(key)=>MRRIntegrated.scene.projectCard(key)',mine)
     assert xy and 0<xy['x']<1920 and 0<xy['y']<1080,xy
     # VR01 public-card enlargement uses the existing Three.js card texture,
