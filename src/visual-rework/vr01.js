@@ -122,11 +122,13 @@ function updatePublicPlaques(){
   const host=q('#vr-public-plaques',ui),scene=window.MRRIntegrated?.scene;
   if(!host||!scene||!stage)return;
   const bounds=stage.getBoundingClientRect(),seen=new Set();
-  for(const slot of qa('#arena [data-slot]')){
+  const projected=qa('#arena [data-slot]').map(slot=>{
     const card=q('.board-card .card-ui',slot);
-    if(!card)continue;
+    if(!card)return null;
     const key=slot.getAttribute('data-slot'),point=scene.projectCard(key);
-    if(!point)continue;
+    return point?{slot,card,key,point,lane:key.slice(0,key.lastIndexOf(':'))}:null;
+  }).filter(Boolean);
+  for(const {slot,card,key,point,lane} of projected){
     seen.add(key);
     let plaque=nativeCardLabels.get(key);
     if(!plaque){
@@ -143,6 +145,14 @@ function updatePublicPlaques(){
     plaque.classList.toggle('vr-selected-unit',slot.classList.contains('selected-slot'));
     plaque.classList.toggle('vr-target-unit',slot.classList.contains('attack-target'));
     const x=point.x-bounds.left,y=point.y-bounds.top;
+    // Real 3D perspective compresses adjacent occupied columns unevenly.
+    // Base the width on the nearest public nameplate in the SAME lane.
+    const occupiedGap=Math.min(Infinity,...projected.filter(p=>p.key!==key&&p.lane===lane)
+      .map(p=>Math.abs(point.x-p.point.x)));
+    const maximum=bounds.width<1500?117:166;
+    const width=Number.isFinite(occupiedGap)?
+      Math.max(62,Math.min(maximum,occupiedGap-12)):maximum;
+    plaque.style.width=width.toFixed(1)+'px';
     plaque.style.left=x.toFixed(1)+'px';
     // Do not cover the card art or its physical hit mesh.
     plaque.style.top=(y+Math.min(104,Math.max(54,bounds.height*.083))).toFixed(1)+'px';
