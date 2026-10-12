@@ -8,21 +8,22 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // Phase55: use a dedicated art direction only in the main PC gameplay view.
   // The older 3D modal and authoritative HTML engine remain unchanged.
   const tabletop=mount.id==='mrr-integrated-stage';
+  const vrMode=tabletop&&document.body.classList.contains('mrr-vr-active');
   const scene=new THREE.Scene();
-  scene.background=new THREE.Color(tabletop?0x261a15:0x080f1a);
-  scene.fog=new THREE.FogExp2(tabletop?0x261a15:0x080f1a,tabletop?.009:.018);
+  scene.background=new THREE.Color(vrMode?0x0b2024:tabletop?0x261a15:0x080f1a);
+  scene.fog=new THREE.FogExp2(vrMode?0x0b2024:tabletop?0x261a15:0x080f1a,tabletop?.008:.018);
   const camera=new THREE.PerspectiveCamera(44,1,.1,130);
   const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=tabletop?1.22:1.47;
+  renderer.toneMappingExposure=vrMode?1.06:tabletop?1.22:1.47;
   renderer.shadowMap.enabled=true;
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   renderer.domElement.setAttribute('aria-label','실시간 공개 카드 3D 전장');
   renderer.domElement.style.cssText='width:100%;height:100%;display:block';
   mount.appendChild(renderer.domElement);
-  scene.add(new THREE.HemisphereLight(tabletop?0xffe5c3:0xbad8e8,tabletop?0x49301f:0x423440,tabletop?2.4:2.0));
-  const sun=new THREE.DirectionalLight(tabletop?0xffe1b1:0xffe2b1,tabletop?3.3:4.2);
+  scene.add(new THREE.HemisphereLight(vrMode?0xb6d8d2:tabletop?0xffe5c3:0xbad8e8,vrMode?0x1b3539:tabletop?0x49301f:0x423440,tabletop?2.4:2.0));
+  const sun=new THREE.DirectionalLight(vrMode?0xc4dacc:tabletop?0xffe1b1:0xffe2b1,tabletop?3.3:4.2);
   sun.position.set(-8,18,13);sun.castShadow=true;
   sun.shadow.mapSize.set(2048,2048);
   sun.shadow.camera.left=-22;sun.shadow.camera.right=22;
@@ -56,7 +57,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const seam=kind==='wood'?Math.min(y%145,145-y%145):100;
       for(let x=0;x<n;x++){
         const k=(y*n+x)*4,noise=(rand()-.5)*23;
-        if(kind==='wood'){
+        if(kind==='parchment'&&vrMode){
+          const grain=Math.sin(x*.051+y*.011)*2.8+Math.cos(y*.037)*2.6;
+          pix.data[k]=Math.max(0,26+noise*.22+grain);
+          pix.data[k+1]=Math.max(0,53+noise*.22+grain);
+          pix.data[k+2]=Math.max(0,57+noise*.22+grain);
+        }else if(kind==='wood'){
           const grain=Math.sin(x*.083+Math.sin(y*.028)*3.4)*6+
             Math.sin(x*.012+y*.035)*4;
           const knot=((plank*17)%7)*2;
@@ -76,7 +82,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     ctx.putImageData(pix,0,0);
-    if(kind==='parchment'){
+    if(kind==='parchment'&&!vrMode){
       // Hand-drawn, low-contrast atlas: cartographic circles, compass rays,
       // border filigree and opposing zones. Slot hit targets live above it.
       ctx.save();ctx.strokeStyle='rgba(86,58,40,.24)';ctx.lineWidth=3;
@@ -128,7 +134,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // These are non-textured, non-interactive materials; no hidden data.
   const allySlot=tabletop?material({color:0x497b79,roughness:.94,transparent:true,opacity:.16}):null;
   const enemySlot=tabletop?material({color:0x946451,roughness:.94,transparent:true,opacity:.16}):null;
-  const parchmentInk=tabletop?material({color:0x80603b,roughness:.9,transparent:true,opacity:.20}):null;
+  const parchmentInk=tabletop?material({color:vrMode?0x6d9992:0x80603b,roughness:.9,transparent:true,opacity:vrMode?.09:.20}):null;
   const softZone=tabletop?material({color:0x9a7150,metalness:.25,roughness:.77}):null;
 
   const black=material({color:0x223746,metalness:.18,roughness:.72});
