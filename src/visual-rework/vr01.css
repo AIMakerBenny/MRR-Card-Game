@@ -352,3 +352,29 @@ body.mrr-vr-active #mrr-vr-shell .vr-public-action[data-state=other]{
   animation:vr-target-breathe .8s ease-in-out infinite alternate}
  @keyframes vr-target-breathe{from{stroke-opacity:.58}to{stroke-opacity:1}}
 }
+
+/* VR01K: result badges are confirmed by native Phase21 FX only. The
+   authoritative number changes on the real card below, not in this layer. */
+#mrr-vr-shell .vr-combat-outcomes{position:absolute;inset:0;pointer-events:none;z-index:9;overflow:hidden}
+#mrr-vr-shell .vr-combat-outcome{
+ position:absolute;transform:translate(-50%,-50%);pointer-events:none;
+ display:flex;align-items:center;justify-content:center;
+ min-width:48px;min-height:30px;padding:3px 9px;border-radius:9px;
+ border:1px solid #f2b58a;color:#fff0c8;background:#4f2d28e6;
+ box-shadow:0 5px 15px #0009,0 0 10px #e39a5366;
+ font:800 19px/1 'Malgun Gothic',sans-serif;text-shadow:0 2px 4px #000;
+ animation:vr-confirmed-outcome 1.35s ease-out both;
+}
+#mrr-vr-shell .vr-combat-outcome[data-kind=heal]{
+ color:#d5ffeb;background:#204d41e8;border-color:#8de6ae;
+ box-shadow:0 5px 15px #0009,0 0 10px #7cdaa766;
+}
+@keyframes vr-confirmed-outcome{
+ 0%{opacity:0;transform:translate(-50%,-20%) scale(.82)}
+ 19%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}
+ 65%{opacity:1;transform:translate(-50%,-85%) scale(1)}
+ 100%{opacity:0;transform:translate(-50%,-130%) scale(.95)}
+}
+@media(prefers-reduced-motion:reduce){
+ #mrr-vr-shell .vr-combat-outcome{animation:none;transform:translate(-50%,-50%)}
+}
