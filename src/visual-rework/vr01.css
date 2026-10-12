@@ -334,3 +334,21 @@ body.mrr-vr-active #mrr-vr-shell .vr-public-action[data-state=ward]{
 body.mrr-vr-active #mrr-vr-shell .vr-public-action[data-state=other]{
  background:#4d4762;border-color:#a49aba;color:#ece4ff
 }
+
+/* VR01J: original native attack candidates, rendered above the REAL 3D card
+   without hit targets or extra gameplay rules. */
+#mrr-vr-shell #vr-aim .vr-target-guide{
+ fill:#db9a4611;stroke:#f5c58d;stroke-width:2;stroke-dasharray:4 5;
+ opacity:.68;vector-effect:non-scaling-stroke;pointer-events:none;
+}
+#mrr-vr-shell #vr-aim .vr-target-guide.vr-target-hover{
+ fill:#ffa55822;stroke:#ffddaa;stroke-width:3;stroke-dasharray:none;
+ opacity:1
+}
+#mrr-vr-shell #vr-aim-line{stroke-linecap:round;stroke-linejoin:round;
+ filter:drop-shadow(0 1px 3px #000c)}
+@media(prefers-reduced-motion:no-preference){
+ #mrr-vr-shell #vr-aim .vr-target-guide.vr-target-hover{
+  animation:vr-target-breathe .8s ease-in-out infinite alternate}
+ @keyframes vr-target-breathe{from{stroke-opacity:.58}to{stroke-opacity:1}}
+}
