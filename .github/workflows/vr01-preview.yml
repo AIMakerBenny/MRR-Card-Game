@@ -1,0 +1,49 @@
+name: VR01 Desktop Visual Review Evidence
+on:
+  push:
+    branches:
+      - 'visual-rework/**'
+  workflow_dispatch:
+jobs:
+  vr-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Vendor local Three.js
+        run: |
+          npm install --no-audit --no-fund
+          npm run vendor
+      - name: Build with unchanged Phase21 game scripts
+        run: |
+          python build.py
+          python -m pip install beautifulsoup4 playwright
+          python tests/static_audit.py
+          python -m playwright install --with-deps chromium
+      - name: Real Chromium VR01 desktop screenshots and native gameplay
+        run: python tests/vr01_vertical_slice_e2e.py
+      - name: Package desktop preview
+        if: always()
+        run: |
+          mkdir -p preview/vendor
+          cp Marorong_Card_War_Phase76_3D_Prototype.html preview/index.html
+          cp vendor/three.module.js preview/vendor/three.module.js
+          cp build-manifest.json preview/build-manifest.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: VR01-Chromium-Before-After
+          path: tests/vr0*.png
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: VR01-PC-Playable-Preview
+          path: preview/
+          if-no-files-found: warn
