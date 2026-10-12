@@ -143,6 +143,11 @@ function updatePublicPlaques(){
       priority:key===selected?0:slot.classList.contains('attack-target')?1:
         key===hovered?2:3};
   }).filter(Boolean);
+  // VR01G: a dense card game table must remain a card table, not a
+  // scoreboard made of two dozen giant floating rectangular HUD panels.
+  // Preserve full public name/stats in the native 3D face and inspection.
+  const dense=projected.length>=16;
+  ui.classList.toggle('vr-dense-public',dense);
   // Put native-targeted cards first, then work back-to-front. These labels
   // are display-only and never change source slot order or hit locations.
   projected.sort((a,b)=>a.priority-b.priority||a.top-b.top||a.cx-b.cx);
@@ -173,12 +178,13 @@ function updatePublicPlaques(){
     const wide=bounds.width<1500?117:166;
     // The visible label cannot be wider than the actual gap in its 3D row.
     const desired=Number.isFinite(gap)?Math.min(wide,gap-10):wide;
-    const sizes=[Math.max(76,desired),72,58];
+    const sizes=dense?[Math.min(92,Math.max(66,desired)),58]:
+      [Math.max(76,desired),72,58];
     const marginX=bounds.width<1500?61:72;
     const yMin=100,yMax=bounds.height-94;
     let solution=null,compact=false;
     for(const width of sizes){
-      const isCompact=width<98,height=isCompact?25:41;
+      const isCompact=dense||width<98,height=isCompact?25:41;
       const offsets=[
         [0,bottom+8],[0,top-height-8],
         [0,bottom+height+15],[0,top-height*2-16],
