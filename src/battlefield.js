@@ -996,7 +996,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       for(const c of cards){
         if(reuse.get(c.key)===c)continue;
         scene.remove(c.group);if(c.seat)scene.remove(c.seat);
-        if(c.face.material.map){c.face.material.map.userData.artDisposed=true;c.face.material.map.dispose();}
+        if(c.face.material.map){
+          const tex=c.face.material.map;tex.userData.artDisposed=true;tex.dispose();
+          if(vrMode){
+            const pos=madeTextures.indexOf(tex);
+            if(pos!==-1)madeTextures.splice(pos,1);
+          }
+        }
         c.face.material.dispose();
       }
       cards=[];if(!vrMode)madeTextures.length=0;
@@ -1330,6 +1336,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrOccupiedSeats:vrMode?cards.filter(c=>!!c.seat).length:null,
       vrReusedCards:vrMode?vrReusedCards:null,vrDeployTransitions:vrMode?vrDeployTransitions:null,
       vrDeployActive:vrMode?cards.filter(c=>!!c.deploy).length:null,
+      vrLiveCardTextures:vrMode?madeTextures.length:null,
       healthHudRevision:52,healthIndicatorCount,cardHealth:Object.fromEntries(cardHealth),
       previewRevision:53,previewReadyCards:cardIndex.size,
       artworkSlotRevision:tabletop?58:0,
