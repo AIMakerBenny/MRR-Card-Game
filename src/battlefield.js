@@ -289,6 +289,32 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       boardSlots.set(key,{x,z:lane.z,owner:lane.owner,row:lane.row,col,base,halo,focusRing});
     }
   }
+  // VR01 physical battlefield insignia. Decorative world geometry only:
+  // no slot addresses, event handlers, raycast targets or original engine writes.
+  if(vrMode){
+    const inlay=material({color:0x65988d,metalness:.48,roughness:.46,transparent:true,opacity:.26});
+    const patina=material({color:0x29474a,metalness:.48,roughness:.63});
+    const darkGold=material({color:0x907c54,metalness:.68,roughness:.36,transparent:true,opacity:.6});
+    const core=new THREE.Mesh(geometry(new THREE.CylinderGeometry(.84,.91,.075,48)),patina);
+    core.position.set(0,.18,0);scene.add(core);
+    const discRim=new THREE.Mesh(geometry(new THREE.TorusGeometry(.95,.045,10,64)),darkGold);
+    discRim.rotation.x=-Math.PI/2;discRim.position.y=.24;scene.add(discRim);
+    for(const angle of [-Math.PI/4,Math.PI/4]){
+      const cut=new THREE.Mesh(geometry(new THREE.BoxGeometry(1.04,.018,.046)),inlay);
+      cut.rotation.y=angle;cut.position.set(0,.235,0);scene.add(cut);
+    }
+    // Large organic territory arcs sit below actual playing cards.
+    for(const z of [-5.9,5.9]){
+      const circle=new THREE.Mesh(geometry(new THREE.RingGeometry(5.6,5.64,80,1,0,Math.PI)),inlay);
+      circle.rotation.x=-Math.PI/2;circle.rotation.z=z>0?Math.PI:0;
+      circle.position.set(0,.147,z);scene.add(circle);
+      for(const side of [-1,1]){
+        const small=new THREE.Mesh(geometry(new THREE.TorusGeometry(.25,.025,8,36)),darkGold);
+        small.rotation.x=-Math.PI/2;small.position.set(side*9.9,.15,z);
+        scene.add(small);
+      }
+    }
+  }
   const attackArrowGeo=geometry(new THREE.BufferGeometry());
   attackArrowGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));
   const attackArrowMat=new THREE.LineBasicMaterial({color:0xffc074,transparent:true,opacity:.95});
