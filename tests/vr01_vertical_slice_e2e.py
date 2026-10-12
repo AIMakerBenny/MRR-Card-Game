@@ -215,6 +215,10 @@ try:
         MRRIntegrated.state.scene.vrOccupiedSeats===n &&
         document.querySelectorAll('#vr-public-plaques .vr-unit-plaque').length===n""",
         arg=count,timeout=40000)
+      page.wait_for_function("""() => {
+        const v=MRRIntegrated.state.scene;
+        return v.vrCameraAuto && v.pitch>1.265;
+      }""",timeout=20000)
       page.wait_for_timeout(950)
       layout=page.evaluate("""() => {
         const nodes=[...document.querySelectorAll('#vr-public-plaques .vr-unit-plaque')]
@@ -247,6 +251,10 @@ try:
       MRRIntegrated.state.scene.vrOccupiedSeats===n""",arg=stress['originals'],timeout=30000)
     assert snap()==dense_native,'Removing display-only stress fixture changed engine'
     page.set_viewport_size({'width':1920,'height':1080})
+    page.mouse.move(950,400)
+    page.mouse.wheel(0,180)
+    page.wait_for_function('MRRIntegrated.state.scene.vrCameraAuto===false',timeout=7000)
+    assert snap()==dense_native,'Manual camera wheel must never affect game'
     page.locator('#vr-return').click()
     assert not page.evaluate('MRRVR.status.open')
     assert page.locator('#arena').is_visible()
