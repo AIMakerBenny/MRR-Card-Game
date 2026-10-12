@@ -335,7 +335,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
       const tex=new THREE.CanvasTexture(surface);
       tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;
-      madeTextures.push(tex);
+      // Long-lived terrain belongs to scene resources, not per-card textures.
+      tabletopTextures.push(tex);
       const mat=material({map:tex,transparent:true,depthWrite:false,roughness:.84,
         metalness:.08,side:THREE.DoubleSide});
       const carpet=new THREE.Mesh(geometry(new THREE.PlaneGeometry(20.72,10.05)),mat);
@@ -1036,6 +1037,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     camera.position.set(focusX+Math.sin(yaw)*Math.cos(pitch)*d,
       1.3+Math.sin(pitch)*d,focusZ+Math.cos(yaw)*Math.cos(pitch)*d);
     camera.lookAt(focusX,.8,focusZ);
+    // Raycaster, projectCard and projectSlot can be called before the next
+    // WebGL frame after a camera button click. Never use a stale view matrix.
+    camera.updateMatrixWorld(true);
   }
   function down(e){
     if(e.button!==0||e.target!==renderer.domElement)return;
