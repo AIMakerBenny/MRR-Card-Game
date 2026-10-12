@@ -197,3 +197,37 @@ body.mrr-vr-active #mrr-vr-shell .vr-rules{
  color:#d9d9cf;font:500 11px/1.35 'Malgun Gothic',sans-serif;text-align:center;
 }
 body.mrr-vr-active #mrr-vr-shell .vr-stats{bottom:2%;min-height:21px;padding-top:4px}
+
+/* VR01-B: each field card gets readable world-positioned identity. The native
+   WebGL mesh remains the only selectable target; plaques never catch a click. */
+#mrr-vr-shell .vr-public-plaques{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+#mrr-vr-shell .vr-unit-plaque{
+ position:absolute;transform:translateX(-50%);width:clamp(122px,9.25vw,166px);
+ display:flex;flex-direction:column;align-items:center;gap:2px;
+ padding:5px 8px 6px;white-space:nowrap;line-height:1.22;
+ border-radius:4px 4px 9px 9px;
+ border:1px solid #8bbab26d;border-top:2px solid #90d5c9;
+ background:linear-gradient(130deg,#122d32f7,#08171ff4);
+ box-shadow:0 6px 15px #02090ccd,inset 0 1px 0 #b5dcbe2a;
+ color:#ecf4e9;filter:drop-shadow(0 1px 5px #0008)
+}
+#mrr-vr-shell .vr-unit-plaque[hidden]{display:none!important}
+#mrr-vr-shell .vr-unit-plaque.vr-enemy-unit{
+ border-color:#b9957c99;border-top-color:#e3ae85;
+ background:linear-gradient(130deg,#3b292af7,#1e1d24f4)
+}
+#mrr-vr-shell .vr-unit-plaque.vr-selected-unit{
+ border-color:#efca7b;border-top:3px solid #efd197
+}
+#mrr-vr-shell .vr-unit-plaque.vr-target-unit{
+ border-color:#f6ac89;border-top:3px solid #f1a07b
+}
+#mrr-vr-shell .vr-unit-name{max-width:100%;font-size:13px;font-weight:750;
+ overflow:hidden;text-overflow:ellipsis}
+#mrr-vr-shell .vr-unit-stats{max-width:100%;font-size:10px;color:#c4cfc6;
+ overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em}
+@media(max-width:1500px){
+ #mrr-vr-shell .vr-unit-plaque{width:117px;padding:4px 5px 5px}
+ #mrr-vr-shell .vr-unit-name{font-size:11px}
+ #mrr-vr-shell .vr-unit-stats{font-size:9px}
+}
