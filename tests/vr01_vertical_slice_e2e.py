@@ -183,6 +183,16 @@ try:
     assert before_hp and before_hp>0
     page.locator('#mrr-quick-attack').click(timeout=12000)
     page.wait_for_function('MRRIntegrated.state.scene.attackTargetCount>0',timeout=13000)
+    # VR01I: the target icon only appears on a genuinely native-marked
+    # attack target; aiming itself must not produce a fabricated attack.
+    page.wait_for_function("""() => {
+      const card=[...document.querySelectorAll('#arena .slot.attack-target')]
+        .find(s=>s.querySelector('.board-card .card-ui'));
+      if(!card)return false;
+      const mark=document.querySelector('#vr-public-plaques .vr-public-action[data-slot="'+card.dataset.slot+'"]');
+      return mark?.dataset.state==='target'&&!mark.hidden&&
+        getComputedStyle(mark).pointerEvents==='none';
+    }""",timeout=14000)
     assert snap()==baseline,'Aiming cannot alter the engine'
     page.screenshot(path=str(ROOT/'tests/vr01_attack_target_1920x1080.png'),animations='disabled')
     target=page.evaluate('(key)=>MRRIntegrated.scene.projectCard(key)',opponent)
@@ -367,6 +377,86 @@ try:
       assert layout['visible']>=(16 if w==1920 else 12),(w,h,'too many nameplates hidden',layout)
       assert snap()==dense_native,'Dense DISPLAY fixture must not mutate native Phase21 state'
       page.screenshot(path=str(ROOT/f'tests/vr01_dense_public_{w}x{h}.png'),animations='disabled')
+    # VR01I: controlled PUBLIC DOM-only status transitions. Clone an
+    # already-public card in a synthetic occupied field slot, alter only
+    # its original status-chip or original slot marker, and verify the
+    # dedicated icon follows EXACT native DOM labels without changing G.
+    qa_states=page.evaluate("""() => {
+      const sources=[...document.querySelectorAll('#arena [data-slot]')]
+        .filter(s=>s.querySelector('.board-card[data-vr-stress-clone]'));
+      const cases=[
+        ['acted','행동 완료',null],
+        ['waiting','대기',null],
+        ['ward','보호 2',null],
+        ['selected','', 'selected-slot'],
+        ['target','', 'attack-target'],
+        ['other','완성',null],
+        ['none','',null]
+      ];
+      if(sources.length<cases.length)return {error:'Insufficient public synthetic units'};
+      return cases.map(([kind,txt,cls],i)=>{
+        const slot=sources[i];
+        slot.dataset.vrQaAction=kind;
+        slot.classList.remove('attack-target','selected-slot');
+        slot.querySelector('.board-card .status-chip')?.remove();
+        if(txt){
+          const chip=document.createElement('span');
+          chip.className='status-chip';chip.textContent=txt;
+          slot.querySelector('.board-card').append(chip);
+        }
+        if(cls)slot.classList.add(cls);
+        return {key:slot.dataset.slot,kind,label:txt};
+      });
+    }""")
+    assert isinstance(qa_states,list) and len(qa_states)==7,qa_states
+    page.wait_for_function("""cases => cases.every(({key,kind})=>{
+      const mark=document.querySelector('#vr-public-plaques .vr-public-action[data-slot="'+key+'"]');
+      return kind==='none'?(!mark||mark.hidden):
+        !!(mark&&!mark.hidden&&mark.dataset.state===kind);
+    })""",arg=qa_states,timeout=18000)
+    checked=page.evaluate("""cases=>{
+      const stage=MRRIntegrated.scene,bad=[],boxes=[];
+      for(const c of cases){
+        const mark=document.querySelector('#vr-public-plaques .vr-public-action[data-slot="'+c.key+'"]');
+        if(c.kind==='none'){
+          if(mark&&!mark.hidden)bad.push([c.key,'invented-ready-state']);
+          continue;
+        }
+        const face=stage.projectCardBounds(c.key),box=mark?.getBoundingClientRect();
+        if(!box||!face||box.left<face.left-3||box.right>face.right+3||
+            box.top<face.top-3||box.bottom>face.bottom+3)
+          bad.push([c.key,'outside-face',face,box?.toJSON()]);
+        if(getComputedStyle(mark).pointerEvents!=='none')
+          bad.push([c.key,'blocks-native-raycast']);
+        if(c.label&&mark.title!==c.label)
+          bad.push([c.key,'wrong-public-state',mark.title,c.label]);
+        const combat=document.querySelector(
+          '#vr-public-plaques .vr-public-combat[data-slot="'+c.key+'"]');
+        if(combat&&!combat.hidden){
+          const a=combat.getBoundingClientRect();
+          if(box.left<a.right-1&&box.right>a.left+1&&
+             box.top<a.bottom-1&&box.bottom>a.top+1)
+            bad.push([c.key,'overlaps-attack-health']);
+        }
+        boxes.push([c.key,box]);
+      }
+      for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){
+        const a=boxes[i][1],b=boxes[j][1];
+        if(a.left<b.right-1&&a.right>b.left+1&&
+           a.top<b.bottom-1&&a.bottom>b.top+1)
+          bad.push([boxes[i][0],boxes[j][0],'state-icons-overlap']);
+      }
+      return {checked:cases.length,errors:bad};
+    }""",qa_states)
+    assert checked['checked']==7 and not checked['errors'],checked
+    assert snap()==dense_native,'Status fixtures must never touch Phase21 engine'
+    page.screenshot(path=str(ROOT/'tests/vr01_dense_action_states_1366x768.png'),animations='disabled')
+    page.evaluate("""() => {
+      for(const slot of document.querySelectorAll('[data-vr-qa-action]')){
+        slot.classList.remove('selected-slot','attack-target');
+        slot.removeAttribute('data-vr-qa-action');
+      }
+    }""")
     # A 25th public-only card must reuse all 24 existing 3D card meshes.
     # Otherwise the entire board flashes on every real summon.
     reuse=page.evaluate("""() => {
