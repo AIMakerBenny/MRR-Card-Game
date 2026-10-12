@@ -38,8 +38,8 @@ function buildUI(){
     button('vr-return','2D 보기',closeUI));
   header.append(logo,heroEnemy,tools);ui.append(header);
   const enemyFan=el('div','vr-enemy-fan');enemyFan.id='vr-enemy-fan';enemyFan.setAttribute('aria-label','상대 손패 뒷면');ui.append(enemyFan);
-  const battlefield=el('div','vr-field-ornament');battlefield.append(el('span','vr-zone vr-zone-enemy','상대 진영'),
-    el('span','vr-centerline'),el('span','vr-zone vr-zone-ally','아군 진영'));ui.append(battlefield);
+  // Territorial markings belong to the real Three.js arena, not a floating
+  // flat HTML centerline that drifts away when the user changes camera.
   // Public, world-anchored card identity plaques, not a second card face.
   // The authoritative slot still owns pointer picking and original actions.
   const plaques=el('div','vr-public-plaques');plaques.id='vr-public-plaques';
