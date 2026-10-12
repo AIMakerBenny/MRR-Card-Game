@@ -248,6 +248,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // Phase73: secondary, physically separate golden focus ring on PC only.
   // Render-only mesh: it is deliberately absent from slotPickMeshes.
   const pcFocusGeo=tabletop?geometry(new THREE.TorusGeometry(1.32,.055,8,48)):null;
+  // Occupied-card staging is tied to PUBLIC mesh lifetimes. Empty legal
+  // positions remain an unobstructed physical arena, never thirty boxes.
+  const vrSeatSurface=vrMode?geometry(new THREE.BoxGeometry(2.54,.12,2.64)):null;
+  const vrSeatEdge=vrMode?geometry(new THREE.BoxGeometry(2.66,.035,2.76)):null;
+  const vrSeatBase=vrMode?material({color:0x132c30,metalness:.43,roughness:.59}):null;
+  const vrSeatFriendly=vrMode?material({color:0x7ebbb1,metalness:.48,roughness:.37,
+    emissive:0x174947,emissiveIntensity:.33}):null;
+  const vrSeatEnemy=vrMode?material({color:0xc49a79,metalness:.48,roughness:.39,
+    emissive:0x56342d,emissiveIntensity:.32}):null;
   const cardGeometry=geometry(new THREE.BoxGeometry(tabletop?2.22:2.08,2.84,.22));
   const cardFaceGeometry=geometry(new THREE.PlaneGeometry(tabletop?2.10:1.96,2.71));
   // Phase57: dimensional gilt trims are scenery, not selectable meshes.
@@ -933,7 +942,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const cardChanged=cardsSignature!==signature;
     if(cardChanged){
       signature=cardsSignature;
-      for(const c of cards){scene.remove(c.group);if(c.face.material.map){c.face.material.map.userData.artDisposed=true;c.face.material.map.dispose();}c.face.material.dispose();}
+      for(const c of cards){
+        scene.remove(c.group);if(c.seat)scene.remove(c.seat);
+        if(c.face.material.map){c.face.material.map.userData.artDisposed=true;c.face.material.map.dispose();}
+        c.face.material.dispose();
+      }
       cards=[];madeTextures.length=0;cardIndex=new Map();pickMeshes=slotPickMeshes.slice();
       for(const p of list){
         if(!p.name)continue;
@@ -965,7 +978,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const statusDot=new THREE.Mesh(statusGeo,readyMat);
         statusDot.position.set(1.22,1.67,.26);group.add(statusDot);
         scene.add(group);
-        const item={key:p.key,group,face,frame,slot,hpBg,hpFill,statusDot};
+        let seat=null;
+        if(vrMode){
+          seat=new THREE.Group();
+          seat.position.set(slot.x,.25,slot.z);
+          const rim=new THREE.Mesh(vrSeatEdge,slot.owner===0?vrSeatFriendly:vrSeatEnemy);
+          rim.position.y=-.035;seat.add(rim);
+          const bed=new THREE.Mesh(vrSeatSurface,vrSeatBase);
+          bed.position.y=.017;bed.receiveShadow=true;seat.add(bed);
+          // Position is decorative: card clicks still hit the pre-existing
+          // raycast list and no seat surface is ever part of pickMeshes.
+          scene.add(seat);
+        }
+        const item={key:p.key,group,face,frame,seat,slot,hpBg,hpFill,statusDot};
         cards.push(item);cardIndex.set(p.key,item);
         pickMeshes.push(frame,face);publicCardCount++;
       }
@@ -1165,7 +1190,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(disposed)return;stop();disposed=true;
     for(const fx of liveEffects.splice(0))removeFx(fx);
     recentFx.clear();pendingStrike=null;cinemaImpact=null;impactLamp.intensity=0;
-    for(const c of cards){c.face.material.map.userData.artDisposed=true;c.face.material.map.dispose();c.face.material.dispose();}
+    for(const c of cards){
+      if(c.seat)scene.remove(c.seat);
+      c.face.material.map.userData.artDisposed=true;c.face.material.map.dispose();c.face.material.dispose();
+    }
     cards=[];for(const g of madeGeometry)g.dispose();
     for(const m of madeMaterials)m.dispose();
     for(const t of madeTextures)t.dispose();
@@ -1190,6 +1218,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       realCombatQaRevision:50,nativeCombatEvents:nativeCombatEvents.slice(),
       visualArtRevision:51,pcArtRevision:tabletop?57:0,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
       vrAdaptiveCardScales:vrMode?Object.fromEntries(cards.map(c=>[c.key,Math.round((c.visualScale||1.30)*1000)/1000])):null,
+      vrOccupiedSeats:vrMode?cards.filter(c=>!!c.seat).length:null,
       healthHudRevision:52,healthIndicatorCount,cardHealth:Object.fromEntries(cardHealth),
       previewRevision:53,previewReadyCards:cardIndex.size,
       artworkSlotRevision:tabletop?58:0,
