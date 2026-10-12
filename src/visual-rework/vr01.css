@@ -180,3 +180,8 @@ body.mrr-vr-active #mrr-vr-shell.vr-placing .vr-card-face{
 @media(prefers-reduced-motion:reduce){
  body.mrr-vr-active #mrr-vr-shell .vr-card-face{transition:none!important}
 }
+
+/* The pile icons are compact native-access shortcuts, not fake game mechanics. */
+body.mrr-vr-active #mrr-vr-shell .vr-pile{pointer-events:auto;cursor:pointer;padding:0}
+body.mrr-vr-active #mrr-vr-shell .vr-pile:hover{border-color:#d7c29a;filter:brightness(1.15)}
+body.mrr-vr-active #mrr-vr-shell .vr-provided-art{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}

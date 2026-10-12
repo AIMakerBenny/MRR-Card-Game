@@ -119,6 +119,51 @@ try:
     assert page.locator('#arena').is_visible()
     assert snap()==after,'2D return changed original engine snapshot'
     assert not errors,errors
+
+    # A separate round tests a physical VR hand click, true 3D placement,
+    # then the on-screen VR turn action. All results come from Phase21.
+    placed=False
+    for seed in range(198704,198755):
+      page.goto(url+f'?qa_seed={seed}',wait_until='domcontentloaded')
+      page.locator('#newGame').click()
+      page.locator('#modeSelect').select_option('local')
+      page.locator('#launchGame').click()
+      page.get_by_role('button',name='이 손패로 시작').click()
+      affordable=page.locator('#hand .hand-slot').evaluate_all("""els=>els.map((e,i)=>({
+        i,cost:Number(e.querySelector('.cost-bubble')?.textContent||99),
+        board:/type-(몬스터|시설|영웅유닛)/.test(e.querySelector('.card-ui')?.className||'')
+      })).filter(x=>x.board&&x.cost<=2)""")
+      if not affordable:continue
+      prior=snap()
+      page.locator('#mrr-vr-open').click()
+      page.wait_for_function('MRRVR.status.open && MRRIntegrated.state.scene.frames>3',timeout=45000)
+      assert snap()==prior
+      for candidate in affordable:
+        card=page.locator('#vr-hand .vr-card').nth(candidate['i'])
+        box=card.bounding_box()
+        if not box:continue
+        px=box['x']+box['width']/2
+        py=min(box['y']+box['height']-8,1072)
+        page.mouse.move(px,py)
+        page.wait_for_timeout(280)
+        page.mouse.click(px,py)
+        legal=page.locator('#arena .slot.legal')
+        if not legal.count():continue
+        dest=legal.first.get_attribute('data-slot')
+        projected=page.evaluate('k=>MRRIntegrated.scene.projectSlot(k)',dest)
+        assert projected and 0<projected['x']<1920 and 0<projected['y']<1080
+        page.mouse.click(projected['x'],projected['y'])
+        page.wait_for_function("""key=>!!document.querySelector('#arena [data-slot="'+key+'"] .board-card')""",
+          arg=dest,timeout=15000)
+        assert snap()!=prior,'Real VR hand play did not change the Phase21 engine'
+        page.locator('#vr-end-turn').click()
+        page.wait_for_selector('#passContinue',timeout=12000)
+        placed=True
+        print('VR01 native hand, native 3D slot and on-screen turn end PASS',flush=True)
+        break
+      if placed:break
+      page.locator('#vr-return').evaluate('e=>e.click()')
+    assert placed,'No genuine VR mouse hand placement + turn cycle was verified'
     browser.close()
     print('VR01 PASS: real Phase21 HP damage, 3 desktop viewports, unchanged display-only state and fallback',flush=True)
 finally:

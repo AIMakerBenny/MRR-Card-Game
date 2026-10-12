@@ -30,7 +30,7 @@ function buildUI(){
   const battlefield=el('div','vr-field-ornament');battlefield.append(el('span','vr-zone vr-zone-enemy','상대 진영'),
     el('span','vr-centerline'),el('span','vr-zone vr-zone-ally','아군 진영'));ui.append(battlefield);
   const piles=el('div','vr-pile-display');
-  for(const word of ['DECK','GRAVE','EXILE'])piles.append(el('div','vr-pile',word));
+  for(const word of ['DECK','GRAVE','EXILE']){const token=button('vr-token-'+word.toLowerCase(),word,()=>native('#mrr-integrated-rail'));token.className='vr-pile';piles.append(token);}
   ui.append(piles);
   const footer=el('div','vr-footer');
   const heroAlly=el('div','vr-hero vr-ally');heroAlly.id='vr-ally';
@@ -85,8 +85,11 @@ function updateHand(){
     card.style.setProperty('--angle',((d.i-(n-1)/2)*Math.min(5,22/Math.max(n-1,1)))+'deg');
     card.style.zIndex=String(d.i+2);
     const surface=el('div','vr-card-face');
+    const artwork=el('div','vr-art-blank');
+    const ownerArt=q('.art-well > .mrr-owner-art',src[d.i]);
+    if(ownerArt) {const img=ownerArt.cloneNode(false);img.className='vr-provided-art';artwork.append(img);}
     surface.append(el('span','vr-mana',d.cost||'0'),el('div','vr-name',d.name),
-      el('div','vr-art-blank'),el('div','vr-kind',d.kind||'카드'),el('div','vr-stats',d.stats||''));
+      artwork,el('div','vr-kind',d.kind||'카드'),el('div','vr-stats',d.stats||''));
     card.append(surface);
     card.addEventListener('click',()=>{
       const original=qa('#hand .hand-slot')[d.i];
