@@ -191,7 +191,31 @@ try:
     for w,h in ((1920,1080),(1366,768)):
       page.set_viewport_size({'width':w,'height':h})
       page.mouse.move(4,h//2)
-      page.wait_for_timeout(1300)
+      # The real Phase21 resize may repaint #arena from G, which correctly
+      # discards synthetic DOM clones. Top up the display fixture only AFTER
+      # the responsive repaint; this is not a native game bug.
+      page.wait_for_timeout(800)
+      replenished=page.evaluate("""target => {
+        const cells=[...document.querySelectorAll('#arena .slot[data-slot]')];
+        const template=cells.find(s=>s.querySelector('.board-card'))?.querySelector('.board-card');
+        if(!template)return -1;
+        let current=cells.filter(s=>s.querySelector('.board-card')).length;
+        for(const cell of cells){
+          if(current>=target)break;
+          if(cell.querySelector('.board-card'))continue;
+          const clone=template.cloneNode(true);
+          clone.dataset.vrStressClone='true';
+          cell.append(clone);current++;
+        }
+        MRRIntegrated.scene.sync();
+        return current;
+      }""",count)
+      assert replenished==count,(w,h,'public-only fixture rehydration',replenished,count)
+      page.wait_for_function("""n=>MRRIntegrated.state.scene.cardMeshCount===n &&
+        MRRIntegrated.state.scene.vrOccupiedSeats===n &&
+        document.querySelectorAll('#vr-public-plaques .vr-unit-plaque').length===n""",
+        arg=count,timeout=40000)
+      page.wait_for_timeout(950)
       layout=page.evaluate("""() => {
         const nodes=[...document.querySelectorAll('#vr-public-plaques .vr-unit-plaque')]
           .filter(e=>!e.hidden);
