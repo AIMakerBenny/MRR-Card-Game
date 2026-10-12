@@ -319,6 +319,9 @@ body.mrr-vr-active #mrr-vr-shell .vr-public-action[data-state=target]{
 body.mrr-vr-active #mrr-vr-shell .vr-public-action[data-state=selected]{
  background:#286f63;border-color:#a0e4d5;color:#d8fff3
 }
+body.mrr-vr-active #mrr-vr-shell .vr-public-action[data-state=legal]{
+ background:#246b73;border-color:#8bdfe3;color:#e0fff6
+}
 body.mrr-vr-active #mrr-vr-shell .vr-public-action[data-state=acted]{
  background:#40484e;border-color:#929fa1;color:#c4d0d0
 }
