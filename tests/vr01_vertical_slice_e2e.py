@@ -85,7 +85,13 @@ try:
       visible_public=page.locator('#arena [data-slot] .board-card .card-ui').count()
       plaques=page.locator('#vr-public-plaques .vr-unit-plaque')
       assert plaques.count()==visible_public,(w,h,plaques.count(),visible_public)
+      assert page.evaluate('MRRIntegrated.state.scene.vrOccupiedSeats')==visible_public,(
+        w,h,'Decorative seats must follow public native cards only')
       assert page.locator('#vr-public-plaques').evaluate("e=>getComputedStyle(e).pointerEvents")=='none'
+      assert page.locator('#vr-enemy-fan').evaluate("e=>getComputedStyle(e).pointerEvents")=='none'
+      if page.locator('#vr-enemy-fan .vr-back').count():
+        back=page.locator('#vr-enemy-fan .vr-back').first.bounding_box()
+        assert back and back['y']+back['height']>78,(w,h,'Opponent backs are tiny',back)
       assert not page.evaluate('document.documentElement.scrollWidth>innerWidth+1 || document.documentElement.scrollHeight>innerHeight+1')
       for selector in ('#vr-end-turn','#vr-return'):
         box=page.locator(selector).bounding_box()
@@ -96,6 +102,14 @@ try:
       print('VR01',w,h,'hand',page.locator('#vr-hand .vr-card').count(),
         'enemy backs',page.locator('#vr-enemy-fan .vr-back').count(),flush=True)
     page.set_viewport_size({'width':1920,'height':1080})
+    # Both authentic public units were placed far apart. Each must grow from
+    # original Phase76 idle 1.30 to >1.48 without changing engine state.
+    page.wait_for_function("""() => {
+      const scales=MRRIntegrated.state.scene.vrAdaptiveCardScales||{};
+      return Object.values(scales).length===2 &&
+        Object.values(scales).every(v=>v>1.48);
+    }""",timeout=26000)
+    assert snap()==baseline,'VR-only physical scaling modified game'
     # VR camera buttons change only the Three.js view, not game state.
     for label,preset in [('시점: 아군','ally'),('시점: 상대','enemy'),('시점: 전체','tabletop')]:
       previous_frames=page.evaluate('MRRIntegrated.state.scene.frames')
