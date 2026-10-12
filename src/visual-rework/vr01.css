@@ -155,13 +155,14 @@ body.mrr-vr-active #mrr-integrated-context #mrr-quick-attack{
 body.mrr-vr-active #mrr-vr-shell .vr-card{
  bottom:0!important;width:var(--hit);height:var(--peek);
  transform:translateX(-50%)!important;filter:none!important;
- transition:width .08s ease,height .08s ease;
+ /* Software WebGL may starve CSS height transitions. Keep input hitbox atomic. */
+ transition:none!important;
 }
 body.mrr-vr-active #mrr-vr-shell .vr-card-face{
  position:absolute;left:50%;bottom:calc(-1 * var(--card-h) + var(--peek));
  width:var(--card-w);height:var(--card-h);transform:translateX(-50%) rotate(var(--angle));
  transform-origin:50% 85%;pointer-events:none;
- transition:transform .19s ease,bottom .19s ease;
+ transition:none!important; /* instant reliable expansion during expensive WebGL frames */
  filter:drop-shadow(0 7px 13px #000d);
 }
 body.mrr-vr-active #mrr-vr-shell .vr-card:is(:hover,:focus-visible,.raised){
