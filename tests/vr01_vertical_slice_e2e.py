@@ -194,9 +194,26 @@ try:
         getComputedStyle(mark).pointerEvents==='none';
     }""",timeout=14000)
     assert snap()==baseline,'Aiming cannot alter the engine'
+    # VR01J: all candidate reticles come from truly native legal attack
+    # targets; no arbitrary mouse-location path can imply an attack.
+    guide=page.evaluate("""() => ({
+      expected:[...document.querySelectorAll('#arena .slot.attack-target')]
+        .filter(x=>x.querySelector('.board-card .card-ui')).map(x=>x.dataset.slot).sort(),
+      actual:[...document.querySelectorAll('#vr-guide-targets .vr-target-guide')]
+        .map(x=>x.dataset.slot).sort(),
+      path:document.querySelector('#vr-aim-line')?.getAttribute('d')
+    })""")
+    assert guide['expected'] and guide['expected']==guide['actual'],guide
     page.screenshot(path=str(ROOT/'tests/vr01_attack_target_1920x1080.png'),animations='disabled')
     target=page.evaluate('(key)=>MRRIntegrated.scene.projectCard(key)',opponent)
     assert target and 0<target['x']<1920 and 0<target['y']<1080
+    page.mouse.move(target['x'],target['y'])
+    page.wait_for_function("""key=>MRRIntegrated.state.scene.hoveredKey===key &&
+      document.querySelector('#vr-aim-line')?.dataset.target===key &&
+      !!document.querySelector('#vr-aim-line')?.getAttribute('d')""",
+      arg=opponent,timeout=15000)
+    assert snap()==baseline,'Hovering native aim cue changed game state'
+    page.screenshot(path=str(ROOT/'tests/vr01_attack_lockon_1920x1080.png'),animations='disabled')
     page.mouse.click(target['x'],target['y'])
     page.wait_for_function("""v=>{const [owner,row,col]=v.key.split(':');
       return (G.players[+owner][row][+col]?.hp||0)<v.hp}""",
