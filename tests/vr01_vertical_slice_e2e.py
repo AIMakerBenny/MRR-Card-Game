@@ -262,8 +262,21 @@ try:
           occlusion.push({keys:[a.key,b.key],
             fraction:Math.round(h/Math.min(ra.bottom-ra.top,rb.bottom-rb.top)*1000)/1000});
         }
+        const backs=[...document.querySelectorAll('#vr-enemy-fan .vr-back')]
+          .map(e=>e.getBoundingClientRect());
+        let fanCover=0;
+        for(const card of field){
+          if(card.parts[0]!=='1')continue;
+          const c=card.rect;
+          for(const b of backs){
+            const ox=Math.max(0,Math.min(c.right,b.right)-Math.max(c.left,b.left));
+            const oy=Math.max(0,Math.min(c.bottom,b.bottom)-Math.max(c.top,b.top));
+            fanCover=Math.max(fanCover,ox*oy/Math.max(1,(c.right-c.left)*(c.bottom-c.top)));
+          }
+        }
         const scales=MRRIntegrated.state.scene.vrAdaptiveCardScales||{};
         return {visible:nodes.length,overlap,compact:nodes.filter(e=>e.classList.contains('vr-unit-compact')).length,
+          opponentFanCover:Math.round(fanCover*1000)/1000,
           cards:MRRIntegrated.state.scene.cardMeshCount,
           seats:MRRIntegrated.state.scene.vrOccupiedSeats,
           textures:MRRIntegrated.state.scene.vrLiveCardTextures,
@@ -280,6 +293,7 @@ try:
       assert layout['inspectedSameColumnPairs']>=8,(w,h,'same-column face test was vacuous',layout)
       assert layout['maxRowFaceOcclusion']<=.26,(w,h,'actual public card faces overlap',layout)
       assert layout['autoDistance']>31.4,(w,h,'all-row camera did not expand',layout)
+      assert layout['opponentFanCover']<=.08,(w,h,'opponent hand covers publicly occupied enemy cards',layout)
       assert layout['visible']>=(16 if w==1920 else 12),(w,h,'too many nameplates hidden',layout)
       assert snap()==dense_native,'Dense DISPLAY fixture must not mutate native Phase21 state'
       page.screenshot(path=str(ROOT/f'tests/vr01_dense_public_{w}x{h}.png'),animations='disabled')
