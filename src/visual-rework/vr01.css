@@ -273,3 +273,32 @@ body.mrr-vr-active #mrr-vr-shell.vr-dense-public .vr-unit-plaque .vr-unit-stats{
 body.mrr-vr-active #mrr-vr-shell.vr-dense-public .vr-enemy-fan{
  transform:translateX(-50%) translateY(-38px)
 }
+
+/* VR01H: show the exact publicly rendered CURRENT attack and HP on each
+   real card face, not another row of giant HUD panels. Visual only. */
+body.mrr-vr-active #mrr-vr-shell .vr-public-combat{
+ position:absolute;display:flex;align-items:center;justify-content:space-between;
+ pointer-events:none;z-index:3;--vr-combat-size:20px;
+ height:var(--vr-combat-size);isolation:isolate;
+}
+body.mrr-vr-active #mrr-vr-shell .vr-public-combat[hidden]{display:none!important}
+body.mrr-vr-active #mrr-vr-shell .vr-public-combat>span{
+ display:flex;justify-content:center;align-items:center;
+ width:var(--vr-combat-size);min-width:var(--vr-combat-size);
+ height:var(--vr-combat-size);border-radius:32%;
+ border:1px solid #ead5a3c9;color:#fff7dd;
+ box-shadow:inset 0 1px 2px #fff2,0 2px 3px #000c;
+ text-shadow:0 1px 2px #000;font:800 clamp(10px,1.05vw,14px)/1 Georgia,serif;
+ font-variant-numeric:tabular-nums;
+}
+body.mrr-vr-active #mrr-vr-shell .vr-public-combat .vr-combat-atk{
+ background:linear-gradient(140deg,#826335,#3c2e25);
+ border-color:#d8b277;
+}
+body.mrr-vr-active #mrr-vr-shell .vr-public-combat .vr-combat-hp{
+ background:linear-gradient(140deg,#a8484b,#472326);
+ border-color:#e7a5a0;
+}
+@media(max-width:1500px){
+ body.mrr-vr-active #mrr-vr-shell .vr-public-combat>span{font-size:11px}
+}
