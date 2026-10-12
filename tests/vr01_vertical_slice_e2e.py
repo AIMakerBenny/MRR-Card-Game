@@ -194,6 +194,8 @@ try:
         getComputedStyle(mark).pointerEvents==='none';
     }""",timeout=14000)
     assert snap()==baseline,'Aiming cannot alter the engine'
+    assert page.evaluate('MRRVR.status.nativeOutcomes')==0,(
+      'Starting a speculative attack must not produce a damage result')
     # VR01J: all candidate reticles come from truly native legal attack
     # targets; no arbitrary mouse-location path can imply an attack.
     guide=page.evaluate("""() => ({
@@ -220,6 +222,16 @@ try:
       arg={'key':opponent,'hp':before_hp},timeout=13000)
     after=snap()
     assert after!=baseline
+    # VR01K: ONLY original Phase21 confirmed native FX may render an impact
+    # badge. Merely selecting, aiming or hovering must not create one.
+    page.wait_for_function("""key=>{
+      const state=MRRVR.status;
+      return state.nativeOutcomes>=1&&state.lastOutcome?.key===key&&
+        state.lastOutcome?.type==='hit';
+    }""",arg=opponent,timeout=14000)
+    outcome=page.evaluate('MRRVR.status.lastOutcome')
+    assert outcome['label'] and (outcome['amount'] is None or outcome['amount']>0),outcome
+    page.screenshot(path=str(ROOT/'tests/vr01_native_confirmed_impact_1920x1080.png'),animations='disabled')
     # Native confirmed damage must refresh the badge to the CURRENT public
     # health value. If the native card is destroyed, its badge must disappear.
     page.wait_for_function("""key => {
