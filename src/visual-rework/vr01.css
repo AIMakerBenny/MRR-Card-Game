@@ -267,3 +267,9 @@ body.mrr-vr-active #mrr-vr-shell.vr-dense-public .vr-unit-plaque .vr-unit-name{
  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap
 }
 body.mrr-vr-active #mrr-vr-shell.vr-dense-public .vr-unit-plaque .vr-unit-stats{display:none}
+
+/* VR01G: when the public enemy formation fills all rows, the count-only
+   hand fan lifts into the upper letterbox rather than hiding rear units. */
+body.mrr-vr-active #mrr-vr-shell.vr-dense-public .vr-enemy-fan{
+ transform:translateX(-50%) translateY(-38px)
+}
