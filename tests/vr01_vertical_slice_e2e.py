@@ -193,6 +193,18 @@ try:
       arg={'key':opponent,'hp':before_hp},timeout=13000)
     after=snap()
     assert after!=baseline
+    # Native confirmed damage must refresh the badge to the CURRENT public
+    # health value. If the native card is destroyed, its badge must disappear.
+    page.wait_for_function("""key => {
+      const el=document.querySelector('#arena [data-slot="'+key+'"]');
+      const card=el?.querySelector('.board-card .card-ui');
+      const badge=document.querySelector('#vr-public-plaques .vr-public-combat[data-slot="'+key+'"]');
+      if(!card)return !badge;
+      const span=[...card.querySelectorAll('.card-stats > span')]
+        .find(e=>/^체(?:력)?\\s*\\d+/.test(e.textContent.trim()));
+      const hp=span?.textContent.trim().match(/^체(?:력)?\\s*(\\d+)/);
+      return !!(hp&&badge&&!badge.hidden&&badge.dataset.publicHealth===hp[1]);
+    }""",arg=opponent,timeout=12000)
     if page.locator(f'#arena [data-slot="{opponent}"] .board-card').count():
       page.wait_for_function('MRRIntegrated.state.scene.vrHitReactions>=1',timeout=13000)
     assert page.evaluate('MRRIntegrated.state.scene.vrHitReactions')>=0
