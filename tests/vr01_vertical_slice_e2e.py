@@ -105,6 +105,13 @@ try:
       # Wait for the actual rendered frame, not only the camera setter.
       page.wait_for_function('old=>MRRIntegrated.state.scene.frames>old',arg=previous_frames,timeout=25000)
       assert snap()==baseline,('camera changed engine',preset)
+      if preset in ('ally','enemy'):
+        owner='0' if preset=='ally' else '1'
+        positions=page.evaluate("""owner=>[...document.querySelectorAll('#arena [data-slot^="'+owner+':"]')]
+          .map(el=>MRRIntegrated.scene.projectSlot(el.dataset.slot))""",owner)
+        assert len(positions)==15,(preset,'all native row addresses retained',len(positions))
+        assert all(p and 80<p['x']<1840 and 85<p['y']<970 for p in positions),(
+          preset,'some native card slots clipped by camera',positions)
       page.screenshot(path=str(ROOT/f'tests/vr01_camera_{preset}_1920x1080.png'),animations='disabled')
     xy=page.evaluate('(key)=>MRRIntegrated.scene.projectCard(key)',mine)
     assert xy and 0<xy['x']<1920 and 0<xy['y']<1080,xy
