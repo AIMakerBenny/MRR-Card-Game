@@ -908,6 +908,28 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const r=renderer.domElement.getBoundingClientRect();
     return {x:r.left+(point.x+1)*r.width/2,y:r.top+(1-point.y)*r.height/2};
   }
+  // VR01-D: the public card's four REAL projected face corners. Dynamic
+  // nameplates use these bounds instead of an arbitrary offset from the slot
+  // center, so zoom, card count and camera pitch do not desync the labels.
+  function projectCardBounds(key){
+    if(!vrMode)return null;
+    const item=cardIndex.get(key);
+    if(!item)return null;
+    item.group.updateMatrixWorld(true);
+    const rect=renderer.domElement.getBoundingClientRect();
+    const halfW=1.05,halfH=1.355;
+    const vertices=[[-halfW,-halfH],[halfW,-halfH],
+      [halfW,halfH],[-halfW,halfH]];
+    const pixels=vertices.map(([x,y])=>{
+      const p=item.face.localToWorld(new THREE.Vector3(x,y,.002)).project(camera);
+      return {x:rect.left+(1+p.x)*rect.width/2,
+        y:rect.top+(1-p.y)*rect.height/2};
+    });
+    if(!pixels.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)))return null;
+    const xs=pixels.map(p=>p.x),ys=pixels.map(p=>p.y);
+    return {left:Math.min(...xs),right:Math.max(...xs),
+      top:Math.min(...ys),bottom:Math.max(...ys)};
+  }
   // Phase53: render the exact card-face canvas already shown on the public
   // WebGL mesh. No second artwork catalogue or hidden-game data.
   function getCardPreview(key){
@@ -1206,7 +1228,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     mount.removeEventListener('wheel',wheel);
     renderer.dispose();renderer.domElement.remove();
   }
-  return {start,stop,dispose,resize,resetCamera,setCameraPreset,sync,projectCard,projectSlot,stageAttack,getCardPreview,hasCard,
+  return {start,stop,dispose,resize,resetCamera,setCameraPreset,sync,projectCard,projectCardBounds,projectSlot,stageAttack,getCardPreview,hasCard,
     refreshHover:(key)=>setHover(key,true),
     get state(){return {revision:49,projection:camera.type,frames,slotCount:boardSlots.size,
       publicCardCount,cardMeshCount:cards.length,shadows:renderer.shadowMap.enabled,
