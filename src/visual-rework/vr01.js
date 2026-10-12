@@ -16,7 +16,7 @@ let open=false,busy=false,ui=null,stage=null,observer=null,interval=null,schedul
 let tacticalCamera='tabletop';
 const nativeCardLabels=new Map(),nativeStatBadges=new Map(),nativeActionMarks=new Map();
 let nativeHpSnapshot=new Map(),recentHpChanges=new Map(),lastCombatTime=null,vrOutcomeCount=0,lastOutcome=null;
-const outcomeNodes=[];
+const outcomeNodes=[],outcomeHistory=[];
 const button=(id,txt,fn)=>{const e=el('button','vr-btn',txt);e.id=id;e.type='button';e.onclick=fn;return e;};
 function buildUI(){
   ui=el('section','vr-shell');ui.id='mrr-vr-shell';ui.setAttribute('aria-label','3D 카드게임 통합 화면');
@@ -380,6 +380,7 @@ function reconcileConfirmedOutcomes(){
     if(matchMedia('(prefers-reduced-motion: reduce)').matches)node.classList.add('vr-no-motion');
     host.append(node);outcomeNodes.push({node,at:now});
     lastOutcome={key:event.key,type:event.type,amount:exact?Math.abs(diff):null,label:msg};
+    outcomeHistory.push(lastOutcome);if(outcomeHistory.length>16)outcomeHistory.shift();
     vrOutcomeCount++;
   }
   lastCombatTime=Math.max(lastCombatTime,...events.map(x=>x.at||0));
@@ -419,7 +420,7 @@ function cleanup(){
  if(scheduled)cancelAnimationFrame(scheduled);scheduled=0;
  stage?.removeEventListener('pointermove',updateAim);ui?.remove();ui=stage=null;
  handSignature='';backCount=-1;tacticalCamera='tabletop';nativeCardLabels.clear();nativeStatBadges.clear();nativeActionMarks.clear();
-  nativeHpSnapshot.clear();recentHpChanges.clear();lastCombatTime=null;vrOutcomeCount=0;lastOutcome=null;outcomeNodes.length=0;
+  nativeHpSnapshot.clear();recentHpChanges.clear();lastCombatTime=null;vrOutcomeCount=0;lastOutcome=null;outcomeNodes.length=0;outcomeHistory.length=0;
 }
 function closeUI(){
  open=false;busy=false;cleanup();
@@ -457,5 +458,5 @@ window.addEventListener('beforeunload',cleanup);
 window.MRRVR={open:openUI,close:closeUI,get status(){
  return {open,hand:q('#vr-hand',ui||document)?.childElementCount||0,
   enemyBacks:q('#vr-enemy-fan',ui||document)?.childElementCount||0,
-  integrated:!!window.MRRIntegrated?.state.open,nativeOutcomes:vrOutcomeCount,lastOutcome};}};
+  integrated:!!window.MRRIntegrated?.state.open,nativeOutcomes:vrOutcomeCount,lastOutcome,outcomeHistory:outcomeHistory.slice()};}};
 })();
