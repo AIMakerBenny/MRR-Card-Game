@@ -81,6 +81,7 @@ function updateHand(){
     const card=el('button','vr-card');card.type='button';
     card.setAttribute('aria-label',d.name+' 손패 선택');card.dataset.index=String(d.i);
     card.style.setProperty('--x',((d.i-(n-1)/2)*step)+'px');
+    card.style.setProperty('--hit',step+'px');
     card.style.setProperty('--angle',((d.i-(n-1)/2)*Math.min(5,22/Math.max(n-1,1)))+'deg');
     card.style.zIndex=String(d.i+2);
     const surface=el('div','vr-card-face');
