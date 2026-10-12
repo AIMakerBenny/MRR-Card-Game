@@ -1108,14 +1108,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     for(const [i,c] of cards.entries()){
       const hover=c.key===hoveredKey;
       if(tabletop){
-        // Phase67: physical cards must read like cards, not miniatures on an
-        // oversized app canvas. Smoothly elevate only the focused card.
-        // 3.37 world units separate adjacent columns: the 2.22-wide idle
-        // card at 1.30 scale is 2.886 units, with physical air between cards.
-        const targetScale=hover?1.52:c.key===selectedKey?1.35:1.30;
+        // VR01-C: an occupied card gets larger when it has actual physical
+        // room. Dense battles retain a non-overlapping normal scale; lone
+        // cards must not look like thumbnails in a nearly empty arena.
+        // Only publicly rendered slot coordinates are considered.
+        const near=vrMode&&cards.some(other=>other!==c&&
+          Math.abs(other.slot.x-c.slot.x)<3.42&&
+          Math.abs(other.slot.z-c.slot.z)<2.94);
+        const adaptive=vrMode&&cameraPreset==='tabletop'?(near?1.42:1.61):1.30;
+        const targetScale=vrMode?adaptive+(hover?.25:c.key===selectedKey?.12:0):
+          hover?1.52:c.key===selectedKey?1.35:1.30;
         const targetLift=hover?.86:c.key===selectedKey?.18:0;
-        // Elapsed-time easing, not per-frame easing: low FPS Chromium/WebGL
-        // must not leave enlarged cards stranded for seconds after pointer exit.
+        // Time-based smoothing stays stable on low-FPS software WebGL.
         const blend=frozen?1:1-Math.exp(-visualDelta/115);
         c.visualScale=(c.visualScale??1.30)+(targetScale-(c.visualScale??1.30))*blend;
         c.visualLift=(c.visualLift??0)+(targetLift-(c.visualLift??0))*blend;
@@ -1185,6 +1189,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       realCombatQaRevision:50,nativeCombatEvents:nativeCombatEvents.slice(),
       visualArtRevision:51,pcArtRevision:tabletop?57:0,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
+      vrAdaptiveCardScales:vrMode?Object.fromEntries(cards.map(c=>[c.key,Math.round((c.visualScale||1.30)*1000)/1000])):null,
       healthHudRevision:52,healthIndicatorCount,cardHealth:Object.fromEntries(cardHealth),
       previewRevision:53,previewReadyCards:cardIndex.size,
       artworkSlotRevision:tabletop?58:0,
