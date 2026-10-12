@@ -13,6 +13,8 @@ const clean=v=>String(v||'').replace(/\s+/g,' ').trim();
 const native=selector=>{const n=q(selector);if(!n||n.disabled)return false;n.click();return true;};
 const entry=el('button','','VR01 새 게임 화면');entry.id='mrr-vr-open';entry.type='button';bar.append(entry);
 let open=false,busy=false,ui=null,stage=null,observer=null,interval=null,scheduled=0,handSignature='',backCount=-1;
+let tacticalCamera='tabletop';
+const nativeCardLabels=new Map();
 const button=(id,txt,fn)=>{const e=el('button','vr-btn',txt);e.id=id;e.type='button';e.onclick=fn;return e;};
 function buildUI(){
   ui=el('section','vr-shell');ui.id='mrr-vr-shell';ui.setAttribute('aria-label','3D 카드게임 통합 화면');
@@ -24,11 +26,25 @@ function buildUI(){
   const tools=el('div','vr-tools');tools.append(
     button('vr-piles','덱 · 묘지',()=>native('#mrr-integrated-rail')),
     button('vr-inspector','카드 상세',()=>native('#mrr-integrated-inspector')),
+    button('vr-camera','시점: 전체',()=>{
+      const views=['tabletop','ally','enemy'];
+      const labels=['시점: 전체','시점: 아군','시점: 상대'];
+      const next=(views.indexOf(tacticalCamera)+1)%views.length;
+      const scene=window.MRRIntegrated?.scene;
+      if(scene?.setCameraPreset(views[next])){
+        tacticalCamera=views[next];q('#vr-camera',ui).textContent=labels[next];schedule();
+      }
+    }),
     button('vr-return','2D 보기',closeUI));
   header.append(logo,heroEnemy,tools);ui.append(header);
   const enemyFan=el('div','vr-enemy-fan');enemyFan.id='vr-enemy-fan';enemyFan.setAttribute('aria-label','상대 손패 뒷면');ui.append(enemyFan);
   const battlefield=el('div','vr-field-ornament');battlefield.append(el('span','vr-zone vr-zone-enemy','상대 진영'),
     el('span','vr-centerline'),el('span','vr-zone vr-zone-ally','아군 진영'));ui.append(battlefield);
+  // Public, world-anchored card identity plaques, not a second card face.
+  // The authoritative slot still owns pointer picking and original actions.
+  const plaques=el('div','vr-public-plaques');plaques.id='vr-public-plaques';
+  plaques.setAttribute('aria-label','공개 전장 카드 이름과 능력치');
+  ui.append(plaques);
   const piles=el('div','vr-pile-display');
   for(const word of ['DECK','GRAVE','EXILE']){const token=button('vr-token-'+word.toLowerCase(),word,()=>native('#mrr-integrated-rail'));token.className='vr-pile';piles.append(token);}
   ui.append(piles);
@@ -102,9 +118,43 @@ function updateHand(){
   }
   fan.dataset.count=String(n);
 }
+function updatePublicPlaques(){
+  const host=q('#vr-public-plaques',ui),scene=window.MRRIntegrated?.scene;
+  if(!host||!scene||!stage)return;
+  const bounds=stage.getBoundingClientRect(),seen=new Set();
+  for(const slot of qa('#arena [data-slot]')){
+    const card=q('.board-card .card-ui',slot);
+    if(!card)continue;
+    const key=slot.getAttribute('data-slot'),point=scene.projectCard(key);
+    if(!point)continue;
+    seen.add(key);
+    let plaque=nativeCardLabels.get(key);
+    if(!plaque){
+      plaque=el('div','vr-unit-plaque');plaque.setAttribute('data-slot',key);
+      plaque.append(el('strong','vr-unit-name'),el('small','vr-unit-stats'));
+      host.append(plaque);nativeCardLabels.set(key,plaque);
+    }
+    const name=clean(q('.card-name',card)?.textContent)||'공개 카드';
+    const stats=clean(q('.card-stats',card)?.textContent);
+    const nameEl=q('.vr-unit-name',plaque),statsEl=q('.vr-unit-stats',plaque);
+    if(nameEl.textContent!==name)nameEl.textContent=name;
+    if(statsEl.textContent!==stats)statsEl.textContent=stats;
+    plaque.classList.toggle('vr-enemy-unit',key.startsWith('1:'));
+    plaque.classList.toggle('vr-selected-unit',slot.classList.contains('selected-slot'));
+    plaque.classList.toggle('vr-target-unit',slot.classList.contains('attack-target'));
+    const x=point.x-bounds.left,y=point.y-bounds.top;
+    plaque.style.left=x.toFixed(1)+'px';
+    // Do not cover the card art or its physical hit mesh.
+    plaque.style.top=(y+Math.min(104,Math.max(54,bounds.height*.083))).toFixed(1)+'px';
+    plaque.hidden=x<70||x>bounds.width-70||y<88||y>bounds.height-105;
+  }
+  for(const [key,plaque] of nativeCardLabels){
+    if(seen.has(key))continue;plaque.remove();nativeCardLabels.delete(key);
+  }
+}
 function refresh(){
  if(!open||!ui)return;
- updateHand();updateBacks();
+ updateHand();updateBacks();updatePublicPlaques();
  for(const [sel,portrait,mana,fallback] of [
    ['#vr-ally','#myPortrait','#myMana','아군'],
    ['#vr-enemy','#enemyPortrait','#enemyMana','상대']]){
@@ -131,7 +181,7 @@ function cleanup(){
  observer?.disconnect();observer=null;clearInterval(interval);interval=null;
  if(scheduled)cancelAnimationFrame(scheduled);scheduled=0;
  stage?.removeEventListener('pointermove',updateAim);ui?.remove();ui=stage=null;
- handSignature='';backCount=-1;
+ handSignature='';backCount=-1;tacticalCamera='tabletop';nativeCardLabels.clear();
 }
 function closeUI(){
  open=false;busy=false;cleanup();
