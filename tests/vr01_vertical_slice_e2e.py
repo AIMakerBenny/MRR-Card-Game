@@ -159,6 +159,13 @@ try:
         py=min(box['y']+box['height']-8,1072)
         page.mouse.move(px,py)
         page.wait_for_timeout(280)
+        # All other hand cards must remain present and the hovered card must
+        # physically rise into the viewport without modifying game state.
+        assert page.locator('#vr-hand .vr-card').count()==page.locator('#hand .hand-slot').count()
+        assert page.locator('#vr-hand .vr-card').nth(candidate['i']).evaluate(
+          "e=>e.getBoundingClientRect().height>250")
+        assert snap()==prior
+        page.screenshot(path=str(ROOT/'tests/vr01_hand_hover_1920x1080.png'),animations='disabled')
         page.mouse.click(px,py)
         legal=page.locator('#arena .slot.legal')
         if not legal.count():continue
