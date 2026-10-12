@@ -240,13 +240,30 @@ try:
       assert layout['visible']>=(16 if w==1920 else 12),(w,h,'too many nameplates hidden',layout)
       assert snap()==dense_native,'Dense DISPLAY fixture must not mutate native Phase21 state'
       page.screenshot(path=str(ROOT/f'tests/vr01_dense_public_{w}x{h}.png'),animations='disabled')
+    # A 25th public-only card must reuse all 24 existing 3D card meshes.
+    # Otherwise the entire board flashes on every real summon.
+    reuse=page.evaluate("""() => {
+      const cell=[...document.querySelectorAll('#arena .slot[data-slot]')]
+        .find(s=>!s.querySelector('.board-card'));
+      const real=document.querySelector('#arena .board-card:not([data-vr-stress-clone])');
+      if(!cell||!real)return {error:'Missing source or target public DOM'};
+      const clone=real.cloneNode(true);
+      clone.dataset.vrStressClone='true';cell.append(clone);
+      MRRIntegrated.scene.sync();
+      return {total:MRRIntegrated.state.scene.cardMeshCount,
+        reused:MRRIntegrated.state.scene.vrReusedCards,
+        animationCount:MRRIntegrated.state.scene.vrDeployTransitions};
+    }""")
+    assert reuse['total']==count+1 and reuse['reused']==count,reuse
+    assert reuse['animationCount']==0,'Synthetic DOM should not animate like a real hand play'
+    assert snap()==dense_native,'Public-only card re-use changed Phase21 engine'
     removed=page.evaluate("""() => {
       const clones=[...document.querySelectorAll('[data-vr-stress-clone]')];
       clones.forEach(e=>e.remove());
       MRRIntegrated.scene.sync();
       return clones.length;
     }""")
-    assert removed==22,removed
+    assert removed==23,removed
     page.wait_for_function("""n=>MRRIntegrated.state.scene.cardMeshCount===n &&
       MRRIntegrated.state.scene.vrOccupiedSeats===n""",arg=stress['originals'],timeout=30000)
     assert snap()==dense_native,'Removing display-only stress fixture changed engine'
@@ -312,6 +329,13 @@ try:
         page.wait_for_function("""key=>!!document.querySelector('#arena [data-slot="'+key+'"] .board-card')""",
           arg=dest,timeout=15000)
         assert snap()!=prior,'Real VR hand play did not change the Phase21 engine'
+        # A true native confirmation, not the hand click itself, must start
+        # exactly one Three.js arrival and then land with no stuck ghost.
+        page.wait_for_function("""() => MRRIntegrated.state.scene.vrDeployTransitions>=1""",timeout=22000)
+        page.wait_for_function("""() => MRRIntegrated.state.scene.vrDeployActive===0""",timeout=27000)
+        assert page.evaluate('MRRIntegrated.state.scene.vrDeployTransitions')==1
+        assert page.evaluate('MRRIntegrated.state.scene.vrOccupiedSeats')>=1
+        page.screenshot(path=str(ROOT/'tests/vr01_native_deploy_landed_1920x1080.png'),animations='disabled')
         page.locator('#vr-end-turn').click()
         page.wait_for_selector('#passContinue',timeout=12000)
         placed=True
