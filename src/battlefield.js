@@ -725,6 +725,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const impactLamp=new THREE.PointLight(0xffffff,0,17,2);
   impactLamp.position.set(0,2,0);scene.add(impactLamp);
   let pendingStrike=null,cinemaImpact=null,confirmedStrikes=0,cinematicFrameCount=0;
+  let vrHitReactions=0,vrLandingDustStarted=0;
+  const vrLandingDust=[];
   let latestCombat=null;
   const nativeCombatEvents=[];
   function stageAttack(sourceKey,targetKey){
@@ -813,6 +815,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     beacon.position.y=1.2;group.add(beacon);
     scene.add(group);
     cinematicLight(type,key,now);
+    // VR01F: a card visibly recoils ONLY after the original game actually
+    // emits fx-hit, never on mouse hover, speculative click or targeting.
+    // The original Phase76 3D presentation is untouched.
+    if(vrMode&&type==='hit'){
+      const victim=cardIndex.get(key);
+      if(victim&&!victim.deploy){
+        const from=pendingStrike?.targetKey===key?boardSlots.get(pendingStrike.sourceKey):null;
+        const dx=spot.x-(from?.x??spot.x+.4),dz=spot.z-(from?.z??spot.z+1);
+        const length=Math.hypot(dx,dz)||1;
+        victim.hitReaction={born:now,dx:dx/length,dz:dz/length};
+        vrHitReactions++;
+      }
+    }
     // Attack vectors originate from the player's actual delegated selection.
     // The beam is committed only when the original engine emits fx-hit.
     const strike=type==='hit'&&pendingStrike?.targetKey===key &&
@@ -858,6 +873,43 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   function removeFx(fx){
     scene.remove(fx.group);
     for(const res of fx.resources)res.dispose();
+  }
+  // Ground-contact dust is triggered only after a confirmed Phase21 hand
+  // placement actually FINISHES its 3D arrival. Not a second summon event.
+  // No rings, click surfaces or extra canvas textures.
+  function spawnVrLandingDust(slot,at){
+    if(!vrMode||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    const count=18,coords=new Float32Array(count*3),velocity=new Float32Array(count*3);
+    for(let i=0;i<count;i++){
+      const angle=i*2.399963229728653,spread=.45+(i%5)*.085;
+      velocity[i*3]=Math.cos(angle)*spread*2.6;
+      velocity[i*3+1]=.45+(i%4)*.16;
+      velocity[i*3+2]=Math.sin(angle)*spread*2.6;
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(coords,3));
+    const mat=new THREE.PointsMaterial({color:slot.owner===0?0x9fc4b9:0xc0a18b,
+      size:.14,transparent:true,opacity:.68,depthWrite:false,sizeAttenuation:true});
+    const points=new THREE.Points(geo,mat);
+    points.position.set(slot.x,.35,slot.z);scene.add(points);
+    vrLandingDust.push({points,geo,mat,velocity,born:at,life:520});
+    vrLandingDustStarted++;
+  }
+  function advanceVrLandingDust(now){
+    for(let i=vrLandingDust.length-1;i>=0;i--){
+      const f=vrLandingDust[i],p=Math.max(0,(now-f.born)/f.life);
+      if(p>=1){
+        scene.remove(f.points);f.geo.dispose();f.mat.dispose();vrLandingDust.splice(i,1);continue;
+      }
+      const pos=f.geo.attributes.position;
+      for(let j=0;j<f.velocity.length/3;j++){
+        const k=j*3;
+        pos.setXYZ(j,f.velocity[k]*p,
+          f.velocity[k+1]*p-.35*p*p,
+          f.velocity[k+2]*p);
+      }
+      pos.needsUpdate=true;f.mat.opacity=Math.pow(1-p,1.6)*.68;
+    }
   }
   function advanceEffects(now){
     for(let i=liveEffects.length-1;i>=0;i--){
@@ -1259,10 +1311,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
             c.frame.userData.mrrDeploying=c.face.userData.mrrDeploying=false;
             c.group.rotation.set(-.74,0,0);
             if(c.seat)c.seat.scale.setScalar(1);
+            spawnVrLandingDust(c.slot,time);
           }
         }else{
           c.group.scale.setScalar(c.visualScale);
           c.group.position.y=1.76+c.visualLift+(frozen?0:Math.sin(time*.0015+i*.67)*.025);
+          if(vrMode){
+            const impact=c.hitReaction;
+            const age=impact?(time-impact.born)/390:1;
+            if(impact&&age>=1)c.hitReaction=null;
+            const recoil=impact&&age<1?Math.sin(Math.PI*Math.max(0,age))*(1-Math.max(0,age)*.35):0;
+            c.group.position.x=c.slot.x+(impact?.dx||0)*recoil*.34;
+            c.group.position.z=c.slot.z+(impact?.dz||0)*recoil*.34;
+            c.group.rotation.z=(impact?.dx||0)*recoil*.10;
+          }
         }
       }else{
         // Keep the existing standalone battlefield presentation unchanged.
@@ -1271,6 +1333,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     advanceEffects(time);
+    if(vrMode)advanceVrLandingDust(time);
     advanceCinematics(time);
     renderer.render(scene,camera);frames++;
   }
@@ -1303,6 +1366,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   function dispose(){
     if(disposed)return;stop();disposed=true;
     for(const fx of liveEffects.splice(0))removeFx(fx);
+    for(const f of vrLandingDust.splice(0)){scene.remove(f.points);f.geo.dispose();f.mat.dispose();}
     recentFx.clear();pendingStrike=null;cinemaImpact=null;impactLamp.intensity=0;
     for(const c of cards){
       if(c.seat)scene.remove(c.seat);
@@ -1337,6 +1401,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrReusedCards:vrMode?vrReusedCards:null,vrDeployTransitions:vrMode?vrDeployTransitions:null,
       vrDeployActive:vrMode?cards.filter(c=>!!c.deploy).length:null,
       vrLiveCardTextures:vrMode?madeTextures.length:null,
+      vrLandingDustStarted:vrMode?vrLandingDustStarted:null,
+      vrLandingDustActive:vrMode?vrLandingDust.length:null,
+      vrHitReactions:vrMode?vrHitReactions:null,
+      vrActiveHitReactions:vrMode?cards.filter(c=>!!c.hitReaction).length:null,
       healthHudRevision:52,healthIndicatorCount,cardHealth:Object.fromEntries(cardHealth),
       previewRevision:53,previewReadyCards:cardIndex.size,
       artworkSlotRevision:tabletop?58:0,
