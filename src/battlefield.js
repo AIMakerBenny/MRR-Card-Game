@@ -1247,10 +1247,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           c.group.rotation.x=.16+(-.74-.16)*ease;
           c.group.rotation.z=(1-ease)*.13;
           c.group.scale.setScalar(c.visualScale*(.66+.34*ease));
+          if(c.seat)c.seat.scale.setScalar(.72+.28*ease);
           if(raw>=1){
             c.deploy=null;
             c.frame.userData.mrrDeploying=c.face.userData.mrrDeploying=false;
             c.group.rotation.set(-.74,0,0);
+            if(c.seat)c.seat.scale.setScalar(1);
           }
         }else{
           c.group.scale.setScalar(c.visualScale);
