@@ -1082,6 +1082,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(!force)sync();
   }
   let yaw=0,pitch=.77,distance=29,focusX=0,focusZ=0,cameraPreset='all',focusKey=null;
+  // The player always wins control: density-aware camera framing runs only
+  // while using the untouched automatic tabletop preset.
+  let manualCamera=false;
   let drag=false,moved=false,lastX=0,lastY=0,startX=0,startY=0;
   function updateCamera(){
     const aspect=mount.clientWidth/Math.max(1,mount.clientHeight);
@@ -1105,6 +1108,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(moved){
       yaw=Math.max(-.8,Math.min(.8,yaw+(e.clientX-lastX)*.004));
       pitch=Math.max(.42,Math.min(1.28,pitch+(e.clientY-lastY)*.003));
+      manualCamera=true;
       updateCamera();setHover(null);
     }
     lastX=e.clientX;lastY=e.clientY;
@@ -1117,7 +1121,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     setHover(picked);
   }
   function leave(){if(!drag)setHover(null);}
-  function wheel(e){e.preventDefault();distance=Math.max(24,Math.min(47,distance+e.deltaY*.018));updateCamera();setHover(null);}
+  function wheel(e){e.preventDefault();manualCamera=true;distance=Math.max(24,Math.min(47,distance+e.deltaY*.018));updateCamera();setHover(null);}
   mount.addEventListener('pointerdown',down);
   mount.addEventListener('pointermove',move);
   mount.addEventListener('pointerup',up);
@@ -1142,6 +1146,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     lastVisualTime=time;
     if(time-lastSync>220){lastSync=time;sync();}
     const frozen=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(vrMode&&cameraPreset==='tabletop'&&!manualCamera){
+      // Twenty-four cards must feel like a compact strategy battlefield,
+      // not vertically stacked panels. A gentler top-down angle exposes
+      // both the real card faces and all six legal rows. Never alter a
+      // manually dragged or wheeled camera.
+      const desired=cards.length>=16?1.30:cards.length>=9?1.225:1.17;
+      const alpha=frozen?1:1-Math.exp(-visualDelta/330);
+      const next=pitch+(desired-pitch)*alpha;
+      if(Math.abs(next-pitch)>.0002){pitch=next;updateCamera();}
+    }
     if(!frozen)sealCore.rotation.y=time*.00035;
     // Phase72: decorative slot halos never enter raycast target meshes.
     if(tabletop)for(const [key,slot] of boardSlots){
@@ -1193,7 +1207,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(preset==='selected'&&!target)return false;
     if(!['all','ally','enemy','selected','tabletop'].includes(preset))return false;
     if(preset==='tabletop'&&!tabletop)return false;
-    yaw=0;
+    yaw=0;manualCamera=false;
     pitch=vrMode&&['ally','enemy'].includes(preset)?1.12:
       preset==='tabletop'?1.17:preset==='selected'?.64:preset==='all'?.77:.67;
     focusKey=target;cameraPreset=preset;
@@ -1233,6 +1247,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     get state(){return {revision:49,projection:camera.type,frames,slotCount:boardSlots.size,
       publicCardCount,cardMeshCount:cards.length,shadows:renderer.shadowMap.enabled,
       rendererAlive:renderer.domElement.isConnected,yaw,pitch,distance,
+      vrCameraAuto:vrMode?!manualCamera:null,
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
       nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,peakLiveFxCount,
       fxSources:'native-slot-classes',cinematicRevision:49,
