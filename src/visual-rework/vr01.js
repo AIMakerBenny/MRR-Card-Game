@@ -71,7 +71,7 @@ function updateHand(){
   const src=qa('#hand .hand-slot');
   const hand=src.map((slot,i)=>{
     const c=q('.card-ui',slot),t=s=>clean(q(s,c||slot)?.textContent);
-    return {i,name:t('.card-name')||'카드',cost:t('.cost-bubble'),kind:t('.card-kind'),stats:t('.card-stats')};
+    return {i,name:t('.card-name')||'카드',cost:t('.cost-bubble'),kind:t('.card-kind'),summary:t('.card-summary'),stats:t('.card-stats')};
   });
   const signature=JSON.stringify(hand);if(handSignature===signature)return;
   handSignature=signature;const fan=q('#vr-hand',ui);fan.replaceChildren();
@@ -89,7 +89,7 @@ function updateHand(){
     const ownerArt=q('.art-well > .mrr-owner-art',src[d.i]);
     if(ownerArt) {const img=ownerArt.cloneNode(false);img.className='vr-provided-art';artwork.append(img);}
     surface.append(el('span','vr-mana',d.cost||'0'),el('div','vr-name',d.name),
-      artwork,el('div','vr-kind',d.kind||'카드'),el('div','vr-stats',d.stats||''));
+      artwork,el('div','vr-kind',d.kind||'카드'),el('div','vr-rules',d.summary||''),el('div','vr-stats',d.stats||''));
     card.append(surface);
     card.addEventListener('click',()=>{
       const original=qa('#hand .hand-slot')[d.i];
