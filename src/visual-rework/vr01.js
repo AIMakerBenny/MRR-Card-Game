@@ -120,19 +120,33 @@ function updateHand(){
 }
 function updatePublicPlaques(){
   const host=q('#vr-public-plaques',ui),scene=window.MRRIntegrated?.scene;
-  if(!host||!scene||!stage)return;
+  if(!host||!scene?.projectCardBounds||!stage)return;
   const bounds=stage.getBoundingClientRect(),seen=new Set();
+  const selected=scene.state?.selectedKey,hovered=scene.state?.hoveredKey;
   const projected=qa('#arena [data-slot]').map(slot=>{
     const card=q('.board-card .card-ui',slot);
     if(!card)return null;
-    const key=slot.getAttribute('data-slot'),point=scene.projectCard(key);
-    return point?{slot,card,key,point,lane:key.slice(0,key.lastIndexOf(':'))}:null;
+    const key=slot.getAttribute('data-slot'),rect=scene.projectCardBounds(key);
+    if(!rect)return null;
+    return {slot,card,key,rect,lane:key.slice(0,key.lastIndexOf(':')),
+      cx:(rect.left+rect.right)/2-bounds.left,
+      top:rect.top-bounds.top,bottom:rect.bottom-bounds.top,
+      priority:key===selected?0:slot.classList.contains('attack-target')?1:
+        key===hovered?2:3};
   }).filter(Boolean);
-  for(const {slot,card,key,point,lane} of projected){
+  // Put native-targeted cards first, then work back-to-front. These labels
+  // are display-only and never change source slot order or hit locations.
+  projected.sort((a,b)=>a.priority-b.priority||a.top-b.top||a.cx-b.cx);
+  const reserved=[];
+  const overlaps=(a,b)=>a.x<b.x+b.w+4&&a.x+a.w+4>b.x&&
+    a.y<b.y+b.h+3&&a.y+a.h+3>b.y;
+  for(const p of projected){
+    const {slot,card,key,lane,cx,top,bottom}=p;
     seen.add(key);
     let plaque=nativeCardLabels.get(key);
     if(!plaque){
-      plaque=el('div','vr-unit-plaque');plaque.setAttribute('data-slot',key);
+      plaque=el('div','vr-unit-plaque');
+      plaque.setAttribute('data-slot',key);
       plaque.append(el('strong','vr-unit-name'),el('small','vr-unit-stats'));
       host.append(plaque);nativeCardLabels.set(key,plaque);
     }
@@ -141,25 +155,48 @@ function updatePublicPlaques(){
     const nameEl=q('.vr-unit-name',plaque),statsEl=q('.vr-unit-stats',plaque);
     if(nameEl.textContent!==name)nameEl.textContent=name;
     if(statsEl.textContent!==stats)statsEl.textContent=stats;
+    plaque.title=[name,stats].filter(Boolean).join(' · ');
     plaque.classList.toggle('vr-enemy-unit',key.startsWith('1:'));
-    plaque.classList.toggle('vr-selected-unit',slot.classList.contains('selected-slot'));
+    plaque.classList.toggle('vr-selected-unit',key===selected);
     plaque.classList.toggle('vr-target-unit',slot.classList.contains('attack-target'));
-    const x=point.x-bounds.left,y=point.y-bounds.top;
-    // Real 3D perspective compresses adjacent occupied columns unevenly.
-    // Base the width on the nearest public nameplate in the SAME lane.
-    const occupiedGap=Math.min(Infinity,...projected.filter(p=>p.key!==key&&p.lane===lane)
-      .map(p=>Math.abs(point.x-p.point.x)));
-    const maximum=bounds.width<1500?117:166;
-    const width=Number.isFinite(occupiedGap)?
-      Math.max(62,Math.min(maximum,occupiedGap-12)):maximum;
-    plaque.style.width=width.toFixed(1)+'px';
-    plaque.style.left=x.toFixed(1)+'px';
-    // Do not cover the card art or its physical hit mesh.
-    plaque.style.top=(y+Math.min(104,Math.max(54,bounds.height*.083))).toFixed(1)+'px';
-    plaque.hidden=x<70||x>bounds.width-70||y<88||y>bounds.height-105;
+    const gap=Math.min(Infinity,...projected.filter(other=>other.key!==key&&other.lane===lane)
+      .map(other=>Math.abs(other.cx-cx)));
+    const wide=bounds.width<1500?117:166;
+    // The visible label cannot be wider than the actual gap in its 3D row.
+    const desired=Number.isFinite(gap)?Math.min(wide,gap-10):wide;
+    const sizes=[Math.max(76,desired),72,58];
+    const marginX=bounds.width<1500?61:72;
+    const yMin=100,yMax=bounds.height-94;
+    let solution=null,compact=false;
+    for(const width of sizes){
+      const isCompact=width<98,height=isCompact?25:41;
+      const offsets=[
+        [0,bottom+8],[0,top-height-8],
+        [0,bottom+height+15],[0,top-height*2-16],
+        [0,bottom+height*2+22],
+        [-width*.65,bottom+8],[width*.65,bottom+8],
+        [-width*.65,top-height-8],[width*.65,top-height-8]
+      ];
+      for(const [shift,cy] of offsets){
+        const x=cx+shift-width/2,y=cy;
+        const r={x,y,w:width,h:height};
+        if(x<marginX||x+width>bounds.width-marginX||y<yMin||y+height>yMax)continue;
+        if(reserved.some(old=>overlaps(r,old)))continue;
+        solution=r;compact=isCompact;break;
+      }
+      if(solution)break;
+    }
+    plaque.hidden=!solution;
+    if(!solution)continue;
+    plaque.classList.toggle('vr-unit-compact',compact);
+    plaque.style.width=solution.w.toFixed(1)+'px';
+    plaque.style.left=(solution.x+solution.w/2).toFixed(1)+'px';
+    plaque.style.top=solution.y.toFixed(1)+'px';
+    reserved.push(solution);
   }
   for(const [key,plaque] of nativeCardLabels){
-    if(seen.has(key))continue;plaque.remove();nativeCardLabels.delete(key);
+    if(seen.has(key))continue;
+    plaque.remove();nativeCardLabels.delete(key);
   }
 }
 function refresh(){
