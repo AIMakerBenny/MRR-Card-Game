@@ -37,7 +37,7 @@ body.mrr-vr-active #mrr-integrated-context #mrr-quick-attack{
 #mrr-vr-shell{
  position:absolute;inset:0;z-index:19;pointer-events:none;overflow:hidden;
  font-family:'Malgun Gothic','Segoe UI',sans-serif;color:#eae8dc;
- --card-w:clamp(184px,12.5vw,280px);--card-h:calc(var(--card-w)*1.4);
+ --card-w:clamp(184px,12.5vw,280px);--card-h:clamp(257.6px,17.5vw,392px);
  --peek:clamp(88px,9.3vh,133px);
 }
 #mrr-vr-shell *{box-sizing:border-box}
@@ -165,7 +165,8 @@ body.mrr-vr-active #mrr-vr-shell .vr-card-face{
  filter:drop-shadow(0 7px 13px #000d);
 }
 body.mrr-vr-active #mrr-vr-shell .vr-card:is(:hover,:focus-visible,.raised){
- height:var(--card-h);width:var(--card-w);z-index:80!important;
+ height:clamp(257.6px,17.5vw,392px)!important;
+ width:var(--card-w)!important;z-index:80!important;
 }
 body.mrr-vr-active #mrr-vr-shell .vr-card:is(:hover,:focus-visible,.raised) .vr-card-face{
  bottom:0;transform:translateX(-50%) rotate(0) scale(1.03);
