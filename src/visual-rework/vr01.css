@@ -149,3 +149,34 @@ body.mrr-vr-active #mrr-integrated-context #mrr-quick-attack{
 }
 @media(min-width:2200px){#mrr-vr-shell .vr-back{width:180px;height:252px;top:-174px}}
 @media(prefers-reduced-motion:reduce){#mrr-vr-shell .vr-card{transition:none!important}}
+
+/* Keep an immobile pointer anchor below each card so rising art never loses hover.
+   The original card is the only click target; the visual face is not a second button. */
+body.mrr-vr-active #mrr-vr-shell .vr-card{
+ bottom:0!important;width:var(--hit);height:var(--peek);
+ transform:translateX(-50%)!important;filter:none!important;
+ transition:width .08s ease,height .08s ease;
+}
+body.mrr-vr-active #mrr-vr-shell .vr-card-face{
+ position:absolute;left:50%;bottom:calc(-1 * var(--card-h) + var(--peek));
+ width:var(--card-w);height:var(--card-h);transform:translateX(-50%) rotate(var(--angle));
+ transform-origin:50% 85%;pointer-events:none;
+ transition:transform .19s ease,bottom .19s ease;
+ filter:drop-shadow(0 7px 13px #000d);
+}
+body.mrr-vr-active #mrr-vr-shell .vr-card:is(:hover,:focus-visible,.raised){
+ height:var(--card-h);width:var(--card-w);z-index:80!important;
+}
+body.mrr-vr-active #mrr-vr-shell .vr-card:is(:hover,:focus-visible,.raised) .vr-card-face{
+ bottom:0;transform:translateX(-50%) rotate(0) scale(1.03);
+ filter:drop-shadow(0 13px 27px #000e);
+}
+body.mrr-vr-active #mrr-vr-shell.vr-placing .vr-card{
+ height:44px!important;pointer-events:none!important;
+}
+body.mrr-vr-active #mrr-vr-shell.vr-placing .vr-card-face{
+ bottom:calc(-1 * var(--card-h) + 44px)!important;transform:translateX(-50%) rotate(var(--angle))!important;
+}
+@media(prefers-reduced-motion:reduce){
+ body.mrr-vr-active #mrr-vr-shell .vr-card-face{transition:none!important}
+}
