@@ -138,6 +138,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const allySlot=tabletop?material({color:0x497b79,roughness:.94,transparent:true,opacity:vrMode?.008:.16}):null;
   const enemySlot=tabletop?material({color:0x946451,roughness:.94,transparent:true,opacity:vrMode?.008:.16}):null;
   const parchmentInk=tabletop?material({color:vrMode?0x6d9992:0x80603b,roughness:.9,transparent:true,opacity:vrMode?.005:.20}):null;
+  // Pick meshes are invisible to the GPU but remain fully raycastable in VR.
+  // Transparent depth-writing tiles otherwise cut 30 black holes in terrain.
+  const vrSlotHitMaterial=vrMode?material({color:0xffffff,transparent:true,
+    opacity:0,depthWrite:false,colorWrite:false}):null;
   const softZone=tabletop?material({color:0x9a7150,metalness:.25,roughness:.77}):null;
 
   const black=material({color:0x223746,metalness:.18,roughness:.72});
@@ -270,9 +274,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     for(let col=0;col<5;col++){
       const x=(col-2)*3.37;
       const inset=new THREE.Mesh(edgeGeo,tabletop?parchmentInk:bronze);inset.position.set(x,tabletop?.134:.15,lane.z);
-      inset.receiveShadow=true;scene.add(inset);
-      const base=new THREE.Mesh(tileGeo,tabletop?(lane.owner===0?allySlot:enemySlot):black);base.position.set(x,tabletop?.156:.23,lane.z);
-      base.receiveShadow=true;scene.add(base);
+      inset.receiveShadow=!vrMode;if(vrMode)inset.visible=false;scene.add(inset);
+      const base=new THREE.Mesh(tileGeo,vrMode?vrSlotHitMaterial:tabletop?(lane.owner===0?allySlot:enemySlot):black);base.position.set(x,tabletop?.156:.23,lane.z);
+      base.receiveShadow=!vrMode;scene.add(base);
       const key=lane.owner+':'+lane.row+':'+col;
       base.userData.mrrSlotKey=key;slotPickMeshes.push(base);
       const halo=new THREE.Mesh(glowGeo,legalGlow);
@@ -285,7 +289,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         focusRing.visible=false;scene.add(focusRing);
       }
       const crest=new THREE.Mesh(geometry(new THREE.TorusGeometry(.5,.035,7,32)),tabletop?parchmentInk:laneMaterial);
-      crest.rotation.x=-Math.PI/2;crest.position.set(x,tabletop?.175:.32,lane.z);scene.add(crest);
+      crest.rotation.x=-Math.PI/2;crest.position.set(x,tabletop?.175:.32,lane.z);
+      if(vrMode)crest.visible=false;scene.add(crest);
       boardSlots.set(key,{x,z:lane.z,owner:lane.owner,row:lane.row,col,base,halo,focusRing});
     }
   }
