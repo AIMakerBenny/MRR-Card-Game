@@ -94,6 +94,19 @@ try:
     page.set_viewport_size({'width':1920,'height':1080})
     xy=page.evaluate('(key)=>MRRIntegrated.scene.projectCard(key)',mine)
     assert xy and 0<xy['x']<1920 and 0<xy['y']<1080,xy
+    # VR01 public-card enlargement uses the existing Three.js card texture,
+    # and must not change Phase21 state or substitute a fabricated illustration.
+    page.mouse.move(xy['x'],xy['y'])
+    page.wait_for_function("""key=>{
+      const target=document.querySelector('#mrr-vr-card-focus');
+      return MRRIntegrated.state.scene.hoveredKey===key &&
+        !!target && !target.hidden &&
+        target.querySelector('img')?.src.startsWith('data:image/png;base64,');
+    }""",arg=mine,timeout=18000)
+    assert snap()==baseline,'Card magnification must not change original gameplay'
+    focus_box=page.locator('#mrr-vr-card-focus').bounding_box()
+    assert focus_box and focus_box['width']>=200 and focus_box['height']>=270,focus_box
+    page.screenshot(path=str(ROOT/'tests/vr01_card_focus_1920x1080.png'),animations='disabled')
     page.mouse.click(xy['x'],xy['y'])
     page.wait_for_function("""()=>MRRIntegrated.state.scene.selectedKey!==null &&
       !document.querySelector('#mrr-integrated-context').hidden""",timeout=18000)
