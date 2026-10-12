@@ -1142,12 +1142,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(preset==='selected'&&!target)return false;
     if(!['all','ally','enemy','selected','tabletop'].includes(preset))return false;
     if(preset==='tabletop'&&!tabletop)return false;
-    yaw=0;pitch=preset==='tabletop'?1.17:preset==='selected'?.64:preset==='all'?.77:.67;
+    yaw=0;
+    pitch=vrMode&&['ally','enemy'].includes(preset)?1.12:
+      preset==='tabletop'?1.17:preset==='selected'?.64:preset==='all'?.77:.67;
     focusKey=target;cameraPreset=preset;
     const slot=target?boardSlots.get(target):null;
     focusX=slot?.x||0;
-    focusZ=slot?.z||(preset==='ally'?5.6:preset==='enemy'?-5.6:0);
-    distance=preset==='tabletop'?28.8:preset==='all'?29:preset==='selected'?11.5:18.5;
+    // Dedicated PC tactical views are high enough to preserve all five
+    // columns. The generic Phase76 camera and modal keep their exact values.
+    focusZ=slot?.z||(preset==='ally'?(vrMode?5.0:5.6):
+      preset==='enemy'?(vrMode?-5.0:-5.6):0);
+    distance=preset==='tabletop'?28.8:preset==='all'?29:
+      preset==='selected'?11.5:vrMode?22.8:18.5;
     updateCamera();return true;
   }
   function resetCamera(){setCameraPreset('all');}
