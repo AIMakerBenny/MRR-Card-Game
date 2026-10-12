@@ -216,6 +216,8 @@ function updatePublicPlaques(){
       {kind:'target',glyph:'⚔',label:'공격 대상'}:
       slot.classList.contains('selected-slot')?
       {kind:'selected',glyph:'◆',label:'선택됨'}:
+      slot.classList.contains('legal')?
+      {kind:'legal',glyph:'↗',label:'행동 가능한 위치'}:
       /행동 완료/.test(chipText)?
       {kind:'acted',glyph:'✓',label:'행동 완료'}:
       /^대기/.test(chipText)?
