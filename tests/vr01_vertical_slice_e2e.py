@@ -82,6 +82,10 @@ try:
       assert page.locator('#vr-return').is_visible()
       assert page.locator('#vr-enemy-fan .vr-back').count()==page.locator('#enemyHand .mcw-back').count()
       assert page.locator('#vr-hand .vr-card').count()==page.locator('#hand .hand-slot').count()
+      visible_public=page.locator('#arena [data-slot] .board-card .card-ui').count()
+      plaques=page.locator('#vr-public-plaques .vr-unit-plaque')
+      assert plaques.count()==visible_public,(w,h,plaques.count(),visible_public)
+      assert page.locator('#vr-public-plaques').evaluate("e=>getComputedStyle(e).pointerEvents")=='none'
       assert not page.evaluate('document.documentElement.scrollWidth>innerWidth+1 || document.documentElement.scrollHeight>innerHeight+1')
       for selector in ('#vr-end-turn','#vr-return'):
         box=page.locator(selector).bounding_box()
@@ -92,6 +96,12 @@ try:
       print('VR01',w,h,'hand',page.locator('#vr-hand .vr-card').count(),
         'enemy backs',page.locator('#vr-enemy-fan .vr-back').count(),flush=True)
     page.set_viewport_size({'width':1920,'height':1080})
+    # VR camera buttons change only the Three.js view, not game state.
+    for label,preset in [('시점: 아군','ally'),('시점: 상대','enemy'),('시점: 전체','tabletop')]:
+      page.locator('#vr-camera').click()
+      assert page.locator('#vr-camera').inner_text()==label
+      assert page.evaluate('MRRIntegrated.state.scene.cameraPreset')==preset
+      assert snap()==baseline,('camera changed engine',preset)
     xy=page.evaluate('(key)=>MRRIntegrated.scene.projectCard(key)',mine)
     assert xy and 0<xy['x']<1920 and 0<xy['y']<1080,xy
     # VR01 public-card enlargement uses the existing Three.js card texture,
