@@ -73,7 +73,7 @@ body.mrr-vr-active #mrr-integrated-context #mrr-quick-attack{
 #mrr-vr-shell #vr-return{color:#abd6d1}
 #mrr-vr-shell .vr-enemy-fan{position:absolute;left:50%;top:0;width:min(44vw,700px);
  height:80px;transform:translateX(-50%)}
-#mrr-vr-shell .vr-back{position:absolute;left:calc(50% + var(--x));top:-132px;
+#mrr-vr-shell .vr-back{position:absolute;left:calc(50% + var(--x));top:-97px;
  width:140px;height:196px;border-radius:10px;transform:translateX(-50%) rotate(var(--angle));
  transform-origin:50% 87%;border:5px solid #9d835e;
  background:radial-gradient(circle at center,#c1b28b 0 4%,#1e454e 5% 13%,#b49a6b 14% 16%,transparent 17%),
@@ -140,14 +140,14 @@ body.mrr-vr-active #mrr-integrated-context #mrr-quick-attack{
  #mrr-vr-shell .vr-hp{padding:5px 7px;font-size:13px}
  #mrr-vr-shell .vr-tools{gap:4px}
  #mrr-vr-shell .vr-btn{font-size:11px;padding:7px 9px;min-height:30px}
- #mrr-vr-shell .vr-back{width:112px;height:157px;top:-105px}
+ #mrr-vr-shell .vr-back{width:112px;height:157px;top:-70px}
  #mrr-vr-shell .vr-pile{width:48px;height:48px;font-size:8px}
  #mrr-vr-shell .vr-pile:nth-child(2){width:43px;height:43px}
  #mrr-vr-shell .vr-pile:nth-child(3){width:39px;height:39px}
  #mrr-vr-shell .vr-footer{bottom:9px}
  #mrr-vr-shell #vr-end-turn{min-width:88px;min-height:40px;font-size:13px}
 }
-@media(min-width:2200px){#mrr-vr-shell .vr-back{width:180px;height:252px;top:-174px}}
+@media(min-width:2200px){#mrr-vr-shell .vr-back{width:180px;height:252px;top:-142px}}
 @media(prefers-reduced-motion:reduce){#mrr-vr-shell .vr-card{transition:none!important}}
 
 /* Keep an immobile pointer anchor below each card so rising art never loses hover.
@@ -231,3 +231,10 @@ body.mrr-vr-active #mrr-vr-shell .vr-stats{bottom:2%;min-height:21px;padding-top
  #mrr-vr-shell .vr-unit-name{font-size:11px}
  #mrr-vr-shell .vr-unit-stats{font-size:9px}
 }
+
+/* VR01-C: visible opponent backs, still count-only and non-interactive.
+   Cards remain high enough that the playfield and mouse targets are clear. */
+body.mrr-vr-active #mrr-vr-shell .vr-enemy-fan{pointer-events:none}
+body.mrr-vr-active #mrr-vr-shell .vr-back{box-shadow:
+  0 7px 18px #000e,inset 0 0 0 3px #142f37,inset 0 0 0 7px #a28c65}
+body.mrr-vr-active #mrr-vr-shell .vr-unit-plaque{max-width:calc(100% - 16px)}
