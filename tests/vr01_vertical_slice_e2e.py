@@ -162,10 +162,18 @@ try:
         # All other hand cards must remain present and the hovered card must
         # physically rise into the viewport without modifying game state.
         assert page.locator('#vr-hand .vr-card').count()==page.locator('#hand .hand-slot').count()
-        assert page.locator('#vr-hand .vr-card').nth(candidate['i']).evaluate(
-          "e=>e.getBoundingClientRect().height>250")
-        assert snap()==prior
+        debug=page.locator('#vr-hand .vr-card').nth(candidate['i']).evaluate("""e=>{
+          const r=e.getBoundingClientRect(),style=getComputedStyle(e),
+            face=e.querySelector('.vr-card-face'),
+            at=document.elementFromPoint(r.x+r.width/2,Math.min(innerHeight-8,r.bottom-8));
+          return {rect:r.toJSON(),hover:e.matches(':hover'),height:style.height,
+            pointerEvents:style.pointerEvents,face:face?.getBoundingClientRect().toJSON(),
+            underPointer:at?.outerHTML?.slice(0,250),rootClasses:document.querySelector('#mrr-vr-shell')?.className};
+        }""")
+        print('VR01 HAND DEBUG',debug,flush=True)
         page.screenshot(path=str(ROOT/'tests/vr01_hand_hover_1920x1080.png'),animations='disabled')
+        assert debug['rect']['height']>250,debug
+        assert snap()==prior
         page.mouse.click(px,py)
         legal=page.locator('#arena .slot.legal')
         if not legal.count():continue
