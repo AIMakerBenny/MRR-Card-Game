@@ -390,6 +390,7 @@ try:
         ['ward','보호 2',null],
         ['selected','', 'selected-slot'],
         ['target','', 'attack-target'],
+        ['legal','', 'legal'],
         ['other','완성',null],
         ['none','',null]
       ];
@@ -397,7 +398,7 @@ try:
       return cases.map(([kind,txt,cls],i)=>{
         const slot=sources[i];
         slot.dataset.vrQaAction=kind;
-        slot.classList.remove('attack-target','selected-slot');
+        slot.classList.remove('attack-target','selected-slot','legal');
         slot.querySelector('.board-card .status-chip')?.remove();
         if(txt){
           const chip=document.createElement('span');
@@ -408,7 +409,7 @@ try:
         return {key:slot.dataset.slot,kind,label:txt};
       });
     }""")
-    assert isinstance(qa_states,list) and len(qa_states)==7,qa_states
+    assert isinstance(qa_states,list) and len(qa_states)==8,qa_states
     page.wait_for_function("""cases => cases.every(({key,kind})=>{
       const mark=document.querySelector('#vr-public-plaques .vr-public-action[data-slot="'+key+'"]');
       return kind==='none'?(!mark||mark.hidden):
@@ -448,12 +449,12 @@ try:
       }
       return {checked:cases.length,errors:bad};
     }""",qa_states)
-    assert checked['checked']==7 and not checked['errors'],checked
+    assert checked['checked']==8 and not checked['errors'],checked
     assert snap()==dense_native,'Status fixtures must never touch Phase21 engine'
     page.screenshot(path=str(ROOT/'tests/vr01_dense_action_states_1366x768.png'),animations='disabled')
     page.evaluate("""() => {
       for(const slot of document.querySelectorAll('[data-vr-qa-action]')){
-        slot.classList.remove('selected-slot','attack-target');
+        slot.classList.remove('selected-slot','attack-target','legal');
         slot.removeAttribute('data-vr-qa-action');
       }
     }""")
@@ -557,6 +558,20 @@ try:
           'Real confirmed landing should create exactly one temporary ground-contact puff')
         page.wait_for_function('MRRIntegrated.state.scene.vrLandingDustActive===0',timeout=15000)
         assert page.evaluate('MRRIntegrated.state.scene.vrOccupiedSeats')>=1
+        page.wait_for_function("""key=>{
+          const slot=document.querySelector('#arena [data-slot="'+key+'"]');
+          const chip=slot?.querySelector('.board-card .status-chip')?.textContent.trim()||'';
+          const expected=slot?.classList.contains('attack-target')?'target':
+            slot?.classList.contains('selected-slot')?'selected':
+            slot?.classList.contains('legal')?'legal':
+            /행동 완료/.test(chip)?'acted':
+            /^대기/.test(chip)?'waiting':
+            /^보호/.test(chip)?'ward':chip?'other':null;
+          const mark=document.querySelector('#vr-public-plaques .vr-public-action[data-slot="'+key+'"]');
+          return expected?!!(mark&&!mark.hidden&&mark.dataset.state===expected):
+            !mark||mark.hidden;
+        }""",arg=dest,timeout=13000)
+        assert snap()!=prior,'The status marker must not change native game state'
         page.screenshot(path=str(ROOT/'tests/vr01_native_deploy_landed_1920x1080.png'),animations='disabled')
         page.locator('#vr-end-turn').click()
         page.wait_for_selector('#passContinue',timeout=12000)
