@@ -238,3 +238,15 @@ body.mrr-vr-active #mrr-vr-shell .vr-enemy-fan{pointer-events:none}
 body.mrr-vr-active #mrr-vr-shell .vr-back{box-shadow:
   0 7px 18px #000e,inset 0 0 0 3px #142f37,inset 0 0 0 7px #a28c65}
 body.mrr-vr-active #mrr-vr-shell .vr-unit-plaque{max-width:calc(100% - 16px)}
+
+/* VR01-D: compact labels are used only when physical 3D columns converge.
+   Keep the original card title accessible via title and aria text. */
+body.mrr-vr-active #mrr-vr-shell .vr-unit-plaque{height:41px}
+body.mrr-vr-active #mrr-vr-shell .vr-unit-plaque.vr-unit-compact{
+ height:25px;min-height:25px;padding:4px 4px 2px;gap:0;
+ border-radius:5px;align-items:center
+}
+body.mrr-vr-active #mrr-vr-shell .vr-unit-compact .vr-unit-name{
+ font-size:10px;line-height:14px;width:100%;text-align:center
+}
+body.mrr-vr-active #mrr-vr-shell .vr-unit-compact .vr-unit-stats{display:none}
