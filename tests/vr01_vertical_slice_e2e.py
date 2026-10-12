@@ -229,9 +229,9 @@ try:
         arg=count,timeout=40000)
       page.wait_for_function("""() => {
         const v=MRRIntegrated.state.scene;
-        return v.vrCameraAuto && v.pitch>1.265;
-      }""",timeout=20000)
-      page.wait_for_timeout(950)
+        return v.vrCameraAuto && v.pitch>1.265 && v.distance>31.5;
+      }""",timeout=35000)
+      page.wait_for_timeout(650)
       layout=page.evaluate("""() => {
         const nodes=[...document.querySelectorAll('#vr-public-plaques .vr-unit-plaque')]
           .filter(e=>!e.hidden);
@@ -250,10 +250,11 @@ try:
             const key=s.dataset.slot;
             return {parts:key.split(':'),rect:scene.projectCardBounds(key),key};
           }).filter(s=>s.rect);
-        const occlusion=[];
+        const occlusion=[];let inspectedSameColumnPairs=0;
         for(let i=0;i<field.length;i++)for(let j=i+1;j<field.length;j++){
           const a=field[i],b=field[j];
           if(a.parts[0]!==b.parts[0]||a.parts[2]!==b.parts[2])continue;
+          inspectedSameColumnPairs++;
           const ra=a.rect,rb=b.rect;
           const h=Math.min(ra.bottom,rb.bottom)-Math.max(ra.top,rb.top);
           const w=Math.min(ra.right,rb.right)-Math.max(ra.left,rb.left);
@@ -266,7 +267,8 @@ try:
           cards:MRRIntegrated.state.scene.cardMeshCount,
           seats:MRRIntegrated.state.scene.vrOccupiedSeats,
           textures:MRRIntegrated.state.scene.vrLiveCardTextures,
-          rowFaceOcclusion:occlusion,maxRowFaceOcclusion:Math.max(0,...occlusion.map(v=>v.fraction)),
+          rowFaceOcclusion:occlusion,inspectedSameColumnPairs,
+          maxRowFaceOcclusion:Math.max(0,...occlusion.map(v=>v.fraction)),
           smallerCards:Object.values(scales).filter(v=>v<=1.09).length,
           autoDistance:MRRIntegrated.state.scene.distance};
       }""")
@@ -275,6 +277,7 @@ try:
       assert len(layout['overlap'])==0,(w,h,'nameplates collided',layout)
       # V1.0 showed legible nameplates but cards themselves overlapped.
       assert layout['smallerCards']>=8,(w,h,'crowded rows did not shrink',layout)
+      assert layout['inspectedSameColumnPairs']>=8,(w,h,'same-column face test was vacuous',layout)
       assert layout['maxRowFaceOcclusion']<=.26,(w,h,'actual public card faces overlap',layout)
       assert layout['autoDistance']>31.4,(w,h,'all-row camera did not expand',layout)
       assert layout['visible']>=(16 if w==1920 else 12),(w,h,'too many nameplates hidden',layout)
