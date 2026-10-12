@@ -226,11 +226,16 @@ try:
     # badge. Merely selecting, aiming or hovering must not create one.
     page.wait_for_function("""key=>{
       const state=MRRVR.status;
-      return state.nativeOutcomes>=1&&state.lastOutcome?.key===key&&
-        state.lastOutcome?.type==='hit';
+      return state.nativeOutcomes>=1&&state.outcomeHistory.some(
+        event=>event.key===key&&event.type==='hit');
     }""",arg=opponent,timeout=14000)
-    outcome=page.evaluate('MRRVR.status.lastOutcome')
-    assert outcome['label'] and (outcome['amount'] is None or outcome['amount']>0),outcome
+    outcome=page.evaluate("""key=>{
+      const vr=MRRVR.status,scene=MRRIntegrated.state.scene;
+      return {events:vr.outcomeHistory.filter(e=>e.key===key&&e.type==='hit'),
+        rawEvents:scene.nativeCombatEvents};
+    }""",opponent)
+    assert outcome['events'] and all(e['label'] and
+      (e['amount'] is None or e['amount']>0) for e in outcome['events']),outcome
     page.screenshot(path=str(ROOT/'tests/vr01_native_confirmed_impact_1920x1080.png'),animations='disabled')
     # Native confirmed damage must refresh the badge to the CURRENT public
     # health value. If the native card is destroyed, its badge must disappear.
