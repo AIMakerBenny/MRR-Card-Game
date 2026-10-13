@@ -597,7 +597,9 @@ try:
       active:MRRIntegrated.state.scene.vrDepartActive,
       pickable:MRRIntegrated.state.scene.pickableCount
     })""")
-    assert 1<=effects['departing']<=7 and effects['active']<=7,effects
+    # The cumulative count can exceed seven across successive syncs;
+    # GPU load is bounded by at most seven simultaneously live bursts.
+    assert effects['departing']>=1 and 0<=effects['active']<=7,effects
     assert effects['pickable']==30+stress['originals']*2,effects
     page.wait_for_function('MRRIntegrated.state.scene.vrDepartActive===0',timeout=8000)
     assert snap()==dense_native,'Removing display-only stress fixture changed engine'
