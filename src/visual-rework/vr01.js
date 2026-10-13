@@ -353,7 +353,7 @@ function updatePublicPlaques(){
     mark.remove();nativeActionMarks.delete(key);
   }
 }
-function reconcileConfirmedOutcomes(){
+helper
   if(!open||!ui)return;
   const scene=window.MRRIntegrated?.scene,st=scene?.state;
   if(!st)return;
@@ -389,26 +389,17 @@ function reconcileConfirmedOutcomes(){
     // A confirmed FX with no verified public change is only an impact,
     // never a fabricated numerical damage/heal amount.
     const msg=exact?(heal?'+':'−')+Math.abs(diff):heal?'회복':'명중';
-    const point=scene.projectCard(event.key)||scene.projectSlot(event.key);
-    if(!point)continue;
-    const rect=stage.getBoundingClientRect();
-    const node=el('span','vr-combat-outcome',msg);
+defer position
     node.dataset.slot=event.key;node.dataset.kind=event.type;
     node.dataset.amount=exact?String(Math.abs(diff)):'';
     node.setAttribute('aria-label',heal?'회복 결과 '+msg:'피격 결과 '+msg);
-    node.style.left=Math.max(42,Math.min(rect.width-42,point.x-rect.left)).toFixed(1)+'px';
-    node.style.top=Math.max(92,Math.min(rect.height-88,point.y-rect.top-30)).toFixed(1)+'px';
-    if(matchMedia('(prefers-reduced-motion: reduce)').matches)node.classList.add('vr-no-motion');
-    host.append(node);outcomeNodes.push({node,at:now});
+place
     lastOutcome={key:event.key,type:event.type,amount:exact?Math.abs(diff):null,label:msg};
     outcomeHistory.push(lastOutcome);if(outcomeHistory.length>16)outcomeHistory.shift();
     vrOutcomeCount++;
   }
   lastCombatTime=Math.max(lastCombatTime,...events.map(x=>x.at||0));
-  for(let i=outcomeNodes.length-1;i>=0;i--){
-    if(now-outcomeNodes[i].at<1500)continue;
-    outcomeNodes[i].node.remove();outcomeNodes.splice(i,1);
-  }
+reposition
 }
 function refresh(){
  if(!open||!ui)return;

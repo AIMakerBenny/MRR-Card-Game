@@ -330,9 +330,7 @@ try:
       return {events:vr.outcomeHistory.filter(e=>e.key===key&&e.type==='hit'),
         rawEvents:scene.nativeCombatEvents};
     }""",opponent)
-    assert outcome['events'] and all(e['label'] and
-      (e['amount'] is None or e['amount']>0) for e in outcome['events']),outcome
-    page.screenshot(path=str(ROOT/'tests/vr01_native_confirmed_impact_1920x1080.png'),animations='disabled')
+test
     # Native confirmed damage must refresh the badge to the CURRENT public
     # health value. If the native card is destroyed, its badge must disappear.
     page.wait_for_function("""key => {
