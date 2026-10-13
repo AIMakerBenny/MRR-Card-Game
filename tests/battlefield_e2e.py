@@ -42,7 +42,20 @@ try:
     name=page.locator('#arena .board-card .card-name').first.inner_text().strip()
     assert name
     page.locator('#mrr-battlefield-open').click()
-    page.wait_for_function('MRRBattlefield.state.open && MRRBattlefield.state.scene.frames>3',timeout=17000)
+    # Legacy standalone 3D mode initializes its own software WebGL context.
+    # Under concurrent CI Chromium jobs it can take longer than 17 seconds
+    # to compile on SwiftShader; test actual readiness, never skip coverage.
+    try:
+      page.wait_for_function('MRRBattlefield.state.open && MRRBattlefield.state.scene.frames>3',timeout=45000)
+    except Exception:
+      debug=page.evaluate("""() => ({
+        modal:!!document.querySelector('#mrr-battlefield-modal'),
+        open:MRRBattlefield.state.open,
+        scene:MRRBattlefield.state.scene,
+        buttonDisabled:document.querySelector('#mrr-battlefield-open')?.disabled
+      })""")
+      print('PHASE55 STANDALONE WEBGL STARTUP DIAGNOSTICS',debug,errors,flush=True)
+      raise
     state=page.evaluate('MRRBattlefield.state.scene')
     assert state['revision']>=46 and state['projection']=='PerspectiveCamera',state
     assert state['slotCount']==30 and state['shadows'],state
@@ -74,7 +87,7 @@ try:
     assert page.evaluate("document.activeElement?.id==='mrr-battlefield-open'")
     for i in range(2):
       page.locator('#mrr-battlefield-open').click()
-      page.wait_for_function('MRRBattlefield.state.open && MRRBattlefield.state.scene.frames>2',timeout=17000)
+      page.wait_for_function('MRRBattlefield.state.open && MRRBattlefield.state.scene.frames>2',timeout=45000)
       assert page.locator('#mrr-battlefield-stage canvas').count()==1
       page.keyboard.press('Escape')
       page.wait_for_function('!MRRBattlefield.state.open',timeout=5000)
