@@ -125,6 +125,31 @@ try:
       print('VR01',w,h,'hand',page.locator('#vr-hand .vr-card').count(),
         'enemy backs',page.locator('#vr-enemy-fan .vr-back').count(),flush=True)
     page.set_viewport_size({'width':1920,'height':1080})
+    # VR01L: mouse drag cannot orbit/pan the new fixed PC board, but
+    # drag release must still not cause an accidental original slot click.
+    page.wait_for_timeout(450)
+    camera_before=page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return {yaw:s.yaw,pitch:s.pitch,manual:s.vrCameraAuto};
+    }""")
+    canvas=page.locator('#mrr-integrated-stage canvas').first.bounding_box()
+    assert canvas and canvas['width']>400,canvas
+    x=canvas['x']+canvas['width']*.48
+    y=canvas['y']+canvas['height']*.49
+    page.mouse.move(x,y)
+    page.mouse.down()
+    page.mouse.move(x+125,y+64,steps=8)
+    page.mouse.up()
+    page.wait_for_timeout(220)
+    camera_after=page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return {yaw:s.yaw,pitch:s.pitch,manual:s.vrCameraAuto};
+    }""")
+    assert abs(camera_after['yaw']-camera_before['yaw'])<.001,(
+      'VR tabletop should not rotate under drag',camera_before,camera_after)
+    assert camera_after['manual'] is True,(
+      'A VR board drag must not disable automatic tabletop framing',camera_after)
+    assert snap()==baseline,'Dragging the fixed tabletop changed actual Phase21 game'
     # Both authentic public units were placed far apart. Each must grow from
     # original Phase76 idle 1.30 to >1.48 without changing engine state.
     page.wait_for_function("""() => {
