@@ -1179,7 +1179,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     hoveredKey=key;
     const slot=document.querySelector('#arena [data-slot="'+(key||'')+'"]');
     const card=slot?.querySelector('.board-card .card-ui');
-    mount.style.cursor=key&&(card||slot?.classList.contains('legal')||slot?.classList.contains('attack-target'))?'pointer':'grab';
+    mount.style.cursor=key&&(card||slot?.classList.contains('legal')||slot?.classList.contains('attack-target'))?'pointer':vrMode?'default':'grab';
     events.onHover?.(key,card?{
       name:card.querySelector('.card-name')?.textContent?.trim()||'',
       kind:card.querySelector('.card-kind')?.textContent?.trim()||'',
@@ -1214,7 +1214,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   function move(e){
     if(!drag){setHover(e.target===renderer.domElement?publicHit(e):null);return;}
     if(Math.hypot(e.clientX-startX,e.clientY-startY)>6)moved=true;
-    if(moved){
+    // VR mode is a fixed tabletop: dragging must never turn, tilt or pan
+    // the entire board. Keep movement threshold to avoid accidental
+    // card selection when the player releases after a gesture.
+    if(moved&&!vrMode){
       yaw=Math.max(-.8,Math.min(.8,yaw+(e.clientX-lastX)*.004));
       pitch=Math.max(.42,Math.min(1.28,pitch+(e.clientY-lastY)*.003));
       manualCamera=true;
@@ -1589,7 +1592,8 @@ window.MRRBattlefieldUIInit=function(loadThree){
         cardTip.append(headline,summary);cardTip.classList.add('visible');
       }
       const overlayHelp=document.createElement('div');overlayHelp.id='mrr-battlefield-help';
-      overlayHelp.textContent='카드 클릭 - 선택  |  공격 버튼 - 대상 지정  |  드래그 - 시점 회전  |  휠 - 확대·축소';
+      overlayHelp.textContent=vrMode?'카드 클릭 - 선택  |  공격 버튼 - 대상 지정  |  휠 - 확대·축소  |  시점 버튼 - 카메라 전환':
+  '카드 클릭 - 선택  |  공격 버튼 - 대상 지정  |  드래그 - 시점 회전  |  휠 - 확대·축소';
       const enemy=document.createElement('div');enemy.className='mrr-side-label enemy';enemy.textContent='OPPONENT TERRITORY';
       const friendly=document.createElement('div');friendly.className='mrr-side-label friendly';friendly.textContent='ALLIED TERRITORY';
       stage.append(enemy,friendly,overlayHelp,commands,cardTip,combatFeed,zoomPane);
