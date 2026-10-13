@@ -1307,7 +1307,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // Single restrained acquisition pulse then a small stable hover
       // emphasis; native attack, movement and raycast meshes are untouched.
       const accent=lock&&!frozen?
-        .055+(lockAge<1?.13*Math.sin(Math.PI*lockAge):0):0;
+        .055+(lockAge < 1 ? .13*Math.sin(Math.PI*lockAge) : 0):0;
       slot.halo.scale.setScalar(size+accent);
       if(vrMode&&slot.focusRing){
         const active=slot.focusRing.visible&&key===selectedKey;
