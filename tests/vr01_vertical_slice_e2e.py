@@ -738,9 +738,17 @@ try:
         page.wait_for_function("""() => !document.querySelector('#arena .slot.legal') &&
           !document.querySelector('#mrr-vr-shell').classList.contains('vr-placing')""",timeout=14000)
         assert snap()==prior,'Cancelling hand placement spent native resources'
-        # Select the same authentic hand card again, then confirm placement.
-        page.locator('#vr-hand .vr-card').nth(candidate['i']).evaluate('e=>e.click()')
+        # VR01U: select the very same genuine Phase21 card with its PC
+        # number hotkey. This must only enter native placement selection,
+        # without paying mana or changing the original game snapshot.
+        assert candidate['i']<10,'VR01U supports the first ten hand positions'
+        shortcut='0' if candidate['i']==9 else str(candidate['i']+1)
+        assert page.locator('#vr-hand .vr-card').nth(candidate['i']).get_attribute(
+          'aria-keyshortcuts')==shortcut
+        page.evaluate('document.activeElement?.blur()')
+        page.keyboard.press(shortcut)
         page.wait_for_function("!!document.querySelector('#arena .slot.legal')")
+        assert snap()==prior,'VR01U numeric hand selection spent native resources'
         dest=legal.first.get_attribute('data-slot')
         projected=page.evaluate('k=>MRRIntegrated.scene.projectSlot(k)',dest)
         assert projected and 0<projected['x']<1920 and 0<projected['y']<1080
@@ -793,6 +801,13 @@ try:
         assert shield['handVisibility']=='hidden' and shield['hintVisibility']=='hidden',shield
         assert page.locator('#vr-hand .vr-card:visible').count()==0,(
           'VR01T handoff must not expose either player hand in the 3D shell')
+        # VR01U hotkeys must not bypass the private turn handoff, even if
+        # the next player's genuine native hand already exists underneath.
+        shield_snapshot=snap()
+        page.keyboard.press(shortcut)
+        assert snap()==shield_snapshot,'Hand shortcut bypassed Phase21 privacy overlay'
+        assert page.locator('#passContinue').count()==1
+        assert page.locator('#vr-hand .vr-card:visible').count()==0
         page.screenshot(path=str(ROOT/'tests/vr01t_turn_pass_private_1920x1080.png'),
           animations='disabled')
         # ONLY the real Phase21 continuation can expose the next hand.

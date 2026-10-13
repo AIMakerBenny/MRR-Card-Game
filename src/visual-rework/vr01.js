@@ -151,6 +151,11 @@ function updateHand(){
   for(const d of hand){
     const card=el('button','vr-card');card.type='button';
     card.setAttribute('aria-label',d.name+' 손패 선택');card.dataset.index=String(d.i);
+    if(d.i<10){
+      const shortcut=d.i===9?'0':String(d.i+1);
+      card.setAttribute('aria-keyshortcuts',shortcut);
+      card.title=d.name+' · 단축키 '+shortcut;
+    }
     card.style.setProperty('--x',((d.i-(n-1)/2)*step)+'px');
     card.style.setProperty('--hit',step+'px');
     card.style.setProperty('--angle',((d.i-(n-1)/2)*Math.min(5,22/Math.max(n-1,1)))+'deg');
@@ -453,6 +458,24 @@ function refresh(){
  q('#vr-end-turn',ui).disabled=!!q('#endTurn')?.disabled;
  updateAim();
 }
+// VR01U: PC numeric hotkeys delegate to the exact same one-click
+// Phase21 hand path. Do not bypass legal placement, payment, targeting or
+// the original local two-player privacy overlay.
+function handleHandShortcut(ev){
+ if(!open||busy||!ui||ev.defaultPrevented||ev.repeat||ev.ctrlKey||ev.altKey||ev.metaKey)return;
+ if(!/^[0-9]$/.test(ev.key))return;
+ if(ev.target?.closest?.('input,textarea,select,[contenteditable],[role="textbox"]'))return;
+ if(!q('#overlay')?.classList.contains('hidden'))return;
+ if(q('#arena .slot.legal')||q('#arena .slot.attack-target'))return;
+ const index=ev.key==='0'?9:Number(ev.key)-1;
+ const handCards=qa('#vr-hand .vr-card',ui),nativeCards=qa('#hand .hand-slot');
+ const card=handCards[index];
+ if(!card||!nativeCards[index]||handCards.length!==nativeCards.length||
+    card.disabled||getComputedStyle(card).visibility==='hidden')return;
+ ev.preventDefault();
+ ev.stopImmediatePropagation();
+ card.click();
+}
 function schedule(){if(!open||scheduled)return;scheduled=requestAnimationFrame(()=>{scheduled=0;refresh();});}
 function cleanup(){
  observer?.disconnect();observer=null;clearInterval(interval);interval=null;
@@ -492,6 +515,7 @@ async function openUI(){
  finally{busy=false;entry.disabled=false;}
 }
 entry.addEventListener('click',()=>open?closeUI():openUI());
+window.addEventListener('keydown',handleHandShortcut,true);
 window.addEventListener('resize',()=>{if(open){
  handSignature='';backCount=-1;
  positionActiveOutcomes();schedule();
