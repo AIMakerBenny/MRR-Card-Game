@@ -384,3 +384,13 @@ body.mrr-vr-active #mrr-vr-shell .vr-public-action[data-state=other]{
 @media(prefers-reduced-motion:reduce){
  #mrr-vr-shell .vr-combat-outcome{animation:none;transform:translate(-50%,-50%)}
 }
+
+/* VR01T: Phase21 local two-player turn handoff is an information barrier.
+   The authoritative #overlay / #passContinue remains the ONLY way to
+   reveal the next player's cards.  Hide the mirrored VR hand immediately
+   with CSS while the native pass overlay is open, not after a polling tick.
+   No turn, deck, hand or other game state is changed here. */
+body.mrr-vr-active:has(#overlay:not(.hidden) #passContinue) #mrr-vr-shell #vr-hand,
+body.mrr-vr-active:has(#overlay:not(.hidden) #passContinue) #mrr-vr-shell #vr-hint{
+ visibility:hidden!important;pointer-events:none!important;
+}

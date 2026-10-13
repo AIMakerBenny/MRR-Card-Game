@@ -774,8 +774,40 @@ try:
         page.screenshot(path=str(ROOT/'tests/vr01_native_deploy_landed_1920x1080.png'),animations='disabled')
         page.locator('#vr-end-turn').click()
         page.wait_for_selector('#passContinue',timeout=12000)
+        # VR01T: a real local turn handoff must hide the next player's
+        # mirrored THREE/DOM hand BEFORE the Phase21 reveal confirmation.
+        shield=page.evaluate("""() => {
+          const overlay=document.querySelector('#overlay');
+          const hand=document.querySelector('#vr-hand');
+          const hint=document.querySelector('#vr-hint');
+          const original=document.querySelector('#hand');
+          return {nativePass:!!overlay&&!overlay.classList.contains('hidden')&&
+              !!document.querySelector('#passContinue'),
+            handVisibility:getComputedStyle(hand).visibility,
+            hintVisibility:getComputedStyle(hint).visibility,
+            nativeHandCount:original.querySelectorAll('.hand-slot').length,
+            mirrorCount:hand.querySelectorAll('.vr-card').length,
+            vrOpen:MRRVR.status.open};
+        }""")
+        assert shield['nativePass'] and shield['vrOpen'],shield
+        assert shield['handVisibility']=='hidden' and shield['hintVisibility']=='hidden',shield
+        assert page.locator('#vr-hand .vr-card:visible').count()==0,(
+          'VR01T handoff must not expose either player hand in the 3D shell')
+        page.screenshot(path=str(ROOT/'tests/vr01t_turn_pass_private_1920x1080.png'),
+          animations='disabled')
+        # ONLY the real Phase21 continuation can expose the next hand.
+        page.locator('#passContinue').click(timeout=12000)
+        page.wait_for_function("""() => !document.querySelector('#passContinue') &&
+          document.querySelector('#overlay').classList.contains('hidden') &&
+          getComputedStyle(document.querySelector('#vr-hand')).visibility==='visible' &&
+          document.querySelectorAll('#vr-hand .vr-card').length===
+          document.querySelectorAll('#hand .hand-slot').length""",timeout=18000)
+        assert page.evaluate('MRRVR.status.open'),(
+          'Native turn handoff must preserve the 3D PC session')
+        page.screenshot(path=str(ROOT/'tests/vr01t_turn_pass_revealed_1920x1080.png'),
+          animations='disabled')
         placed=True
-        print('VR01 native hand, native 3D slot and on-screen turn end PASS',flush=True)
+        print('VR01T native protected pass, next hand reveal and uninterrupted VR PASS',flush=True)
         break
       if placed:break
       page.locator('#vr-return').evaluate('e=>e.click()')
