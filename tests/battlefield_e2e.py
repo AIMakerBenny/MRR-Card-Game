@@ -15,7 +15,9 @@ try:
     if Path('/usr/bin/chromium').exists():opts['executable_path']='/usr/bin/chromium'
     browser=p.chromium.launch(**opts)
     page=browser.new_page(viewport={'width':1920,'height':1080})
-    errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    errors=[];warnings=[]
+    page.on('pageerror',lambda e:errors.append(str(e)))
+    page.on('console',lambda m:warnings.append(m.text) if m.type in ('warning','error') else None)
     page.add_init_script('''() => {
       let seed=Number(new URLSearchParams(location.search).get('qa_seed'))||198704;
       Math.random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
@@ -54,7 +56,7 @@ try:
         scene:MRRBattlefield.state.scene,
         buttonDisabled:document.querySelector('#mrr-battlefield-open')?.disabled
       })""")
-      print('PHASE55 STANDALONE WEBGL STARTUP DIAGNOSTICS',debug,errors,flush=True)
+      print('PHASE55 STANDALONE WEBGL STARTUP DIAGNOSTICS',debug,errors,warnings[-12:],flush=True)
       raise
     state=page.evaluate('MRRBattlefield.state.scene')
     assert state['revision']>=46 and state['projection']=='PerspectiveCamera',state
