@@ -963,6 +963,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const vrCardFingerprint=p=>JSON.stringify([p.cardId,p.name,p.kind,p.cost,p.stats,p.sigil]);
   let hoveredKey=null,selectedKey=null,legalCount=0,attackTargetCount=0,statusSignature='';
   let vrSelectionBursts=0,vrSelectionBurst=null;
+  let vrTargetLocks=0,vrTargetLock=null;
   let cardHealth=new Map(),healthIndicatorCount=0;
   let pickMeshes=slotPickMeshes.slice(),cardIndex=new Map();
   function publicHit(e){
@@ -1138,6 +1139,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     legalCount=list.filter(p=>p.legal).length;
     cardHealth=new Map();healthIndicatorCount=0;
     attackTargetCount=list.filter(p=>p.attackTarget).length;
+    // A target lock is a PURELY visual cue, valid only while the original
+    // game itself still marks this exact public card as attack-target.
+    if(vrTargetLock&&!list.some(p=>p.key===vrTargetLock.key&&p.attackTarget))
+      vrTargetLock=null;
     for(const p of list){
       const slot=boardSlots.get(p.key);
       // Phase72: follow the original native .legal class; never change rules.
@@ -1184,8 +1189,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   function setHover(key,force=false){
     if(hoveredKey===key&&!force)return;
-    hoveredKey=key;
     const slot=document.querySelector('#arena [data-slot="'+(key||'')+'"]');
+    // VR01N: acquire a target only on a TRUE native attack-target hover
+    // transition. Sync rechecks must never retrigger the short flash.
+    const canLock=vrMode&&!!key&&!!selectedKey&&key!==selectedKey&&
+      !!slot?.classList.contains('attack-target')&&
+      !!slot.querySelector('.board-card .card-ui');
+    if(!canLock)vrTargetLock=null;
+    else if(vrTargetLock?.key!==key){
+      vrTargetLock={key,at:performance.now()};vrTargetLocks++;
+    }
+    hoveredKey=key;
     const card=slot?.querySelector('.board-card .card-ui');
     mount.style.cursor=key&&(card||slot?.classList.contains('legal')||slot?.classList.contains('attack-target'))?'pointer':vrMode?'default':'grab';
     events.onHover?.(key,card?{
@@ -1288,7 +1302,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const pulse=frozen?0:.5+.5*Math.sin(time*.0046);
       const size=frozen?1:slot.attackPulse?1.07+.16*pulse:
         slot.legalPulse?1.035+.075*pulse:hoveredKey===key?1.055:1;
-      slot.halo.scale.setScalar(size);
+      const lock=vrMode&&slot.attackPulse&&vrTargetLock?.key===key;
+      const lockAge=lock?Math.max(0,(time-vrTargetLock.at)/380):1;
+      // Single restrained acquisition pulse then a small stable hover
+      // emphasis; native attack, movement and raycast meshes are untouched.
+      const accent=lock&&!frozen?
+        .055+(lockAge<1?.13*Math.sin(Math.PI*lockAge):0):0;
+      slot.halo.scale.setScalar(size+accent);
       if(vrMode&&slot.focusRing){
         const active=slot.focusRing.visible&&key===selectedKey;
         const age=vrSelectionBurst?.key===key?
@@ -1325,11 +1345,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           sameRowNeighbor?(dense?1.19:1.31):dense?1.13:1.61:1.30;
         // A focused card may rise for inspection, but never expand enough
         // to hide an unrelated occupied row in a dense battlefield.
-        const emphasis=hover?(sameColumnRow?.10:.23):
+        const lockedTarget=vrMode&&hover&&boardSlots.get(c.key)?.attackPulse;
+        const emphasis=hover?
+          lockedTarget?(sameColumnRow?.035:.11):(sameColumnRow?.10:.23):
           c.key===selectedKey?(sameColumnRow?.045:.12):0;
         const targetScale=vrMode?adaptive+emphasis:
           hover?1.52:c.key===selectedKey?1.35:1.30;
-        const targetLift=hover?.86:c.key===selectedKey?.18:0;
+        // Attack targets do not jump up into the neighboring native row
+        // when the user aims. The separate card-focus inspector is the
+        // full-size reading surface.
+        const targetLift=hover?(lockedTarget?.38:.86):c.key===selectedKey?.18:0;
         // Time-based smoothing stays stable on low-FPS software WebGL.
         const blend=frozen?1:1-Math.exp(-visualDelta/115);
         c.visualScale=(c.visualScale??1.30)+(targetScale-(c.visualScale??1.30))*blend;
@@ -1447,6 +1472,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrLandingDustActive:vrMode?vrLandingDust.length:null,
       vrHitReactions:vrMode?vrHitReactions:null,
       vrSelectionBursts:vrMode?vrSelectionBursts:null,
+      vrTargetLocks:vrMode?vrTargetLocks:null,
+      vrTargetLockKey:vrMode?vrTargetLock?.key||null:null,
+      vrTargetLockScale:vrMode&&vrTargetLock?
+        Number((boardSlots.get(vrTargetLock.key)?.halo?.scale.x||1).toFixed(4)):null,
       vrSelectionBurstKey:vrMode?vrSelectionBurst?.key||null:null,
       vrSelectionRingScale:vrMode&&selectedKey?
         Number((boardSlots.get(selectedKey)?.focusRing?.scale.x||1).toFixed(4)):null,
