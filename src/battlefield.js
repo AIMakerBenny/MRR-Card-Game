@@ -962,6 +962,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   const vrCardFingerprint=p=>JSON.stringify([p.cardId,p.name,p.kind,p.cost,p.stats,p.sigil]);
   let hoveredKey=null,selectedKey=null,legalCount=0,attackTargetCount=0,statusSignature='';
+  let vrSelectionBursts=0,vrSelectionBurst=null;
   let cardHealth=new Map(),healthIndicatorCount=0;
   let pickMeshes=slotPickMeshes.slice(),cardIndex=new Map();
   function publicHit(e){
@@ -1126,7 +1127,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         pickMeshes.push(frame,face);publicCardCount++;
       }
     }
-    selectedKey=list.find(p=>p.selected)?.key||null;
+    const nextSelectedKey=list.find(p=>p.selected)?.key||null;
+    // VR01M: a grounded selection response starts ONLY on a native
+    // .selected-slot transition. Never synthesize a click or an attack.
+    if(vrMode&&nextSelectedKey!==selectedKey){
+      vrSelectionBurst=nextSelectedKey?{key:nextSelectedKey,at:performance.now()}:null;
+      if(nextSelectedKey)vrSelectionBursts++;
+    }
+    selectedKey=nextSelectedKey;
     legalCount=list.filter(p=>p.legal).length;
     cardHealth=new Map();healthIndicatorCount=0;
     attackTargetCount=list.filter(p=>p.attackTarget).length;
@@ -1281,7 +1289,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const size=frozen?1:slot.attackPulse?1.07+.16*pulse:
         slot.legalPulse?1.035+.075*pulse:hoveredKey===key?1.055:1;
       slot.halo.scale.setScalar(size);
+      if(vrMode&&slot.focusRing){
+        const active=slot.focusRing.visible&&key===selectedKey;
+        const age=vrSelectionBurst?.key===key?
+          Math.max(0,(time-vrSelectionBurst.at)/460):1;
+        // One spring-like gold accent, no infinite attention animation.
+        // Face, seat and native raycast hitboxes never change position.
+        const pulse=active&&!frozen&&age<1?
+          .19*Math.sin(Math.PI*Math.max(0,age))*Math.pow(1-age,.38):0;
+        slot.focusRing.scale.setScalar(1+pulse);
+      }
     }
+    if(vrMode&&vrSelectionBurst&&time-vrSelectionBurst.at>520)
+      vrSelectionBurst=null;
     for(const [i,c] of cards.entries()){
       const hover=c.key===hoveredKey;
       if(tabletop){
@@ -1426,6 +1446,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrLandingDustStarted:vrMode?vrLandingDustStarted:null,
       vrLandingDustActive:vrMode?vrLandingDust.length:null,
       vrHitReactions:vrMode?vrHitReactions:null,
+      vrSelectionBursts:vrMode?vrSelectionBursts:null,
+      vrSelectionBurstKey:vrMode?vrSelectionBurst?.key||null:null,
+      vrSelectionRingScale:vrMode&&selectedKey?
+        Number((boardSlots.get(selectedKey)?.focusRing?.scale.x||1).toFixed(4)):null,
       vrActiveHitReactions:vrMode?cards.filter(c=>!!c.hitReaction).length:null,
       healthHudRevision:52,healthIndicatorCount,cardHealth:Object.fromEntries(cardHealth),
       previewRevision:53,previewReadyCards:cardIndex.size,
