@@ -54,9 +54,16 @@ try:
         page.wait_for_function('k=>MRRIntegrated.state.scene.hoveredKey===k',arg=target,timeout=15000)
         xy=page.evaluate('k=>MRRIntegrated.scene.projectCard(k)',target)
         old=page.evaluate('MRRVR.status.nativeOutcomes')
+        hp=target_slot.locator('.card-stats').text_content()
         print('Native aim',source,target,xy,'reduced',reduced,flush=True)
         page.mouse.click(xy['x'],xy['y'])
-        page.wait_for_function('n=>MRRVR.status.nativeOutcomes>n',arg=old,timeout=15000)
+        # Phase21 emits fx-hit only on surviving hits, and suppresses all
+        # native FX under reduced motion. Verify its actual public result.
+        page.wait_for_function('''v=>{const c=document.querySelector(
+          '#arena [data-slot="'+v.key+'"] .board-card .card-stats');
+          return !c||c.textContent!==v.hp;}''',arg={'key':target,'hp':hp},timeout=15000)
+        if not reduced and target_slot.locator('.board-card').count():
+          page.wait_for_function('n=>MRRVR.status.nativeOutcomes>n',arg=old,timeout=15000)
         page.wait_for_function('!document.querySelector("#arena .slot.attack-target")');hits+=1
         print('Native hit',hits,'reduced',reduced,flush=True)
       assert not target_slot.locator('.board-card').count(),'No native lethal combat occurred'
