@@ -308,6 +308,20 @@ try:
     if page.locator(f'#arena [data-slot="{opponent}"] .board-card').count():
       page.wait_for_function('MRRIntegrated.state.scene.vrHitReactions>=1',timeout=13000)
     assert page.evaluate('MRRIntegrated.state.scene.vrHitReactions')>=0
+    # VR01O: only the original native targeting state can retain a
+    # lock-on after resolution; there must never be an orphaned VR target.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      if(s.attackTargetCount)return true;
+      return s.vrTargetLockKey===null &&
+        document.querySelectorAll('#vr-guide-targets .vr-target-guide').length===0 &&
+        !document.querySelector('#vr-aim-line')?.getAttribute('d');
+    }""",timeout=14000)
+    if page.locator(f'#arena [data-slot="{opponent}"] .board-card').count()==0:
+      page.wait_for_function('MRRIntegrated.state.scene.vrDepartStarted>=1',timeout=14000)
+    else:
+      assert page.evaluate('MRRIntegrated.state.scene.vrDepartStarted')==0,(
+        'An ordinary surviving hit must not look like a card destruction')
     page.screenshot(path=str(ROOT/'tests/vr01_attack_confirmed_1920x1080.png'),animations='disabled')
 
     # VR01-D: deliberately dense DISPLAY-ONLY stress fixture. Clone only
@@ -576,6 +590,16 @@ try:
     page.wait_for_function("""n=>MRRIntegrated.state.scene.cardMeshCount===n &&
       MRRIntegrated.state.scene.vrOccupiedSeats===n &&
       MRRIntegrated.state.scene.vrLiveCardTextures===n""",arg=stress['originals'],timeout=30000)
+    # VR01O synthetic DISPLAY fixture verifies departure effects cannot
+    # leave ghost cards, inject click surfaces, or leak GPU resources.
+    effects=page.evaluate("""() => ({
+      departing:MRRIntegrated.state.scene.vrDepartStarted,
+      active:MRRIntegrated.state.scene.vrDepartActive,
+      pickable:MRRIntegrated.state.scene.pickableCount
+    })""")
+    assert 1<=effects['departing']<=7 and effects['active']<=7,effects
+    assert effects['pickable']==30+stress['originals']*2,effects
+    page.wait_for_function('MRRIntegrated.state.scene.vrDepartActive===0',timeout=8000)
     assert snap()==dense_native,'Removing display-only stress fixture changed engine'
     page.set_viewport_size({'width':1920,'height':1080})
     page.mouse.move(950,400)
