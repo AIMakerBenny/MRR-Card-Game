@@ -1695,8 +1695,9 @@ window.MRRBattlefieldUIInit=function(loadThree){
         cardTip.append(headline,summary);cardTip.classList.add('visible');
       }
       const overlayHelp=document.createElement('div');overlayHelp.id='mrr-battlefield-help';
-      overlayHelp.textContent=vrMode?'카드 클릭 - 선택  |  공격 버튼 - 대상 지정  |  휠 - 확대·축소  |  시점 버튼 - 카메라 전환':
-  '카드 클릭 - 선택  |  공격 버튼 - 대상 지정  |  드래그 - 시점 회전  |  휠 - 확대·축소';
+      // This standalone Phase55 modal has its own orbit camera. The
+      // factory's local vrMode belongs only to the integrated VR scene.
+      overlayHelp.textContent='카드 클릭 - 선택  |  공격 버튼 - 대상 지정  |  드래그 - 시점 회전  |  휠 - 확대·축소';
       const enemy=document.createElement('div');enemy.className='mrr-side-label enemy';enemy.textContent='OPPONENT TERRITORY';
       const friendly=document.createElement('div');friendly.className='mrr-side-label friendly';friendly.textContent='ALLIED TERRITORY';
       stage.append(enemy,friendly,overlayHelp,commands,cardTip,combatFeed,zoomPane);
