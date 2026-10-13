@@ -69,9 +69,12 @@ try:
       assert not target_slot.locator('.board-card').count(),'No native lethal combat occurred'
       page.wait_for_function('k=>!MRRIntegrated.scene.hasCard(k)',arg=target,timeout=15000)
       departing=page.evaluate('MRRIntegrated.state.scene.vrDepartStarted')
+      halos=page.evaluate('MRRIntegrated.state.scene.vrDepartHaloStarted')
       assert departing==0 if reduced else departing>=1
+      assert halos==departing,('Every genuine VR departure must start exactly one halo',halos,departing)
       page.wait_for_function('''() => {const s=MRRIntegrated.state.scene;return
         !s.vrTargetLockKey&&!s.hoveredKey&&s.vrDepartActive===0&&
+        s.vrDepartHaloActive===0&&
         !document.querySelector('#vr-guide-targets').children.length&&
         !document.querySelector('#vr-aim-line').getAttribute('d');}'''.replace('return\n','return '),timeout=15000)
       live=page.locator('#arena .board-card .card-ui').count();state=page.evaluate('MRRIntegrated.state.scene')

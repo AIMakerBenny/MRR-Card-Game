@@ -915,6 +915,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01O: the public board has actually LOST a card. A short neutral
   // departure/dissolve is valid for destruction, sacrifice or recall;
   // NEVER claim a kill from DOM removal alone or keep a ghost pick mesh.
+  // Visual-only: a native public-card departure leaves a short, low profile
+  // ground ripple alongside the existing particle burst. It is not a kill
+  // assertion, target, or game rule event.
+  function removeVrDeparture(fx){
+    scene.remove(fx.points,fx.halo);
+    fx.geo.dispose();fx.mat.dispose();
+    fx.halo.geometry.dispose();fx.halo.material.dispose();
+  }
+  let vrDepartHaloCount=0;
   function spawnVrDeparture(slot,at){
     if(!vrMode||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
     if(vrDepartBursts.length>=7)return;
@@ -931,14 +940,21 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       size:.18,transparent:true,opacity:.76,depthWrite:false,sizeAttenuation:true});
     const points=new THREE.Points(geo,mat);
     points.position.set(slot.x,1.2,slot.z);
-    scene.add(points);vrDepartBursts.push({points,geo,mat,velocity,born:at,life:650});
-    vrDepartCount++;
+    const halo=new THREE.Mesh(
+      new THREE.RingGeometry(.43,.51,36),
+      new THREE.MeshBasicMaterial({color:slot.owner===0?0x9cc8ba:0xe7ae83,
+        transparent:true,opacity:.40,depthWrite:false,side:THREE.DoubleSide}));
+    halo.rotation.x=-Math.PI/2;
+    halo.position.set(slot.x,.16,slot.z);
+    scene.add(points,halo);
+    vrDepartBursts.push({points,halo,geo,mat,velocity,born:at,life:650});
+    vrDepartCount++;vrDepartHaloCount++;
   }
   function advanceVrDeparture(now){
     for(let i=vrDepartBursts.length-1;i>=0;i--){
       const fx=vrDepartBursts[i],p=Math.max(0,(now-fx.born)/fx.life);
       if(p>=1){
-        scene.remove(fx.points);fx.geo.dispose();fx.mat.dispose();
+        removeVrDeparture(fx);
         vrDepartBursts.splice(i,1);continue;
       }
       const pos=fx.geo.attributes.position;
@@ -948,6 +964,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           fx.velocity[k+1]*p-.5*p*p,fx.velocity[k+2]*p);
       }
       pos.needsUpdate=true;fx.mat.opacity=.76*Math.pow(1-p,1.55);
+      fx.halo.scale.setScalar(.85+p*.95);
+      fx.halo.material.opacity=.40*Math.pow(1-p,1.7);
     }
   }
   function advanceEffects(now){
@@ -1486,7 +1504,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(disposed)return;stop();disposed=true;
     for(const fx of liveEffects.splice(0))removeFx(fx);
     for(const f of vrLandingDust.splice(0)){scene.remove(f.points);f.geo.dispose();f.mat.dispose();}
-    for(const f of vrDepartBursts.splice(0)){scene.remove(f.points);f.geo.dispose();f.mat.dispose();}
+    for(const f of vrDepartBursts.splice(0))removeVrDeparture(f);
     recentFx.clear();pendingStrike=null;cinemaImpact=null;impactLamp.intensity=0;
     for(const c of cards){
       if(c.seat)scene.remove(c.seat);
@@ -1526,6 +1544,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrLandingDustActive:vrMode?vrLandingDust.length:null,
       vrDepartStarted:vrMode?vrDepartCount:null,
       vrDepartActive:vrMode?vrDepartBursts.length:null,
+      vrDepartHaloStarted:vrMode?vrDepartHaloCount:null,
+      vrDepartHaloActive:vrMode?vrDepartBursts.filter(f=>!!f.halo).length:null,
       vrHitReactions:vrMode?vrHitReactions:null,
       vrSelectionBursts:vrMode?vrSelectionBursts:null,
       vrTargetLocks:vrMode?vrTargetLocks:null,
