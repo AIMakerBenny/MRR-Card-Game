@@ -199,6 +199,14 @@ try:
       focus_box['y']+focus_box['height']<=main_card['top']+8 or
       focus_box['y']>=main_card['bottom']-8),('focus occludes hovered public card',focus_box,main_card)
     page.screenshot(path=str(ROOT/'tests/vr01_card_focus_1920x1080.png'),animations='disabled')
+    # VR01P: OS/browser cancellation must never synthesize a card click.
+    page.locator('#mrr-integrated-stage canvas').evaluate("""(canvas,p)=>{
+      for(const type of ['pointerdown','pointercancel','pointerup'])
+        canvas.dispatchEvent(new PointerEvent(type,{bubbles:true,button:0,
+          pointerId:1,clientX:p.x,clientY:p.y}));
+    }""",xy)
+    assert page.locator('#arena .selected-slot').count()==0
+    assert snap()==baseline,'Cancelled pointer gesture selected or played a card'
     page.mouse.click(xy['x'],xy['y'])
     page.wait_for_function("""()=>MRRIntegrated.state.scene.selectedKey!==null &&
       !document.querySelector('#mrr-integrated-context').hidden""",timeout=18000)
@@ -218,6 +226,18 @@ try:
     before_hp=page.evaluate("""key=>{const [owner,row,col]=key.split(':');
       return G.players[+owner][row][+col]?.hp}""",opponent)
     assert before_hp and before_hp>0
+    # A genuine attack declaration can be cancelled with the VR control,
+    # without closing the board or spending HP, mana or a turn action.
+    page.locator('#mrr-quick-attack').click(timeout=12000)
+    page.wait_for_function('MRRIntegrated.state.scene.attackTargetCount>0',timeout=13000)
+    page.wait_for_selector('#vr-cancel:not([hidden])')
+    page.locator('#vr-cancel').click()
+    page.wait_for_function("""() => MRRIntegrated.state.scene.attackTargetCount===0 &&
+      MRRIntegrated.state.scene.vrTargetLockKey===null &&
+      !document.querySelector('#vr-aim-line').getAttribute('d') &&
+      !document.querySelector('#vr-guide-targets').children.length""",timeout=14000)
+    assert page.evaluate('MRRVR.status.open')
+    assert snap()==baseline,'Native attack cancellation changed game resources'
     page.locator('#mrr-quick-attack').click(timeout=12000)
     page.wait_for_function('MRRIntegrated.state.scene.attackTargetCount>0',timeout=13000)
     # VR01I: the target icon only appears on a genuinely native-marked
@@ -658,6 +678,14 @@ try:
         page.mouse.click(px,py)
         legal=page.locator('#arena .slot.legal')
         if not legal.count():continue
+        page.wait_for_selector('#vr-cancel:not([hidden])')
+        page.locator('#vr-cancel').click()
+        page.wait_for_function("""() => !document.querySelector('#arena .slot.legal') &&
+          !document.querySelector('#mrr-vr-shell').classList.contains('vr-placing')""",timeout=14000)
+        assert snap()==prior,'Cancelling hand placement spent native resources'
+        # Select the same authentic hand card again, then confirm placement.
+        page.locator('#vr-hand .vr-card').nth(candidate['i']).evaluate('e=>e.click()')
+        page.wait_for_function("!!document.querySelector('#arena .slot.legal')")
         dest=legal.first.get_attribute('data-slot')
         projected=page.evaluate('k=>MRRIntegrated.scene.projectSlot(k)',dest)
         assert projected and 0<projected['x']<1920 and 0<projected['y']<1080

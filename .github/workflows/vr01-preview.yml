@@ -28,6 +28,8 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Real Chromium VR01 desktop screenshots and native gameplay
         run: python tests/vr01_vertical_slice_e2e.py
+      - name: VR01P real lethal combat, departure cleanup and reduced motion
+        run: python tests/vr01p_finish_e2e.py
       - name: Package desktop preview
         if: always()
         run: |

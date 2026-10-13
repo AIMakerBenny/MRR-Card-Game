@@ -57,7 +57,16 @@ function buildUI(){
   heroAlly.append(el('div','vr-portrait','M'),el('div','vr-profile'),el('div','vr-hp'));
   footer.append(heroAlly,button('vr-end-turn','턴 종료',()=>native('#endTurn')));ui.append(footer);
   const hand=el('div','vr-hand');hand.id='vr-hand';hand.setAttribute('aria-label','내 실제 손패');ui.append(hand);
-  const hint=el('div','vr-hint','손패를 선택하여 전장에 배치하세요');hint.id='vr-hint';ui.append(hint);
+  const hint=el('div','vr-hint');hint.id='vr-hint';
+  const hintText=el('span','','손패를 선택하여 전장에 배치하세요');hintText.id='vr-hint-text';
+  // Delegate cancellation to Phase21, including hand placement where the
+  // selected-card context menu intentionally has no battlefield source.
+  const cancel=button('vr-cancel','선택 취소',()=>{
+    native('#inspectBody button[data-cancel-action]');
+    window.MRRIntegrated?.scene?.sync();schedule();
+  });
+  cancel.hidden=true;hint.append(hintText,cancel);ui.append(hint);
+  q('#vr-camera',ui).title='시점 전환 · 휠로 확대·축소 · 전장 드래그 회전 없음';
   const aim=document.createElementNS('http://www.w3.org/2000/svg','svg');
   aim.id='vr-aim';aim.setAttribute('preserveAspectRatio','none');
   aim.innerHTML='<defs><marker id="vr-arrow" markerWidth="7" markerHeight="7" refX="8" refY="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#f0b982"/></marker></defs><g id="vr-guide-targets"></g><path id="vr-aim-line" fill="none" stroke="#f0b982" stroke-width="3" marker-end="url(#vr-arrow)" />';
@@ -408,9 +417,11 @@ function refresh(){
  const placing=qa('#arena .slot.legal').length>0;
  const target=qa('#arena .slot.attack-target').length>0;
  ui.classList.toggle('vr-placing',placing||target);
- q('#vr-hint',ui).textContent=target?'공격할 대상을 선택하세요':
+ q('#vr-hint-text',ui).textContent=target?'공격할 대상을 선택하세요':
    placing?'전장의 합법 위치를 선택하세요':
    window.MRRIntegrated?.state.scene?.selectedKey?'선택 카드의 명령을 실행하세요':'손패를 선택하여 배치하세요';
+ const cancel=q('#vr-cancel',ui),nativeCancel=q('#inspectBody button[data-cancel-action]');
+ cancel.hidden=!nativeCancel;cancel.disabled=!nativeCancel||nativeCancel.disabled;
  q('#vr-end-turn',ui).disabled=!!q('#endTurn')?.disabled;
  updateAim();
 }

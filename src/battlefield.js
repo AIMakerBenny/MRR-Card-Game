@@ -1187,6 +1187,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // game itself still marks this exact public card as attack-target.
     if(vrTargetLock&&!list.some(p=>p.key===vrTargetLock.key&&p.attackTarget))
       vrTargetLock=null;
+    // VR01P: a departed card must not leave hover light or its inspector
+    // attached to an empty, non-actionable slot. Legal empty slots remain.
+    if(vrMode&&hoveredKey&&!list.some(p=>p.key===hoveredKey&&
+      (p.name||p.legal||p.attackTarget)))setHover(null,true);
     for(const p of list){
       const slot=boardSlots.get(p.key);
       // Phase72: follow the original native .legal class; never change rules.
@@ -1302,11 +1306,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     setHover(picked);
   }
   function leave(){if(!drag)setHover(null);}
+  // Cancellation is never a card click, even if the pointer has not moved.
+  function cancelPointer(){drag=false;moved=false;setHover(null);}
   function wheel(e){e.preventDefault();manualCamera=true;distance=Math.max(24,Math.min(47,distance+e.deltaY*.018));updateCamera();setHover(null);}
   mount.addEventListener('pointerdown',down);
   mount.addEventListener('pointermove',move);
   mount.addEventListener('pointerup',up);
-  mount.addEventListener('pointercancel',up);
+  mount.addEventListener('pointercancel',cancelPointer);
   mount.addEventListener('pointerleave',leave);
   mount.addEventListener('wheel',wheel,{passive:false});
   let frames=0,raf=0,running=false,disposed=false,lastDraw=0,lastVisualTime=0;
@@ -1493,7 +1499,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     mount.removeEventListener('pointerdown',down);
     mount.removeEventListener('pointermove',move);
     mount.removeEventListener('pointerup',up);
-    mount.removeEventListener('pointercancel',up);
+    mount.removeEventListener('pointercancel',cancelPointer);
     mount.removeEventListener('pointerleave',leave);
     mount.removeEventListener('wheel',wheel);
     renderer.dispose();renderer.domElement.remove();

@@ -30,6 +30,8 @@ jobs:
         run: python tests/static_audit.py
       - name: VR01 Chromium desktop composition and real engine gameplay QA
         run: python tests/vr01_vertical_slice_e2e.py
+      - name: VR01P real lethal combat, departure cleanup and reduced motion
+        run: python tests/vr01p_finish_e2e.py
       - name: Phase73-76 native selection, target focus, reduced-motion and real attack Chromium QA
         run: python tests/phase76_field_focus_e2e.py
       - name: Phase72 animated legal-slot halo, native placement, 3 PC viewport Chromium QA

@@ -70,6 +70,12 @@ body.mrr-vr-active #mrr-integrated-context #mrr-quick-attack{
  font:600 12px 'Malgun Gothic',sans-serif}
 #mrr-vr-shell .vr-btn:hover{background:#36565c;border-color:#c5b390}
 #mrr-vr-shell .vr-btn:disabled{opacity:.4;cursor:default}
+#mrr-vr-shell .vr-btn:focus-visible,#mrr-vr-shell .vr-pile:focus-visible{
+ outline:2px solid #e0c69b;outline-offset:3px;
+}
+#mrr-vr-shell #vr-hint{display:flex;align-items:center;gap:10px}
+#mrr-vr-shell #vr-cancel{pointer-events:auto;min-height:24px;padding:2px 9px;font-size:11px}
+#mrr-vr-shell #vr-cancel[hidden]{display:none}
 #mrr-vr-shell #vr-return{color:#abd6d1}
 #mrr-vr-shell .vr-enemy-fan{position:absolute;left:50%;top:0;width:min(44vw,700px);
  height:80px;transform:translateX(-50%)}
