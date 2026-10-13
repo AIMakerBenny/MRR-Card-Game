@@ -202,6 +202,18 @@ try:
     page.mouse.click(xy['x'],xy['y'])
     page.wait_for_function("""()=>MRRIntegrated.state.scene.selectedKey!==null &&
       !document.querySelector('#mrr-integrated-context').hidden""",timeout=18000)
+    # VR01M: only a genuine Phase21 selection triggers a 3D focus accent.
+    # It must return to baseline without leaving enlarged click geometry.
+    page.wait_for_function("""key=>{
+      const state=MRRIntegrated.state.scene;
+      return state.selectedKey===key&&state.vrSelectionBursts===1;
+    }""",arg=mine,timeout=12000)
+    assert page.evaluate('MRRIntegrated.state.scene.pickableCount')>=30
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrSelectionBurstKey===null &&
+        Math.abs(s.vrSelectionRingScale-1)<.001;
+    }""",timeout=12000)
     assert snap()==baseline
     before_hp=page.evaluate("""key=>{const [owner,row,col]=key.split(':');
       return G.players[+owner][row][+col]?.hp}""",opponent)
