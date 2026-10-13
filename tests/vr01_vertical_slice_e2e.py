@@ -312,6 +312,35 @@ try:
     }""",arg=opponent,timeout=15000)
     assert snap()==baseline,'Hovering native aim cue changed game state'
     page.screenshot(path=str(ROOT/'tests/vr01_attack_lockon_1920x1080.png'),animations='disabled')
+    # Capture VR01S feedback at the actual native FX DOM insertion, not
+    # seconds afterward when its short-lived badge may have expired.
+    page.evaluate("""key=>{
+      window.__vr01sAnchorResult=null;
+      const host=document.querySelector('#vr-combat-outcomes');
+      const observer=new MutationObserver(()=>{
+        const badge=[...host.querySelectorAll('.vr-combat-outcome')]
+          .find(e=>e.dataset.slot===key&&e.dataset.kind==='hit');
+        if(!badge)return;
+        observer.disconnect();
+        try{
+          const stage=document.querySelector('#mrr-integrated-stage');
+          const button=document.querySelector('#vr-camera');
+          button.click();
+          const scene=MRRIntegrated.scene;
+          const preset=scene.state.cameraPreset;
+          window.dispatchEvent(new Event('resize'));
+          const point=scene.projectCard(key)||scene.projectSlot(key);
+          const rect=stage.getBoundingClientRect();
+          const expected=[Math.max(42,Math.min(rect.width-42,point.x-rect.left)),
+            Math.max(92,Math.min(rect.height-88,point.y-rect.top-30))];
+          const actual=[parseFloat(badge.style.left),parseFloat(badge.style.top)];
+          button.click();button.click();
+          window.__vr01sAnchorResult={present:true,preset,expected,actual,
+            delta:Math.max(...expected.map((v,i)=>Math.abs(v-actual[i])))};
+        }catch(error){window.__vr01sAnchorResult={error:String(error)};}
+      });
+      observer.observe(host,{childList:true});
+    }""",opponent)
     page.mouse.click(target['x'],target['y'])
     page.wait_for_function("""v=>{const [owner,row,col]=v.key.split(':');
       return (G.players[+owner][row][+col]?.hp||0)<v.hp}""",
@@ -334,27 +363,8 @@ try:
       (e['amount'] is None or e['amount']>0) for e in outcome['events']),outcome
     # VR01S: genuine hit feedback must follow the projected card when
     # the camera changes and never affect native Phase21 gameplay.
-    anchor=page.evaluate("""key=>{
-      const stage=document.querySelector('#mrr-integrated-stage');
-      const badge=[...document.querySelectorAll('#vr-combat-outcomes .vr-combat-outcome')]
-        .find(e=>e.dataset.slot===key&&e.dataset.kind==='hit');
-      if(!badge)return {present:false};
-      // The player's actual PC camera control is the public input path.
-      const button=document.querySelector('#vr-camera');
-      button.click();
-      const scene=MRRIntegrated.scene;
-      const preset=scene.state.cameraPreset;
-      window.dispatchEvent(new Event('resize'));
-      const point=scene.projectCard(key)||scene.projectSlot(key);
-      const rect=stage.getBoundingClientRect();
-      const expected=[Math.max(42,Math.min(rect.width-42,point.x-rect.left)),
-        Math.max(92,Math.min(rect.height-88,point.y-rect.top-30))];
-      const actual=[parseFloat(badge.style.left),parseFloat(badge.style.top)];
-      // Return to the original full-table camera via the same user control.
-      button.click();button.click();
-      return {present:true,preset,expected,actual,delta:Math.max(
-        ...expected.map((v,i)=>Math.abs(v-actual[i])))};
-    }""",opponent)
+    page.wait_for_function('window.__vr01sAnchorResult!==null',timeout=14000)
+    anchor=page.evaluate('window.__vr01sAnchorResult')
     assert anchor.get('present') and anchor.get('preset')=='ally' and anchor.get('delta',999)<2,anchor
     assert snap()==after,'Camera-tracked visual feedback modified Phase21 state'
     page.screenshot(path=str(ROOT/'tests/vr01_native_confirmed_impact_1920x1080.png'),animations='disabled')
