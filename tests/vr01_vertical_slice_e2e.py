@@ -251,6 +251,25 @@ try:
       document.querySelector('#vr-aim-line')?.dataset.target===key &&
       !!document.querySelector('#vr-aim-line')?.getAttribute('d')""",
       arg=opponent,timeout=15000)
+    # VR01N: only a genuinely native target hover creates one bounded,
+    # temporary lock-on accent; moving off clears it without touching
+    # damage or inventing legal actions.
+    page.wait_for_function("""key=>{
+      const s=MRRIntegrated.state.scene;
+      return s.vrTargetLockKey===key&&s.vrTargetLocks===1&&
+        s.vrTargetLockScale>1.07&&s.vrTargetLockScale<1.5;
+    }""",arg=opponent,timeout=14000)
+    page.mouse.move(3,550)
+    page.wait_for_function("""()=>MRRIntegrated.state.scene.vrTargetLockKey===null&&
+      !document.querySelector('#vr-aim-line').getAttribute('d')""",timeout=12000)
+    assert page.evaluate('MRRIntegrated.state.scene.vrTargetLocks')==1
+    assert snap()==baseline,'Changing the cursor changed Phase21 gameplay'
+    page.mouse.move(target['x'],target['y'])
+    page.wait_for_function("""key=>{
+      const s=MRRIntegrated.state.scene;
+      return s.vrTargetLockKey===key&&s.vrTargetLocks===2&&
+        document.querySelector('#vr-aim-line')?.dataset.target===key;
+    }""",arg=opponent,timeout=15000)
     assert snap()==baseline,'Hovering native aim cue changed game state'
     page.screenshot(path=str(ROOT/'tests/vr01_attack_lockon_1920x1080.png'),animations='disabled')
     page.mouse.click(target['x'],target['y'])
