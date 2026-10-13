@@ -726,7 +726,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   impactLamp.position.set(0,2,0);scene.add(impactLamp);
   let pendingStrike=null,cinemaImpact=null,confirmedStrikes=0,cinematicFrameCount=0;
   let vrHitReactions=0,vrLandingDustStarted=0;
-  const vrLandingDust=[];
+  const vrLandingDust=[],vrDepartBursts=[];
+  let vrDepartCount=0;
   let latestCombat=null;
   const nativeCombatEvents=[];
   function stageAttack(sourceKey,targetKey){
@@ -911,6 +912,44 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       pos.needsUpdate=true;f.mat.opacity=Math.pow(1-p,1.6)*.68;
     }
   }
+  // VR01O: the public board has actually LOST a card. A short neutral
+  // departure/dissolve is valid for destruction, sacrifice or recall;
+  // NEVER claim a kill from DOM removal alone or keep a ghost pick mesh.
+  function spawnVrDeparture(slot,at){
+    if(!vrMode||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    if(vrDepartBursts.length>=7)return;
+    const count=16,geo=new THREE.BufferGeometry();
+    const coords=new Float32Array(count*3),velocity=new Float32Array(count*3);
+    for(let i=0;i<count;i++){
+      const a=i*2.399963229728653,rad=.18+(i%5)*.13;
+      velocity[i*3]=Math.cos(a)*rad*2.5;
+      velocity[i*3+1]=.55+(i%7)*.16;
+      velocity[i*3+2]=Math.sin(a)*rad*2.5;
+    }
+    geo.setAttribute('position',new THREE.BufferAttribute(coords,3));
+    const mat=new THREE.PointsMaterial({color:slot.owner===0?0x9cc8ba:0xe7ae83,
+      size:.18,transparent:true,opacity:.76,depthWrite:false,sizeAttenuation:true});
+    const points=new THREE.Points(geo,mat);
+    points.position.set(slot.x,1.2,slot.z);
+    scene.add(points);vrDepartBursts.push({points,geo,mat,velocity,born:at,life:650});
+    vrDepartCount++;
+  }
+  function advanceVrDeparture(now){
+    for(let i=vrDepartBursts.length-1;i>=0;i--){
+      const fx=vrDepartBursts[i],p=Math.max(0,(now-fx.born)/fx.life);
+      if(p>=1){
+        scene.remove(fx.points);fx.geo.dispose();fx.mat.dispose();
+        vrDepartBursts.splice(i,1);continue;
+      }
+      const pos=fx.geo.attributes.position;
+      for(let j=0;j<fx.velocity.length/3;j++){
+        const k=j*3;
+        pos.setXYZ(j,fx.velocity[k]*p,
+          fx.velocity[k+1]*p-.5*p*p,fx.velocity[k+2]*p);
+      }
+      pos.needsUpdate=true;fx.mat.opacity=.76*Math.pow(1-p,1.55);
+    }
+  }
   function advanceEffects(now){
     for(let i=liveEffects.length-1;i>=0;i--){
       const f=liveEffects[i],p=Math.max(0,(now-f.born)/f.life);
@@ -1043,12 +1082,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // Preserve unchanged public 3D cards. Previously any new card replaced
       // every mesh and texture, making a crowded board visibly flicker.
       const reuse=new Map();
+      const occupiedNext=new Set(list.filter(p=>!!p.name).map(p=>p.key));
       if(vrMode)for(const p of list){
         const old=cardIndex.get(p.key);
         if(p.name&&old?.fingerprint===vrCardFingerprint(p))reuse.set(p.key,old);
       }
       for(const c of cards){
         if(reuse.get(c.key)===c)continue;
+        if(vrMode&&!occupiedNext.has(c.key))
+          spawnVrDeparture(c.slot,performance.now());
+        // Remove the real old mesh IMMEDIATELY. The ephemeral particles
+        // are non-pickable, bounded, and never counted as occupied cards.
         scene.remove(c.group);if(c.seat)scene.remove(c.seat);
         if(c.face.material.map){
           const tex=c.face.material.map;tex.userData.artDisposed=true;tex.dispose();
@@ -1170,6 +1214,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     if(hoveredKey&&!list.some(p=>p.key===hoveredKey))hoveredKey=null;
+    // The authoritative Phase21 state ends the attack. No visual lock
+    // or target halo may persist after native target classes disappear.
+    if(!attackTargetCount)vrTargetLock=null;
     const hovered=list.find(p=>p.key===hoveredKey);
     const source=boardSlots.get(selectedKey),target=boardSlots.get(hoveredKey);
     const arrowVisible=!!(source&&target&&hovered?.attackTarget);
@@ -1399,7 +1446,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     advanceEffects(time);
-    if(vrMode)advanceVrLandingDust(time);
+    if(vrMode){advanceVrLandingDust(time);advanceVrDeparture(time);}
     advanceCinematics(time);
     renderer.render(scene,camera);frames++;
   }
@@ -1433,6 +1480,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(disposed)return;stop();disposed=true;
     for(const fx of liveEffects.splice(0))removeFx(fx);
     for(const f of vrLandingDust.splice(0)){scene.remove(f.points);f.geo.dispose();f.mat.dispose();}
+    for(const f of vrDepartBursts.splice(0)){scene.remove(f.points);f.geo.dispose();f.mat.dispose();}
     recentFx.clear();pendingStrike=null;cinemaImpact=null;impactLamp.intensity=0;
     for(const c of cards){
       if(c.seat)scene.remove(c.seat);
@@ -1470,6 +1518,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrLiveCardTextures:vrMode?madeTextures.length:null,
       vrLandingDustStarted:vrMode?vrLandingDustStarted:null,
       vrLandingDustActive:vrMode?vrLandingDust.length:null,
+      vrDepartStarted:vrMode?vrDepartCount:null,
+      vrDepartActive:vrMode?vrDepartBursts.length:null,
       vrHitReactions:vrMode?vrHitReactions:null,
       vrSelectionBursts:vrMode?vrSelectionBursts:null,
       vrTargetLocks:vrMode?vrTargetLocks:null,
