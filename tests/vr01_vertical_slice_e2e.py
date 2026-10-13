@@ -263,6 +263,26 @@ try:
       path:document.querySelector('#vr-aim-line')?.getAttribute('d')
     })""")
     assert guide['expected'] and guide['expected']==guide['actual'],guide
+    # VR01R: the target guide follows the REAL projected card face rather
+    # than a fixed 20px circle; never attach click geometry to an SVG guide.
+    outlines=page.evaluate("""() => {
+      const stage=document.querySelector('#mrr-integrated-stage').getBoundingClientRect();
+      return [...document.querySelectorAll('#vr-guide-targets .vr-target-guide')].map(node=>{
+        const b=MRRIntegrated.scene.projectCardBounds(node.dataset.slot);
+        if(!b)return {tag:node.localName,error:999};
+        const w=b.right-b.left,h=b.bottom-b.top;
+        const i=Math.min(9,Math.min(w,h)*.065);
+        const expected=[b.left-stage.left+i,b.top-stage.top+i,
+          Math.max(2,w-i*2),Math.max(2,h-i*2)];
+        const actual=['x','y','width','height'].map(v=>Number(node.getAttribute(v)));
+        return {tag:node.localName,width:actual[2],height:actual[3],
+          error:Math.max(...actual.map((value,index)=>Math.abs(value-expected[index]))),
+          pointer:getComputedStyle(node).pointerEvents};
+      });
+    }""")
+    assert outlines and all(o['tag']=='rect' and o['width']>20 and
+      o['height']>30 and o['error']<1 and o['pointer']=='none'
+      for o in outlines),outlines
     page.screenshot(path=str(ROOT/'tests/vr01_attack_target_1920x1080.png'),animations='disabled')
     target=page.evaluate('(key)=>MRRIntegrated.scene.projectCard(key)',opponent)
     assert target and 0<target['x']<1920 and 0<target['y']<1080

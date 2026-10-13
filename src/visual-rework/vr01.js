@@ -85,18 +85,30 @@ function updateAim(){
   const ns='http://www.w3.org/2000/svg';
   const old=new Map([...guides.children].map(node=>[node.dataset.slot,node]));
   for(const slot of targets){
-    const key=slot.getAttribute('data-slot'),point=scene.projectCard(key);
-    if(!point)continue;
-    let circle=old.get(key);
-    if(!circle){
-      circle=document.createElementNS(ns,'circle');
-      circle.dataset.slot=key;circle.setAttribute('r','20');
-      circle.setAttribute('class','vr-target-guide');
-      guides.append(circle);
+    const key=slot.getAttribute('data-slot');
+    const bounds=scene.projectCardBounds?.(key);
+    if(!bounds)continue;
+    const width=bounds.right-bounds.left,height=bounds.bottom-bounds.top;
+    if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)continue;
+    // VR01R: trace the actual projected public card, not a fixed-size
+    // reticle. The authoritative native .attack-target remains the only
+    // source of legal targets; the SVG has no pointer or gameplay handlers.
+    const inset=Math.min(9,Math.min(width,height)*.065);
+    let outline=old.get(key);
+    if(!outline||outline.localName!=='rect'){
+      outline?.remove();
+      outline=document.createElementNS(ns,'rect');
+      outline.dataset.slot=key;
+      outline.setAttribute('class','vr-target-guide');
+      outline.setAttribute('rx','8');
+      outline.setAttribute('ry','8');
+      guides.append(outline);
     }
-    circle.setAttribute('cx',(point.x-box.left).toFixed(1));
-    circle.setAttribute('cy',(point.y-box.top).toFixed(1));
-    circle.classList.toggle('vr-target-hover',state.hoveredKey===key);
+    outline.setAttribute('x',(bounds.left-box.left+inset).toFixed(1));
+    outline.setAttribute('y',(bounds.top-box.top+inset).toFixed(1));
+    outline.setAttribute('width',Math.max(2,width-inset*2).toFixed(1));
+    outline.setAttribute('height',Math.max(2,height-inset*2).toFixed(1));
+    outline.classList.toggle('vr-target-hover',state.hoveredKey===key);
     old.delete(key);
   }
   for(const stale of old.values())stale.remove();
