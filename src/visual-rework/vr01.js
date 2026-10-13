@@ -34,7 +34,8 @@ function buildUI(){
       const next=(views.indexOf(tacticalCamera)+1)%views.length;
       const scene=window.MRRIntegrated?.scene;
       if(scene?.setCameraPreset(views[next])){
-        tacticalCamera=views[next];q('#vr-camera',ui).textContent=labels[next];schedule();
+        tacticalCamera=views[next];q('#vr-camera',ui).textContent=labels[next];
+        positionActiveOutcomes();schedule();
       }
     }),
     button('vr-return','2D 보기',closeUI));
@@ -362,6 +363,12 @@ function positionConfirmedOutcome(node,key,scene){
   node.style.top=Math.max(92,Math.min(rect.height-88,point.y-rect.top-30)).toFixed(1)+'px';
   return true;
 }
+function positionActiveOutcomes(){
+  if(!open||!stage)return;
+  const scene=window.MRRIntegrated?.scene;
+  if(!scene)return;
+  for(const item of outcomeNodes)positionConfirmedOutcome(item.node,item.key,scene);
+}
 function reconcileConfirmedOutcomes(){
   if(!open||!ui)return;
   const scene=window.MRRIntegrated?.scene,st=scene?.state;
@@ -485,7 +492,10 @@ async function openUI(){
  finally{busy=false;entry.disabled=false;}
 }
 entry.addEventListener('click',()=>open?closeUI():openUI());
-window.addEventListener('resize',()=>{if(open){handSignature='';backCount=-1;schedule();}});
+window.addEventListener('resize',()=>{if(open){
+ handSignature='';backCount=-1;
+ positionActiveOutcomes();schedule();
+}});
 window.addEventListener('beforeunload',cleanup);
 window.MRRVR={open:openUI,close:closeUI,get status(){
  return {open,hand:q('#vr-hand',ui||document)?.childElementCount||0,

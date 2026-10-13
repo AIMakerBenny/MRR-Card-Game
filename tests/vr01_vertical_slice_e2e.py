@@ -334,26 +334,28 @@ try:
       (e['amount'] is None or e['amount']>0) for e in outcome['events']),outcome
     # VR01S: genuine hit feedback must follow the projected card when
     # the camera changes and never affect native Phase21 gameplay.
-    anchor=page.evaluate("""async key=>{
+    anchor=page.evaluate("""key=>{
       const stage=document.querySelector('#mrr-integrated-stage');
       const badge=[...document.querySelectorAll('#vr-combat-outcomes .vr-combat-outcome')]
         .find(e=>e.dataset.slot===key&&e.dataset.kind==='hit');
       if(!badge)return {present:false};
+      // The player's actual PC camera control is the public input path.
+      const button=document.querySelector('#vr-camera');
+      button.click();
       const scene=MRRIntegrated.scene;
-      if(!scene.setCameraPreset('ally'))return {error:'camera preset'};
+      const preset=scene.state.cameraPreset;
       window.dispatchEvent(new Event('resize'));
-      await new Promise(done=>setTimeout(done,150));
       const point=scene.projectCard(key)||scene.projectSlot(key);
       const rect=stage.getBoundingClientRect();
       const expected=[Math.max(42,Math.min(rect.width-42,point.x-rect.left)),
         Math.max(92,Math.min(rect.height-88,point.y-rect.top-30))];
       const actual=[parseFloat(badge.style.left),parseFloat(badge.style.top)];
-      scene.setCameraPreset('tabletop');
-      window.dispatchEvent(new Event('resize'));
-      return {present:true,expected,actual,delta:Math.max(
+      // Return to the original full-table camera via the same user control.
+      button.click();button.click();
+      return {present:true,preset,expected,actual,delta:Math.max(
         ...expected.map((v,i)=>Math.abs(v-actual[i])))};
     }""",opponent)
-    assert anchor.get('present') and anchor.get('delta',999)<2,anchor
+    assert anchor.get('present') and anchor.get('preset')=='ally' and anchor.get('delta',999)<2,anchor
     assert snap()==after,'Camera-tracked visual feedback modified Phase21 state'
     page.screenshot(path=str(ROOT/'tests/vr01_native_confirmed_impact_1920x1080.png'),animations='disabled')
     # Native confirmed damage must refresh the badge to the CURRENT public
