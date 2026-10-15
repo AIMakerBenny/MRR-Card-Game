@@ -471,3 +471,12 @@ body.mrr-vr-active #mrr-vr-shell #vr-cancel{
  }
  body.mrr-vr-active #mrr-vr-shell #vr-hint-text{font-size:11px}
 }
+
+/* VR01Z: the genuine native adjacent-slot move command is visually
+   distinct from summoning. Presentation only; no new target surfaces. */
+body.mrr-vr-active #mrr-vr-shell #vr-hint[data-mode=move]{
+ border-color:#90a8d599;
+}
+body.mrr-vr-active #mrr-vr-shell #vr-hint[data-mode=move] .vr-hint-mode{
+ color:#d5e4ff;border-color:#98b1eb88;background:#394e8055;
+}

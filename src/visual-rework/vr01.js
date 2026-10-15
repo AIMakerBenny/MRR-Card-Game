@@ -481,8 +481,14 @@ function refresh(){
  const legalCount=qa('#arena .slot.legal').length;
  const attackCount=qa('#arena .slot.attack-target').length;
  const selectedKey=window.MRRIntegrated?.state.scene?.selectedKey;
- const mode=attackCount?'attack':legalCount?'place':selectedKey?'selected':'hand';
- const modeName={attack:'공격',place:'배치',selected:'선택',hand:'손패'};
+ // VR01Z: movement is NOT hand deployment. Derive the distinction from
+ // the original Phase21 inspector's public result-preview instructions.
+ // Neither this label nor the adjacent-slot count changes move rules.
+ const preview=clean(q('#inspectBody .result-preview')?.textContent);
+ const moving=legalCount>0&&preview.includes('인접한 빈칸 선택');
+ const mode=attackCount?'attack':moving?'move':legalCount?'place':
+   selectedKey?'selected':'hand';
+ const modeName={attack:'공격',move:'이동',place:'배치',selected:'선택',hand:'손패'};
  // VR01Y: the original Phase21 inspector is authoritative about which
  // commands can execute. These hints and hotkeys only mirror enabled
  // context commands and never supply new movement/attack rules.
@@ -496,6 +502,7 @@ function refresh(){
  const canMove=mode==='selected'&&canNativeCommand(moveControl,moveQuick);
  const commands=[canAttack?'A 공격':'',canMove?'M 이동':''].filter(Boolean);
  const instruction=mode==='attack'?'공격 대상 '+attackCount+'곳 · 카드 선택':
+   mode==='move'?'이동 가능 '+legalCount+'곳 · 인접 빈칸 선택':
    mode==='place'?'배치 가능 '+legalCount+'곳 · 전장 위치 선택':
    mode==='selected'?(commands.length?'카드 명령 · '+commands.join(' · '):
      '선택 카드의 명령을 실행하세요'):

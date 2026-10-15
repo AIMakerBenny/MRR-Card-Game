@@ -62,6 +62,7 @@ try:
       page.locator('#endTurn').evaluate('e=>e.click()')
       page.wait_for_selector('#passContinue')
       page.locator('#passContinue').click()
+      move_seed=seed
       break
     assert mine and opponent,'Could not prepare two genuine Phase21 units'
     baseline=snap()
@@ -929,8 +930,98 @@ try:
       if placed:break
       page.locator('#vr-return').evaluate('e=>e.click()')
     assert placed,'No genuine VR mouse hand placement + turn cycle was verified'
+
+    # VR01Z: a separate REAL local two-player turn cycle tests M from
+    # selection through Phase21 movement, including cancellation and
+    # an occupied action after moving. No synthetic game state fixtures.
+    page.goto(url+f'?qa_seed={move_seed}',wait_until='domcontentloaded')
+    page.locator('#newGame').click()
+    page.locator('#modeSelect').select_option('local')
+    page.locator('#launchGame').click()
+    page.get_by_role('button',name='이 손패로 시작').click()
+    moving_source=set_unit(0)
+    assert moving_source,'VR01Z could not summon genuine player unit'
+    page.locator('#endTurn').evaluate('e=>e.click()')
+    page.wait_for_selector('#passContinue')
+    page.locator('#passContinue').click()
+    assert set_unit(1),'VR01Z could not prepare real opposing turn'
+    page.locator('#endTurn').evaluate('e=>e.click()')
+    page.wait_for_selector('#passContinue')
+    page.locator('#passContinue').click()
+    assert page.locator(f'#arena [data-slot="{moving_source}"] .board-card').count()==1
+    prior_move=snap()
+    page.locator('#mrr-vr-open').click()
+    page.wait_for_function('MRRVR.status.open && MRRIntegrated.state.scene.frames>5',
+      timeout=45000)
+    origin=page.evaluate('k=>MRRIntegrated.scene.projectSlot(k)',moving_source)
+    assert origin and 0<origin['x']<1920 and 0<origin['y']<1080,origin
+    page.mouse.click(origin['x'],origin['y'])
+    page.wait_for_function("""key=>{
+      const quick=document.querySelector('#mrr-quick-move');
+      const native=document.querySelector('#inspectBody button[data-actor="move"]');
+      const hint=document.querySelector('#vr-hint-text');
+      return MRRIntegrated.state.scene.selectedKey===key && quick&&!quick.hidden &&
+        native&&!native.disabled && hint?.textContent.includes('M 이동');
+    }""",arg=moving_source,timeout=14000)
+    assert snap()==prior_move,'Selecting move source changed native state'
+
+    page.keyboard.press('m')
+    page.wait_for_function("""() => {
+      const legal=document.querySelectorAll('#arena .slot.legal').length;
+      return legal>0 &&
+        document.querySelector('#vr-hint')?.dataset.mode==='move' &&
+        document.querySelector('#vr-hint-mode')?.textContent==='이동' &&
+        document.querySelector('#vr-hint-text')?.textContent.includes(legal+'곳');
+    }""",timeout=16000)
+    candidates=page.locator('#arena .slot.legal').evaluate_all(
+      'els=>els.map(e=>e.dataset.slot)')
+    assert candidates and all(
+      key.split(':')[0]==moving_source.split(':')[0] and
+      key.split(':')[1]==moving_source.split(':')[1] and
+      abs(int(key.split(':')[2])-int(moving_source.split(':')[2]))==1
+      for key in candidates),candidates
+    assert snap()==prior_move,'M selection changed native gameplay state'
+    page.screenshot(path=str(ROOT/'tests/vr01z_native_move_aim_1920x1080.png'),
+      animations='disabled')
+    # Cancel the genuinely pending native move. Action still available.
+    page.keyboard.press('c')
+    page.wait_for_function("""() => !document.querySelector('#arena .slot.legal') &&
+      document.querySelector('#vr-hint')?.dataset.mode==='selected'""",timeout=16000)
+    assert snap()==prior_move,'Cancelled M spent or moved Phase21 unit'
+
+    page.keyboard.press('m')
+    page.wait_for_function("""() =>
+      document.querySelector('#vr-hint')?.dataset.mode==='move' &&
+      document.querySelectorAll('#arena .slot.legal').length>0""",timeout=16000)
+    target=page.locator('#arena .slot.legal').first.get_attribute('data-slot')
+    target_projection=page.evaluate('k=>MRRIntegrated.scene.projectSlot(k)',target)
+    assert target_projection and 0<target_projection['x']<1920 and (
+      0<target_projection['y']<1080),target_projection
+    page.mouse.click(target_projection['x'],target_projection['y'])
+    page.wait_for_function("""pairs=>{
+      const source=document.querySelector('#arena [data-slot="'+pairs[0]+'"]');
+      const dest=document.querySelector('#arena [data-slot="'+pairs[1]+'"]');
+      return !source?.querySelector('.board-card') &&
+        !!dest?.querySelector('.board-card') &&
+        !document.querySelector('#arena .slot.legal');
+    }""",arg=[moving_source,target],timeout=18000)
+    assert snap()!=prior_move,'Real M click did not move Phase21 unit'
+    assert page.locator(f'#arena [data-slot="{target}"] .status-chip.exhausted').count()==1,(
+      'Phase21 move must consume the unit action')
+    assert page.evaluate('MRRIntegrated.state.scene.vrOccupiedSeats')==2
+    after_move=snap()
+    page.keyboard.press('m')
+    assert not page.locator('#arena .slot.legal').count(),(
+      'Exhausted native actor must not start another move')
+    assert snap()==after_move,'Exhausted actor shortcut changed Phase21 game'
+    page.screenshot(path=str(ROOT/'tests/vr01z_native_move_confirmed_1920x1080.png'),
+      animations='disabled')
+    page.locator('#vr-return').click()
+    assert snap()==after_move,'2D return after move changed Phase21 game'
+    assert not errors,errors
+    print('VR01Z genuine M select, C cancel, adjacent move, exhausted action PASS',flush=True)
     browser.close()
-    print('VR01 PASS: real Phase21 HP damage, 3 desktop viewports, unchanged display-only state and fallback',flush=True)
+    print('VR01 PASS: real Phase21 HP damage, 3 desktop viewports, native move and fallback',flush=True)
 finally:
   http.shutdown()
   http.server_close()
