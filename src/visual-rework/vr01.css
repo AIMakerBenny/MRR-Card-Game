@@ -480,3 +480,23 @@ body.mrr-vr-active #mrr-vr-shell #vr-hint[data-mode=move]{
 body.mrr-vr-active #mrr-vr-shell #vr-hint[data-mode=move] .vr-hint-mode{
  color:#d5e4ff;border-color:#98b1eb88;background:#394e8055;
 }
+
+/* VR01AA: camera-anchored real Phase21 vacant legal slots. Rendered entirely
+   above Three.js, never intercepting raycasting or adding legal positions. */
+#mrr-vr-shell #vr-aim .vr-legal-guide{
+ fill:#2cb5a522;stroke:#8df5dc;stroke-width:2.5;
+ stroke-dasharray:4 3;opacity:.88;vector-effect:non-scaling-stroke;
+ pointer-events:none;filter:drop-shadow(0 1px 3px #001a19b8);
+}
+#mrr-vr-shell #vr-aim .vr-legal-guide[data-mode=move]{
+ fill:#739eff23;stroke:#b5ccff;
+}
+@media(prefers-reduced-motion:no-preference){
+ #mrr-vr-shell #vr-aim .vr-legal-guide{
+   animation:vr01aa-slot-pulse 1.6s ease-in-out infinite alternate;
+ }
+ @keyframes vr01aa-slot-pulse{
+   from{stroke-opacity:.6;fill-opacity:.7}
+   to{stroke-opacity:1;fill-opacity:1}
+ }
+}

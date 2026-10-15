@@ -121,6 +121,31 @@ function updateAim(){
     outline.classList.toggle('vr-target-hover',state.hoveredKey===key);
     old.delete(key);
   }
+  // VR01AA: project ONLY genuine vacant native legal slots. Phase21 still
+  // provides every allowed destination and owns all clicks; SVG circles
+  // have no hit areas and do not affect summons, movement, or abilities.
+  const legalMode=q('#vr-hint',ui)?.dataset.mode;
+  if((legalMode==='place'||legalMode==='move')&&scene?.projectSlot){
+    const legal=qa('#arena .slot.legal').filter(slot=>
+      !slot.querySelector('.board-card .card-ui'));
+    for(const slot of legal){
+      const key=slot.getAttribute('data-slot'),point=scene.projectSlot(key);
+      if(!key||!point||!Number.isFinite(point.x)||!Number.isFinite(point.y)||
+        point.x<box.left||point.x>box.right||
+        point.y<box.top||point.y>box.bottom)continue;
+      let marker=old.get(key);
+      if(!marker||marker.localName!=='circle'){
+        marker?.remove();marker=document.createElementNS(ns,'circle');
+        marker.dataset.slot=key;marker.setAttribute('class','vr-legal-guide');
+        guides.append(marker);
+      }
+      marker.dataset.mode=legalMode;
+      marker.setAttribute('cx',(point.x-box.left).toFixed(1));
+      marker.setAttribute('cy',(point.y-box.top).toFixed(1));
+      marker.setAttribute('r',String(Math.max(11,Math.min(19,box.width*.014))));
+      old.delete(key);
+    }
+  }
   for(const stale of old.values())stale.remove();
   // Attack guides must terminate at a NATIVE target, never at arbitrary
   // cursor locations, hidden cards or illegal field slots.

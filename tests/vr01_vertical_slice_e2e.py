@@ -81,6 +81,9 @@ try:
       page.wait_for_timeout(750)
       assert page.locator('#vr-end-turn').is_visible()
       assert page.locator('#vr-return').is_visible()
+      # VR01AA: no invented legal rings when no genuine original slot
+      # has been declared by the Phase21 game engine.
+      assert page.locator('#vr-guide-targets .vr-legal-guide').count()==0
       # VR01X command strip remains in the desktop viewport, reflects
       # native legal/attack candidates, and never steals battlefield clicks.
       page.wait_for_function("""() =>
@@ -814,6 +817,27 @@ try:
             document.querySelector('#vr-hint-mode')?.textContent==='배치' &&
             document.querySelector('#vr-hint-text')?.textContent.includes(count+'곳');
         }""",timeout=14000)
+        # VR01AA: every projected ring must match one genuine empty native
+        # placement candidate. It cannot catch a click or fake a target.
+        page.wait_for_function("""() => {
+          const source=[...document.querySelectorAll('#arena .slot.legal')]
+            .filter(s=>!s.querySelector('.board-card .card-ui'));
+          const rings=[...document.querySelectorAll('#vr-guide-targets .vr-legal-guide')];
+          if(!source.length||source.length!==rings.length)return false;
+          return source.every(slot=>{
+            const key=slot.dataset.slot;
+            const ring=rings.find(e=>e.dataset.slot===key);
+            const point=MRRIntegrated.scene.projectSlot(key);
+            const frame=document.querySelector('#mrr-integrated-stage').getBoundingClientRect();
+            return ring?.dataset.mode==='place'&&point &&
+              Math.abs(Number(ring.getAttribute('cx'))+frame.left-point.x)<2.5 &&
+              Math.abs(Number(ring.getAttribute('cy'))+frame.top-point.y)<2.5 &&
+              getComputedStyle(ring).pointerEvents==='none';
+          });
+        }""",timeout=15000)
+        assert snap()==prior,'VR01AA marker changed native placement state'
+        page.screenshot(path=str(ROOT/'tests/vr01aa_native_place_guides_1920x1080.png'),
+          animations='disabled')
         page.screenshot(path=str(ROOT/'tests/vr01x_native_place_command_1920x1080.png'),
           animations='disabled')
         page.locator('#vr-cancel').click()
@@ -1002,12 +1026,30 @@ try:
       abs(int(key.split(':')[2])-int(moving_source.split(':')[2]))==1
       for key in candidates),candidates
     assert snap()==prior_move,'M selection changed native gameplay state'
+    page.wait_for_function("""() => {
+      const native=[...document.querySelectorAll('#arena .slot.legal')]
+        .filter(s=>!s.querySelector('.board-card .card-ui'));
+      const guides=[...document.querySelectorAll('#vr-guide-targets .vr-legal-guide')];
+      if(!native.length||native.length!==guides.length)return false;
+      const stage=document.querySelector('#mrr-integrated-stage').getBoundingClientRect();
+      return native.every(slot=>{
+        const ring=guides.find(e=>e.dataset.slot===slot.dataset.slot);
+        const p=MRRIntegrated.scene.projectSlot(slot.dataset.slot);
+        return !!ring&&ring.dataset.mode==='move'&&!!p &&
+          Math.abs(Number(ring.getAttribute('cx'))+stage.left-p.x)<2.5 &&
+          Math.abs(Number(ring.getAttribute('cy'))+stage.top-p.y)<2.5 &&
+          getComputedStyle(ring).pointerEvents==='none';
+      });
+    }""",timeout=16000)
+    page.screenshot(path=str(ROOT/'tests/vr01aa_native_move_guides_1920x1080.png'),
+      animations='disabled')
     page.screenshot(path=str(ROOT/'tests/vr01z_native_move_aim_1920x1080.png'),
       animations='disabled')
     # Cancel the genuinely pending native move. Action still available.
     page.keyboard.press('c')
     page.wait_for_function("""() => !document.querySelector('#arena .slot.legal') &&
-      document.querySelector('#vr-hint')?.dataset.mode==='selected'""",timeout=16000)
+      document.querySelector('#vr-hint')?.dataset.mode==='selected' &&
+      !document.querySelector('#vr-guide-targets .vr-legal-guide')""",timeout=16000)
     assert snap()==prior_move,'Cancelled M spent or moved Phase21 unit'
 
     page.keyboard.press('m')
