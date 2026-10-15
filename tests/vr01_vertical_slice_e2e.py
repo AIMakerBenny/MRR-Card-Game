@@ -563,6 +563,27 @@ try:
       }""")
       print('VR01-D DENSE',w,h,layout,flush=True)
       assert layout['cards']==count and layout['seats']==count and layout['textures']==count,(w,h,layout)
+      # VR01Z QA stabilization: the perspective camera eases after resize,
+      # whereas display-only public stat badges refresh periodically. A
+      # single immediate sample can compare different camera frames.
+      # REQUIRE actual native projection and every badge to agree within
+      # the original 3px tolerance; never relax the geometry assertion.
+      page.wait_for_function("""expected => {
+        const cards=[...document.querySelectorAll('#arena [data-slot]')]
+          .filter(e=>e.querySelector('.board-card .card-ui'));
+        if(cards.length!==expected)return false;
+        for(const slot of cards){
+          const key=slot.dataset.slot;
+          const badge=document.querySelector(
+            '#vr-public-plaques .vr-public-combat[data-slot="'+key+'"]');
+          const face=MRRIntegrated.scene.projectCardBounds(key);
+          if(!face||!badge||badge.hidden)return false;
+          const box=badge.getBoundingClientRect();
+          if(box.left<face.left-3||box.right>face.right+3||
+            box.top<face.top-3||box.bottom>face.bottom+3)return false;
+        }
+        return true;
+      }""",arg=count,timeout=24000)
       # Every synthetic dense unit is a CLONE of an already-public original.
       # Verify all 24 corner badges reflect their matching public DOM and
       # lie within their original projected 3D faces, with no hidden reads.
