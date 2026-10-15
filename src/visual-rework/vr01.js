@@ -161,17 +161,20 @@ function updateHand(){
     card.style.setProperty('--angle',((d.i-(n-1)/2)*Math.min(5,22/Math.max(n-1,1)))+'deg');
     card.style.zIndex=String(d.i+2);
     const surface=el('div','vr-card-face');
-    // VR01V: this is a display-only keycap, not another click target.
-    if(d.i<10){
-      const keycap=el('span','vr-shortcut-key',d.i===9?'0':String(d.i+1));
-      keycap.setAttribute('aria-hidden','true');surface.append(keycap);
-    }
     const artwork=el('div','vr-art-blank');
     const ownerArt=q('.art-well > .mrr-owner-art',src[d.i]);
     if(ownerArt) {const img=ownerArt.cloneNode(false);img.className='vr-provided-art';artwork.append(img);}
     surface.append(el('span','vr-mana',d.cost||'0'),el('div','vr-name',d.name),
       artwork,el('div','vr-kind',d.kind||'카드'),el('div','vr-rules',d.summary||''),el('div','vr-stats',d.stats||''));
     card.append(surface);
+    // VR01V visual QA: keep the keycap on the pointer anchor, NOT inside
+    // the overlapped card face. The top edge stays visible while the hand
+    // is folded down during native placement / targeting.
+    if(d.i<10){
+      const keycap=el('span','vr-shortcut-key',d.i===9?'0':String(d.i+1));
+      keycap.setAttribute('aria-hidden','true');
+      card.append(keycap);
+    }
     card.addEventListener('click',()=>{
       const original=qa('#hand .hand-slot')[d.i];
       if(original){

@@ -775,6 +775,17 @@ try:
         assert highlighted.first.get_attribute('data-index')==str(candidate['i'])
         assert highlighted.first.locator('.vr-shortcut-key').evaluate(
           "e=>getComputedStyle(e).pointerEvents")=='none'
+        visible_key=highlighted.first.evaluate("""card=>{
+          const badge=card.querySelector('.vr-shortcut-key');
+          const a=badge.getBoundingClientRect(),b=card.getBoundingClientRect();
+          return {key:badge.textContent.trim(),badgeTop:a.top,
+            badgeBottom:a.bottom,cardTop:b.top,
+            computed:getComputedStyle(badge).visibility,
+            viewportHeight:innerHeight};
+        }""")
+        assert visible_key['key']==shortcut and visible_key['computed']=='visible',visible_key
+        assert 0<visible_key['badgeTop']<visible_key['cardTop'] and (
+          visible_key['badgeBottom']<visible_key['viewportHeight']),visible_key
         page.screenshot(path=str(ROOT/'tests/vr01v_numeric_native_selection_1920x1080.png'),
           animations='disabled')
         dest=legal.first.get_attribute('data-slot')

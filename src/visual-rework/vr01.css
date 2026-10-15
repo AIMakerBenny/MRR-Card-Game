@@ -399,16 +399,14 @@ body.mrr-vr-active:has(#overlay:not(.hidden) #passContinue) #mrr-vr-shell #vr-hi
    visual never owns selection or card effects: it only reflects Phase21's
    .hand-slot.active status. Pointer handlers remain on existing hand buttons. */
 body.mrr-vr-active #mrr-vr-shell .vr-card .vr-shortcut-key{
- position:absolute;top:7px;right:7px;z-index:4;
+ position:absolute;top:-19px;left:50%;right:auto;z-index:4;
+ transform:translateX(-50%);
  min-width:23px;height:24px;padding:0 3px;border-radius:6px;
  display:grid;place-items:center;pointer-events:none;
  background:linear-gradient(150deg,#20353eea,#122229ee);
  border:1px solid #a99572;color:#f1d6a4;
  font:700 14px/1 Georgia,serif;text-shadow:0 1px 2px #000;
  box-shadow:0 3px 8px #0007;
-}
-body.mrr-vr-active #mrr-vr-shell .vr-card:has(.vr-shortcut-key) .vr-name{
- right:37px;
 }
 body.mrr-vr-active #mrr-vr-shell .vr-card.vr-native-selected .vr-card-face{
  border-color:#f3cf86;
