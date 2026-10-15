@@ -161,6 +161,11 @@ function updateHand(){
     card.style.setProperty('--angle',((d.i-(n-1)/2)*Math.min(5,22/Math.max(n-1,1)))+'deg');
     card.style.zIndex=String(d.i+2);
     const surface=el('div','vr-card-face');
+    // VR01V: this is a display-only keycap, not another click target.
+    if(d.i<10){
+      const keycap=el('span','vr-shortcut-key',d.i===9?'0':String(d.i+1));
+      keycap.setAttribute('aria-hidden','true');surface.append(keycap);
+    }
     const artwork=el('div','vr-art-blank');
     const ownerArt=q('.art-well > .mrr-owner-art',src[d.i]);
     if(ownerArt) {const img=ownerArt.cloneNode(false);img.className='vr-provided-art';artwork.append(img);}
@@ -186,6 +191,17 @@ function updateHand(){
     fan.append(card);
   }
   fan.dataset.count=String(n);
+}
+// Native Phase21 .hand-slot.active is authoritative. Keep this in refresh,
+// outside the hand content signature, so selecting/cancelling never leaves
+// a stale highlighted 3D hand card or regenerates every card mesh.
+function syncNativeHandSelection(){
+  const source=qa('#hand .hand-slot'),mirror=qa('#vr-hand .vr-card',ui);
+  for(let i=0;i<mirror.length;i++){
+    const active=!!source[i]?.classList.contains('active');
+    mirror[i].classList.toggle('vr-native-selected',active);
+    mirror[i].setAttribute('aria-pressed',active?'true':'false');
+  }
 }
 function updatePublicPlaques(){
   const host=q('#vr-public-plaques',ui),scene=window.MRRIntegrated?.scene;
@@ -434,7 +450,7 @@ function reconcileConfirmedOutcomes(){
 function refresh(){
  if(!open||!ui)return;
  reconcileConfirmedOutcomes();
- updateHand();updateBacks();updatePublicPlaques();
+ updateHand();syncNativeHandSelection();updateBacks();updatePublicPlaques();
  for(const [sel,portrait,mana,fallback] of [
    ['#vr-ally','#myPortrait','#myMana','아군'],
    ['#vr-enemy','#enemyPortrait','#enemyMana','상대']]){

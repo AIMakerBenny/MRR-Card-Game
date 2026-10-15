@@ -394,3 +394,28 @@ body.mrr-vr-active:has(#overlay:not(.hidden) #passContinue) #mrr-vr-shell #vr-ha
 body.mrr-vr-active:has(#overlay:not(.hidden) #passContinue) #mrr-vr-shell #vr-hint{
  visibility:hidden!important;pointer-events:none!important;
 }
+
+/* VR01V: visible numeric hand cues and native-selected emphasis. The mirrored
+   visual never owns selection or card effects: it only reflects Phase21's
+   .hand-slot.active status. Pointer handlers remain on existing hand buttons. */
+body.mrr-vr-active #mrr-vr-shell .vr-card .vr-shortcut-key{
+ position:absolute;top:7px;right:7px;z-index:4;
+ min-width:23px;height:24px;padding:0 3px;border-radius:6px;
+ display:grid;place-items:center;pointer-events:none;
+ background:linear-gradient(150deg,#20353eea,#122229ee);
+ border:1px solid #a99572;color:#f1d6a4;
+ font:700 14px/1 Georgia,serif;text-shadow:0 1px 2px #000;
+ box-shadow:0 3px 8px #0007;
+}
+body.mrr-vr-active #mrr-vr-shell .vr-card:has(.vr-shortcut-key) .vr-name{
+ right:37px;
+}
+body.mrr-vr-active #mrr-vr-shell .vr-card.vr-native-selected .vr-card-face{
+ border-color:#f3cf86;
+ box-shadow:inset 0 0 0 2px #ffe3a777,inset 0 0 32px #b9914977,
+   0 0 22px #dfb87199;
+}
+body.mrr-vr-active #mrr-vr-shell .vr-card.vr-native-selected .vr-shortcut-key{
+ background:linear-gradient(135deg,#f1d38f,#a97b35);
+ border-color:#fff2c5;color:#13252a;text-shadow:none;
+}

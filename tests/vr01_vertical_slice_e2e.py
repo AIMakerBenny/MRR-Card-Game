@@ -738,6 +738,12 @@ try:
         page.wait_for_function("""() => !document.querySelector('#arena .slot.legal') &&
           !document.querySelector('#mrr-vr-shell').classList.contains('vr-placing')""",timeout=14000)
         assert snap()==prior,'Cancelling hand placement spent native resources'
+        page.wait_for_function("""() =>
+          !document.querySelector('#hand .hand-slot.active') &&
+          !document.querySelector('#vr-hand .vr-card.vr-native-selected') &&
+          [...document.querySelectorAll('#vr-hand .vr-card')]
+            .every(card=>card.getAttribute('aria-pressed')==='false')
+        """,timeout=14000)
         # VR01U: select the very same genuine Phase21 card with its PC
         # number hotkey. This must only enter native placement selection,
         # without paying mana or changing the original game snapshot.
@@ -749,6 +755,28 @@ try:
         page.keyboard.press(shortcut)
         page.wait_for_function("!!document.querySelector('#arena .slot.legal')")
         assert snap()==prior,'VR01U numeric hand selection spent native resources'
+        # VR01V: the mirrored keycap is legible and the SINGLE highlighted
+        # card must match the original native selection, including after the
+        # fan updates through the normal render path.
+        page.wait_for_function("""index => {
+          const native=[...document.querySelectorAll('#hand .hand-slot')];
+          const mirror=[...document.querySelectorAll('#vr-hand .vr-card')];
+          if(!native[index]?.classList.contains('active'))return false;
+          return mirror.length===native.length&&mirror.every((card,i)=>{
+            const selected=native[i].classList.contains('active');
+            const keycap=card.querySelector('.vr-shortcut-key');
+            return card.classList.contains('vr-native-selected')===selected &&
+              card.getAttribute('aria-pressed')===(selected?'true':'false') &&
+              (i<10?keycap?.textContent===(i===9?'0':String(i+1)):!keycap);
+          });
+        }""",arg=candidate['i'],timeout=14000)
+        highlighted=page.locator('#vr-hand .vr-card.vr-native-selected')
+        assert highlighted.count()==1
+        assert highlighted.first.get_attribute('data-index')==str(candidate['i'])
+        assert highlighted.first.locator('.vr-shortcut-key').evaluate(
+          "e=>getComputedStyle(e).pointerEvents")=='none'
+        page.screenshot(path=str(ROOT/'tests/vr01v_numeric_native_selection_1920x1080.png'),
+          animations='disabled')
         dest=legal.first.get_attribute('data-slot')
         projected=page.evaluate('k=>MRRIntegrated.scene.projectSlot(k)',dest)
         assert projected and 0<projected['x']<1920 and 0<projected['y']<1080
