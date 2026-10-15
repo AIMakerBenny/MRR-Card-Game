@@ -231,7 +231,15 @@ try:
     page.locator('#mrr-quick-attack').click(timeout=12000)
     page.wait_for_function('MRRIntegrated.state.scene.attackTargetCount>0',timeout=13000)
     page.wait_for_selector('#vr-cancel:not([hidden])')
-    page.locator('#vr-cancel').click()
+    # VR01W: the new C shortcut must perform exactly the same native
+    # cancellation as the previous on-screen click; no HP/mana spending.
+    assert page.locator('#vr-cancel').get_attribute('aria-keyshortcuts')=='C'
+    assert page.locator('#vr-cancel .vr-cancel-key').inner_text()=='C'
+    assert page.locator('#vr-cancel .vr-cancel-key').evaluate(
+      'e=>getComputedStyle(e).pointerEvents')=='none'
+    page.screenshot(path=str(ROOT/'tests/vr01w_native_cancel_command_1920x1080.png'),
+      animations='disabled')
+    page.keyboard.press('c')
     page.wait_for_function("""() => MRRIntegrated.state.scene.attackTargetCount===0 &&
       MRRIntegrated.state.scene.vrTargetLockKey===null &&
       !document.querySelector('#vr-aim-line').getAttribute('d') &&
@@ -844,7 +852,8 @@ try:
         # the next player's genuine native hand already exists underneath.
         shield_snapshot=snap()
         page.keyboard.press(shortcut)
-        assert snap()==shield_snapshot,'Hand shortcut bypassed Phase21 privacy overlay'
+        page.keyboard.press('c')
+        assert snap()==shield_snapshot,'PC shortcut bypassed Phase21 privacy overlay'
         assert page.locator('#passContinue').count()==1
         assert page.locator('#vr-hand .vr-card:visible').count()==0
         page.screenshot(path=str(ROOT/'tests/vr01t_turn_pass_private_1920x1080.png'),

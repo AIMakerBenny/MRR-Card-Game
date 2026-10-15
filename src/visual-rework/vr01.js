@@ -66,6 +66,13 @@ function buildUI(){
     native('#inspectBody button[data-cancel-action]');
     window.MRRIntegrated?.scene?.sync();schedule();
   });
+  // VR01W: keep Phase21 cancellation authoritative, with one visible PC
+  // shortcut cue on the same existing VR control.
+  cancel.setAttribute('aria-keyshortcuts','C');
+  cancel.title='C · 현재 선택 취소';
+  const cancelKey=el('kbd','vr-cancel-key','C');
+  cancelKey.setAttribute('aria-hidden','true');
+  cancel.append(cancelKey);
   cancel.hidden=true;hint.append(hintText,cancel);ui.append(hint);
   q('#vr-camera',ui).title='시점 전환 · 휠로 확대·축소 · 전장 드래그 회전 없음';
   const aim=document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -482,9 +489,17 @@ function refresh(){
 // the original local two-player privacy overlay.
 function handleHandShortcut(ev){
  if(!open||busy||!ui||ev.defaultPrevented||ev.repeat||ev.ctrlKey||ev.altKey||ev.metaKey)return;
- if(!/^[0-9]$/.test(ev.key))return;
  if(ev.target?.closest?.('input,textarea,select,[contenteditable],[role="textbox"]'))return;
  if(!q('#overlay')?.classList.contains('hidden'))return;
+ if(ev.key==='c'||ev.key==='C'){
+   // Existing visible Phase21 cancel state is the only authorization.
+   // Never invent a cancel action or intercept when native has none.
+   const cancel=q('#vr-cancel',ui),original=q('#inspectBody button[data-cancel-action]');
+   if(!cancel||cancel.hidden||cancel.disabled||!original||original.disabled)return;
+   ev.preventDefault();ev.stopImmediatePropagation();cancel.click();
+   return;
+ }
+ if(!/^[0-9]$/.test(ev.key))return;
  if(q('#arena .slot.legal')||q('#arena .slot.attack-target'))return;
  const index=ev.key==='0'?9:Number(ev.key)-1;
  const handCards=qa('#vr-hand .vr-card',ui),nativeCards=qa('#hand .hand-slot');

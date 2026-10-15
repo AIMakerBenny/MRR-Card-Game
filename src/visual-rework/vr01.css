@@ -417,3 +417,14 @@ body.mrr-vr-active #mrr-vr-shell .vr-card.vr-native-selected .vr-shortcut-key{
  background:linear-gradient(135deg,#f1d38f,#a97b35);
  border-color:#fff2c5;color:#13252a;text-shadow:none;
 }
+
+/* VR01W: a compact reminder for Phase21's existing native cancel command.
+   No new hit surface or game action is created by the keycap. */
+body.mrr-vr-active #mrr-vr-shell #vr-cancel{display:inline-flex;align-items:center;gap:8px}
+body.mrr-vr-active #mrr-vr-shell #vr-cancel[hidden]{display:none}
+body.mrr-vr-active #mrr-vr-shell .vr-cancel-key{
+ display:inline-grid;place-items:center;min-width:19px;height:18px;
+ padding:0 4px;border:1px solid #ceb483;border-radius:4px;
+ color:#f6ddb0;background:#1d3139db;font:700 12px/1 Georgia,serif;
+ pointer-events:none;
+}
