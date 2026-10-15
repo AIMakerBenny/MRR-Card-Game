@@ -241,10 +241,21 @@ try:
     before_hp=page.evaluate("""key=>{const [owner,row,col]=key.split(':');
       return G.players[+owner][row][+col]?.hp}""",opponent)
     assert before_hp and before_hp>0
-    # A genuine attack declaration can be cancelled with the VR control,
-    # without closing the board or spending HP, mana or a turn action.
-    page.locator('#mrr-quick-attack').click(timeout=12000)
+    # VR01Y: the handoff-safe A shortcut must invoke the one existing,
+    # genuinely enabled Phase21 attack command, not simulate an attack.
+    page.wait_for_function("""() => {
+      const b=document.querySelector('#mrr-quick-attack');
+      const original=document.querySelector('#inspectBody button[data-actor="attack"]');
+      return !!MRRIntegrated.state.scene.selectedKey && b&&!b.hidden &&
+        !document.querySelector('#mrr-integrated-context').hidden &&
+        original&&!original.disabled &&
+        document.querySelector('#vr-hint').dataset.mode==='selected' &&
+        document.querySelector('#vr-hint-text').textContent.includes('A 공격');
+    }""",timeout=12000)
+    assert snap()==baseline
+    page.keyboard.press('a')
     page.wait_for_function('MRRIntegrated.state.scene.attackTargetCount>0',timeout=13000)
+    assert snap()==baseline,'VR01Y attack initiation spent native resources'
     page.wait_for_selector('#vr-cancel:not([hidden])')
     page.wait_for_function("""() => {
       const count=document.querySelectorAll('#arena .slot.attack-target').length;
@@ -271,8 +282,15 @@ try:
       !document.querySelector('#vr-guide-targets').children.length""",timeout=14000)
     assert page.evaluate('MRRVR.status.open')
     assert snap()==baseline,'Native attack cancellation changed game resources'
+    # The attack declaration cannot be overwritten by M/A; C is the
+    # only VR shortcut allowed to cancel this Phase21-native state.
     page.locator('#mrr-quick-attack').click(timeout=12000)
     page.wait_for_function('MRRIntegrated.state.scene.attackTargetCount>0',timeout=13000)
+    attack_targets_before=page.evaluate('MRRIntegrated.state.scene.attackTargetCount')
+    page.keyboard.press('m')
+    page.keyboard.press('a')
+    assert page.evaluate('MRRIntegrated.state.scene.attackTargetCount')==attack_targets_before
+    assert snap()==baseline,'VR01Y repeated A/M altered active native attack'
     # VR01I: the target icon only appears on a genuinely native-marked
     # attack target; aiming itself must not produce a fabricated attack.
     page.wait_for_function("""() => {
@@ -886,6 +904,8 @@ try:
         # the next player's genuine native hand already exists underneath.
         shield_snapshot=snap()
         page.keyboard.press(shortcut)
+        page.keyboard.press('a')
+        page.keyboard.press('m')
         page.keyboard.press('c')
         assert snap()==shield_snapshot,'PC shortcut bypassed Phase21 privacy overlay'
         assert page.locator('#passContinue').count()==1

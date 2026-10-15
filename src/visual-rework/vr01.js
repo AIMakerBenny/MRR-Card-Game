@@ -483,9 +483,22 @@ function refresh(){
  const selectedKey=window.MRRIntegrated?.state.scene?.selectedKey;
  const mode=attackCount?'attack':legalCount?'place':selectedKey?'selected':'hand';
  const modeName={attack:'공격',place:'배치',selected:'선택',hand:'손패'};
+ // VR01Y: the original Phase21 inspector is authoritative about which
+ // commands can execute. These hints and hotkeys only mirror enabled
+ // context commands and never supply new movement/attack rules.
+ const attackControl=q('#inspectBody button[data-actor="attack"]');
+ const moveControl=q('#inspectBody button[data-actor="move"]');
+ const attackQuick=q('#mrr-quick-attack');
+ const moveQuick=q('#mrr-quick-move');
+ const canNativeCommand=(native,quick)=>!!(selectedKey&&native&&!native.disabled&&
+   quick&&!quick.hidden&&!quick.disabled&&!q('#mrr-integrated-context')?.hidden);
+ const canAttack=mode==='selected'&&canNativeCommand(attackControl,attackQuick);
+ const canMove=mode==='selected'&&canNativeCommand(moveControl,moveQuick);
+ const commands=[canAttack?'A 공격':'',canMove?'M 이동':''].filter(Boolean);
  const instruction=mode==='attack'?'공격 대상 '+attackCount+'곳 · 카드 선택':
    mode==='place'?'배치 가능 '+legalCount+'곳 · 전장 위치 선택':
-   mode==='selected'?'선택 카드의 명령을 실행하세요':
+   mode==='selected'?(commands.length?'카드 명령 · '+commands.join(' · '):
+     '선택 카드의 명령을 실행하세요'):
    '손패 클릭 또는 숫자 1–0으로 선택';
  ui.classList.toggle('vr-placing',!!(legalCount||attackCount));
  const hint=q('#vr-hint',ui);
@@ -505,7 +518,23 @@ function handleHandShortcut(ev){
  if(!open||busy||!ui||ev.defaultPrevented||ev.repeat||ev.ctrlKey||ev.altKey||ev.metaKey)return;
  if(ev.target?.closest?.('input,textarea,select,[contenteditable],[role="textbox"]'))return;
  if(!q('#overlay')?.classList.contains('hidden'))return;
- if(ev.key==='c'||ev.key==='C'){
+ const key=ev.key.toLowerCase();
+ if(key==='a'||key==='m'){
+   // VR01Y: never reinterpret an active placement/target declaration, a
+   // private handoff or a native-disabled command as a fresh action.
+   if(q('#arena .slot.legal')||q('#arena .slot.attack-target'))return;
+   const selected=window.MRRIntegrated?.state.scene?.selectedKey;
+   const context=q('#mrr-integrated-context');
+   const quick=q(key==='a'?'#mrr-quick-attack':'#mrr-quick-move');
+   const original=q(key==='a'?'#inspectBody button[data-actor="attack"]':
+     '#inspectBody button[data-actor="move"]');
+   if(!selected||!context||context.hidden||!quick||quick.hidden||
+      quick.disabled||!original||original.disabled)return;
+   ev.preventDefault();ev.stopImmediatePropagation();
+   quick.click(); // Exactly one existing native Phase21 command dispatch.
+   schedule();return;
+ }
+ if(key==='c'){
    // Existing visible Phase21 cancel state is the only authorization.
    // Never invent a cancel action or intercept when native has none.
    const cancel=q('#vr-cancel',ui),original=q('#inspectBody button[data-cancel-action]');
