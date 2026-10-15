@@ -80,6 +80,21 @@ try:
       page.wait_for_timeout(750)
       assert page.locator('#vr-end-turn').is_visible()
       assert page.locator('#vr-return').is_visible()
+      # VR01X command strip remains in the desktop viewport, reflects
+      # native legal/attack candidates, and never steals battlefield clicks.
+      page.wait_for_function("""() =>
+        document.querySelector('#vr-hint')?.dataset.mode==='hand' &&
+        document.querySelector('#vr-hint-mode')?.textContent==='손패'""",timeout=12000)
+      info=page.evaluate("""() => {
+        const h=document.querySelector('#vr-hint'),r=h.getBoundingClientRect();
+        return {rect:r.toJSON(),text:document.querySelector('#vr-hint-text').textContent,
+          pointer:getComputedStyle(h).pointerEvents,
+          mode:h.dataset.mode};
+      }""")
+      assert info['pointer']=='none' and info['mode']=='hand',info
+      assert info['rect']['left']>=0 and info['rect']['right']<=w and (
+        0<=info['rect']['top']<info['rect']['bottom']<=h),info
+      assert '손패' in info['text'],info
       assert page.locator('#vr-enemy-fan .vr-back').count()==page.locator('#enemyHand .mcw-back').count()
       assert page.locator('#vr-hand .vr-card').count()==page.locator('#hand .hand-slot').count()
       visible_public=page.locator('#arena [data-slot] .board-card .card-ui').count()
@@ -231,6 +246,16 @@ try:
     page.locator('#mrr-quick-attack').click(timeout=12000)
     page.wait_for_function('MRRIntegrated.state.scene.attackTargetCount>0',timeout=13000)
     page.wait_for_selector('#vr-cancel:not([hidden])')
+    page.wait_for_function("""() => {
+      const count=document.querySelectorAll('#arena .slot.attack-target').length;
+      const hint=document.querySelector('#vr-hint');
+      return count>0 && hint?.dataset.mode==='attack' &&
+        document.querySelector('#vr-hint-mode')?.textContent==='공격' &&
+        document.querySelector('#vr-hint-text')?.textContent.includes(count+'곳');
+    }""",timeout=14000)
+    assert snap()==baseline,'VR01X attack command strip changed Phase21 state'
+    page.screenshot(path=str(ROOT/'tests/vr01x_native_attack_command_1920x1080.png'),
+      animations='disabled')
     # VR01W: the new C shortcut must perform exactly the same native
     # cancellation as the previous on-screen click; no HP/mana spending.
     assert page.locator('#vr-cancel').get_attribute('aria-keyshortcuts')=='C'
@@ -742,6 +767,15 @@ try:
         legal=page.locator('#arena .slot.legal')
         if not legal.count():continue
         page.wait_for_selector('#vr-cancel:not([hidden])')
+        page.wait_for_function("""() => {
+          const count=document.querySelectorAll('#arena .slot.legal').length;
+          const hint=document.querySelector('#vr-hint');
+          return count>0 && hint?.dataset.mode==='place' &&
+            document.querySelector('#vr-hint-mode')?.textContent==='배치' &&
+            document.querySelector('#vr-hint-text')?.textContent.includes(count+'곳');
+        }""",timeout=14000)
+        page.screenshot(path=str(ROOT/'tests/vr01x_native_place_command_1920x1080.png'),
+          animations='disabled')
         page.locator('#vr-cancel').click()
         page.wait_for_function("""() => !document.querySelector('#arena .slot.legal') &&
           !document.querySelector('#mrr-vr-shell').classList.contains('vr-placing')""",timeout=14000)

@@ -428,3 +428,46 @@ body.mrr-vr-active #mrr-vr-shell .vr-cancel-key{
  color:#f6ddb0;background:#1d3139db;font:700 12px/1 Georgia,serif;
  pointer-events:none;
 }
+
+/* VR01X: one small command strip instead of competing HTML side panels.
+   The mode and count read genuine Phase21 legal/attack slot classes. */
+body.mrr-vr-active #mrr-vr-shell #vr-hint{
+ display:flex;align-items:center;justify-content:center;gap:9px;
+ width:max-content;max-width:min(620px,calc(100% - 220px));
+ padding:7px 10px;
+ bottom:calc(var(--peek) + 19px);
+ border-radius:10px;border:1px solid #c0af8266;
+ background:linear-gradient(120deg,#10262be8,#17262be5);
+ box-shadow:0 5px 17px #0008;white-space:nowrap;
+ font-size:12px;line-height:1.4;pointer-events:none;
+}
+body.mrr-vr-active #mrr-vr-shell #vr-hint .vr-hint-mode{
+ flex:none;min-width:33px;padding:3px 6px;border-radius:4px;
+ font:700 11px/1.35 'Malgun Gothic',sans-serif;
+ color:#dac89e;background:#b8a26b1a;border:1px solid #ad986055;
+}
+body.mrr-vr-active #mrr-vr-shell #vr-hint-text{
+ min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+ color:#ebede2;font-size:12px;
+}
+body.mrr-vr-active #mrr-vr-shell #vr-hint[data-mode=attack]{
+ border-color:#cd886b9a;
+}
+body.mrr-vr-active #mrr-vr-shell #vr-hint[data-mode=attack] .vr-hint-mode{
+ color:#ffdbc5;border-color:#d9966d8a;background:#87472952;
+}
+body.mrr-vr-active #mrr-vr-shell #vr-hint[data-mode=place]{
+ border-color:#78c9bf8a;
+}
+body.mrr-vr-active #mrr-vr-shell #vr-hint[data-mode=place] .vr-hint-mode{
+ color:#c9f3e8;border-color:#6fcabb85;background:#1e706a55;
+}
+body.mrr-vr-active #mrr-vr-shell #vr-cancel{
+ flex:none;pointer-events:auto;
+}
+@media(max-width:1500px){
+ body.mrr-vr-active #mrr-vr-shell #vr-hint{
+  max-width:calc(100% - 175px);font-size:11px;gap:7px;padding:5px 8px;
+ }
+ body.mrr-vr-active #mrr-vr-shell #vr-hint-text{font-size:11px}
+}

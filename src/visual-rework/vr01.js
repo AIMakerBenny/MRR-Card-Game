@@ -59,7 +59,9 @@ function buildUI(){
   footer.append(heroAlly,button('vr-end-turn','턴 종료',()=>native('#endTurn')));ui.append(footer);
   const hand=el('div','vr-hand');hand.id='vr-hand';hand.setAttribute('aria-label','내 실제 손패');ui.append(hand);
   const hint=el('div','vr-hint');hint.id='vr-hint';
-  const hintText=el('span','','손패를 선택하여 전장에 배치하세요');hintText.id='vr-hint-text';
+  const hintMode=el('span','vr-hint-mode','손패');
+  hintMode.id='vr-hint-mode';hintMode.setAttribute('aria-hidden','true');
+  const hintText=el('span','','손패 클릭 또는 숫자 키로 선택');hintText.id='vr-hint-text';
   // Delegate cancellation to Phase21, including hand placement where the
   // selected-card context menu intentionally has no battlefield source.
   const cancel=button('vr-cancel','선택 취소',()=>{
@@ -73,7 +75,7 @@ function buildUI(){
   const cancelKey=el('kbd','vr-cancel-key','C');
   cancelKey.setAttribute('aria-hidden','true');
   cancel.append(cancelKey);
-  cancel.hidden=true;hint.append(hintText,cancel);ui.append(hint);
+  cancel.hidden=true;hint.append(hintMode,hintText,cancel);ui.append(hint);
   q('#vr-camera',ui).title='시점 전환 · 휠로 확대·축소 · 전장 드래그 회전 없음';
   const aim=document.createElementNS('http://www.w3.org/2000/svg','svg');
   aim.id='vr-aim';aim.setAttribute('preserveAspectRatio','none');
@@ -473,12 +475,24 @@ function refresh(){
    if(copy.dataset.value!==str){copy.dataset.value=str;copy.replaceChildren(el('strong','',name),el('small','',resource));}
    q('.vr-hp',dest).textContent=hp?'HP '+hp:'HP';
  }
- const placing=qa('#arena .slot.legal').length>0;
- const target=qa('#arena .slot.attack-target').length>0;
- ui.classList.toggle('vr-placing',placing||target);
- q('#vr-hint-text',ui).textContent=target?'공격할 대상을 선택하세요':
-   placing?'전장의 합법 위치를 선택하세요':
-   window.MRRIntegrated?.state.scene?.selectedKey?'선택 카드의 명령을 실행하세요':'손패를 선택하여 배치하세요';
+ // VR01X: a compact command strip derived entirely from Phase21 legal
+ // DOM slot classes and the original scene's public selected key.
+ // This does NOT create a command, legal target or gameplay selection.
+ const legalCount=qa('#arena .slot.legal').length;
+ const attackCount=qa('#arena .slot.attack-target').length;
+ const selectedKey=window.MRRIntegrated?.state.scene?.selectedKey;
+ const mode=attackCount?'attack':legalCount?'place':selectedKey?'selected':'hand';
+ const modeName={attack:'공격',place:'배치',selected:'선택',hand:'손패'};
+ const instruction=mode==='attack'?'공격 대상 '+attackCount+'곳 · 카드 선택':
+   mode==='place'?'배치 가능 '+legalCount+'곳 · 전장 위치 선택':
+   mode==='selected'?'선택 카드의 명령을 실행하세요':
+   '손패 클릭 또는 숫자 1–0으로 선택';
+ ui.classList.toggle('vr-placing',!!(legalCount||attackCount));
+ const hint=q('#vr-hint',ui);
+ hint.dataset.mode=mode;
+ const tag=q('#vr-hint-mode',hint),label=q('#vr-hint-text',hint);
+ if(tag.textContent!==modeName[mode])tag.textContent=modeName[mode];
+ if(label.textContent!==instruction)label.textContent=instruction;
  const cancel=q('#vr-cancel',ui),nativeCancel=q('#inspectBody button[data-cancel-action]');
  cancel.hidden=!nativeCancel;cancel.disabled=!nativeCancel||nativeCancel.disabled;
  q('#vr-end-turn',ui).disabled=!!q('#endTurn')?.disabled;
