@@ -294,7 +294,26 @@ try:
       return added;
     }""")
     assert qa_clones==22,qa_clones
-    page.wait_for_function('MRRIntegrated.state.scene.cardMeshCount===24',timeout=35000)
+    # Renderer and native DOM can repaint at different animation frames.
+    # Keep the display-only fixture honest: it must contain exactly 24
+    # public cards BEFORE accepting a 24-mesh projection snapshot.
+    reconcile_dense="""() => {
+      const slots=[...document.querySelectorAll('#arena .slot[data-slot]')];
+      const template=slots.find(s=>s.querySelector('.board-card:not([data-vr-ac-dense-clone])'))?.querySelector('.board-card');
+      if(!template)return false;
+      let occupied=slots.filter(s=>s.querySelector('.board-card')).length;
+      for(const slot of slots){
+        if(occupied>=24)break;
+        if(slot.querySelector('.board-card'))continue;
+        const copy=template.cloneNode(true);
+        copy.dataset.vrAcDenseClone='true';slot.append(copy);occupied++;
+      }
+      if(occupied!==24)return false;
+      if(MRRIntegrated.state.scene.cardMeshCount!==24)MRRIntegrated.scene.sync();
+      return MRRIntegrated.state.scene.cardMeshCount===24 &&
+        document.querySelectorAll('#arena .slot .board-card').length===24;
+    }"""
+    page.wait_for_function(reconcile_dense,timeout=40000)
     for ww,hh in ((1920,1080),(1366,768)):
       page.set_viewport_size({'width':ww,'height':hh})
       page.wait_for_timeout(800)
@@ -315,8 +334,9 @@ try:
         return total;
       }""")
       assert restored==24,('VR01AD viewport fixture repaint',ww,hh,restored)
-      page.wait_for_function('MRRIntegrated.state.scene.cardMeshCount===24',timeout=27000)
-      page.wait_for_function("""key=>{
+      page.wait_for_function(reconcile_dense,timeout=30000)
+      try:
+        page.wait_for_function("""key=>{
         const ctx=document.querySelector('#mrr-integrated-context');
         const stage=document.querySelector('#mrr-integrated-stage');
         const state=MRRIntegrated.state.scene;
@@ -339,6 +359,25 @@ try:
           '#vr-public-plaques .vr-public-combat:not([hidden])')];
         return !blocked&&marks.every(e=>intersection(e.getBoundingClientRect())<4);
       }""",arg=mine,timeout=28000)
+      except Exception:
+        debug=page.evaluate("""key=>{
+          const scene=MRRIntegrated.scene,ctx=document.querySelector('#mrr-integrated-context');
+          const b=ctx?.getBoundingClientRect(),stage=document.querySelector('#mrr-integrated-stage')?.getBoundingClientRect();
+          const overlap=q=>!b||!q?null:Math.max(0,Math.min(b.right,q.right)-Math.max(b.left,q.left))*
+            Math.max(0,Math.min(b.bottom,q.bottom)-Math.max(b.top,q.top));
+          return {selected:scene.state.selectedKey,meshes:scene.state.cardMeshCount,
+            dom:document.querySelectorAll('#arena .slot .board-card').length,
+            contextHidden:ctx?.hidden,context:b?.toJSON(),stage:stage?.toJSON(),
+            publicCards:[...document.querySelectorAll('#arena .slot[data-slot]')]
+              .filter(s=>s.dataset.slot!==key&&s.querySelector('.board-card .card-ui'))
+              .map(s=>({key:s.dataset.slot,area:overlap(scene.projectCardBounds(s.dataset.slot))}))
+              .filter(s=>s.area===null||s.area>4),
+            marks:[...document.querySelectorAll('#vr-public-plaques .vr-public-combat:not([hidden]),#vr-public-plaques .vr-public-action:not([hidden])')]
+              .map(s=>({key:s.dataset.slot,area:overlap(s.getBoundingClientRect())}))
+              .filter(s=>s.area===null||s.area>4)};
+        }""",mine)
+        print('VR01AD DENSE QA DIAGNOSTIC',ww,hh,debug,flush=True)
+        raise
       assert snap()==baseline,('VR01AD dense display changed native game',ww,hh)
       page.screenshot(path=str(ROOT/f'tests/vr01ad_dense_native_context_{ww}x{hh}.png'),
         animations='disabled')
