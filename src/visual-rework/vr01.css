@@ -500,3 +500,17 @@ body.mrr-vr-active #mrr-vr-shell #vr-hint[data-mode=move] .vr-hint-mode{
    to{stroke-opacity:1;fill-opacity:1}
  }
 }
+
+/* VR01AB: highlight the ACTUAL hovered legal destination. During a
+   genuine move, preview the source-to-slot path; never intercept hits. */
+#mrr-vr-shell #vr-aim .vr-legal-guide.vr-legal-hover{
+ fill:#9ed2ff4d;stroke:#e0eaff;stroke-width:3.5;
+ stroke-dasharray:none;opacity:1;
+}
+#mrr-vr-shell #vr-aim-line[data-mode=move]{
+ stroke:#b5ccff;stroke-width:2.5;stroke-dasharray:6 5;
+ opacity:.92;pointer-events:none;
+}
+@media(prefers-reduced-motion:reduce){
+ #mrr-vr-shell #vr-aim .vr-legal-guide{animation:none}
+}

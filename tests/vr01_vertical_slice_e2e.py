@@ -1043,6 +1043,35 @@ try:
     }""",timeout=16000)
     page.screenshot(path=str(ROOT/'tests/vr01aa_native_move_guides_1920x1080.png'),
       animations='disabled')
+    # VR01AB: hover a true adjacent legal slot through the real canvas.
+    # This must highlight exactly that slot and display only a visual
+    # source-to-destination path; Phase21 snapshot stays unchanged.
+    hovered_target=candidates[0]
+    hovered_point=page.evaluate('k=>MRRIntegrated.scene.projectSlot(k)',hovered_target)
+    assert hovered_point and 0<hovered_point['x']<1920 and (
+      0<hovered_point['y']<1080),hovered_point
+    page.mouse.move(hovered_point['x'],hovered_point['y'])
+    page.wait_for_function("""key=>{
+      const line=document.querySelector('#vr-aim-line');
+      const guides=[...document.querySelectorAll('#vr-guide-targets .vr-legal-guide')];
+      const hover=guides.filter(g=>g.classList.contains('vr-legal-hover'));
+      return MRRIntegrated.state.scene.hoveredKey===key &&
+        line?.dataset.target===key&&line.dataset.mode==='move' &&
+        !!line.getAttribute('d') &&
+        line.getAttribute('marker-end')==='url(#vr-move-arrow)' &&
+        hover.length===1&&hover[0].dataset.slot===key &&
+        getComputedStyle(line).pointerEvents==='none';
+    }""",arg=hovered_target,timeout=16000)
+    assert snap()==prior_move,'VR01AB hover preview changed native game'
+    page.screenshot(path=str(ROOT/'tests/vr01ab_native_move_hover_1920x1080.png'),
+      animations='disabled')
+    page.mouse.move(4,540)
+    page.wait_for_function("""() => {
+      const line=document.querySelector('#vr-aim-line');
+      return !line?.getAttribute('d')&&!line?.dataset.target &&
+        !document.querySelector('#vr-guide-targets .vr-legal-guide.vr-legal-hover');
+    }""",timeout=16000)
+    assert snap()==prior_move,'VR01AB hover exit changed native game'
     page.screenshot(path=str(ROOT/'tests/vr01z_native_move_aim_1920x1080.png'),
       animations='disabled')
     # Cancel the genuinely pending native move. Action still available.

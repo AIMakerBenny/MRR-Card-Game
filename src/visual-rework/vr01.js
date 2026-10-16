@@ -79,7 +79,7 @@ function buildUI(){
   q('#vr-camera',ui).title='시점 전환 · 휠로 확대·축소 · 전장 드래그 회전 없음';
   const aim=document.createElementNS('http://www.w3.org/2000/svg','svg');
   aim.id='vr-aim';aim.setAttribute('preserveAspectRatio','none');
-  aim.innerHTML='<defs><marker id="vr-arrow" markerWidth="7" markerHeight="7" refX="8" refY="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#f0b982"/></marker></defs><g id="vr-guide-targets"></g><path id="vr-aim-line" fill="none" stroke="#f0b982" stroke-width="3" marker-end="url(#vr-arrow)" />';
+  aim.innerHTML='<defs><marker id="vr-arrow" markerWidth="7" markerHeight="7" refX="8" refY="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#f0b982"/></marker><marker id="vr-move-arrow" markerWidth="7" markerHeight="7" refX="8" refY="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#b5ccff"/></marker></defs><g id="vr-guide-targets"></g><path id="vr-aim-line" fill="none" stroke="#f0b982" stroke-width="3" marker-end="url(#vr-arrow)" />';
   ui.append(aim);
   stage.append(ui);
   stage.addEventListener('pointermove',updateAim);
@@ -140,6 +140,7 @@ function updateAim(){
         guides.append(marker);
       }
       marker.dataset.mode=legalMode;
+      marker.classList.toggle('vr-legal-hover',state?.hoveredKey===key);
       marker.setAttribute('cx',(point.x-box.left).toFixed(1));
       marker.setAttribute('cy',(point.y-box.top).toFixed(1));
       marker.setAttribute('r',String(Math.max(11,Math.min(19,box.width*.014))));
@@ -147,18 +148,25 @@ function updateAim(){
     }
   }
   for(const stale of old.values())stale.remove();
-  // Attack guides must terminate at a NATIVE target, never at arbitrary
-  // cursor locations, hidden cards or illegal field slots.
+  // VR01AB: preview movement ONLY when hovering an actual native legal,
+  // vacant destination. The existing selected public card is the source.
+  // No preview is ever treated as a command or a confirmed engine action.
   const target=targets.find(slot=>slot.getAttribute('data-slot')===state?.hoveredKey);
-  const src=target?scene.projectCard(state.selectedKey):null;
-  const dst=target?scene.projectCard(state.hoveredKey):null;
-  if(!src||!dst){path.setAttribute('d','');path.dataset.target='';return;}
+  const moveTarget=!target&&legalMode==='move'&&state?.selectedKey?
+    qa('#arena .slot.legal').find(slot=>slot.dataset.slot===state.hoveredKey&&
+      !slot.querySelector('.board-card .card-ui')):null;
+  const src=target||moveTarget?scene.projectCard(state.selectedKey):null;
+  const dst=target?scene.projectCard(state.hoveredKey):
+    moveTarget?scene.projectSlot(state.hoveredKey):null;
+  if(!src||!dst){path.setAttribute('d','');path.dataset.target='';path.dataset.mode='';return;}
   const sx=src.x-box.left,sy=src.y-box.top,ex=dst.x-box.left,ey=dst.y-box.top;
   const bend=Math.max(20,Math.min(65,Math.abs(ex-sx)*.15));
   path.setAttribute('d','M'+sx.toFixed(1)+' '+sy.toFixed(1)+' Q'+
     ((sx+ex)/2).toFixed(1)+' '+(Math.min(sy,ey)-bend).toFixed(1)+' '+
     ex.toFixed(1)+' '+ey.toFixed(1));
   path.dataset.target=state.hoveredKey;
+  path.dataset.mode=moveTarget?'move':'attack';
+  path.setAttribute('marker-end',moveTarget?'url(#vr-move-arrow)':'url(#vr-arrow)');
 }
 function updateBacks(){
   // Read only publicly displayed opponent backs. Never read the opponent hand array.
