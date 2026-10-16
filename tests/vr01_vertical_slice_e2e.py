@@ -297,7 +297,25 @@ try:
     page.wait_for_function('MRRIntegrated.state.scene.cardMeshCount===24',timeout=35000)
     for ww,hh in ((1920,1080),(1366,768)):
       page.set_viewport_size({'width':ww,'height':hh})
-      page.wait_for_timeout(900)
+      page.wait_for_timeout(800)
+      # Phase21 is permitted to repaint its DOM during resize; restore
+      # only synthetic public DISPLAY clones, never engine game state.
+      restored=page.evaluate("""() => {
+        const slots=[...document.querySelectorAll('#arena .slot[data-slot]')];
+        const template=slots.find(s=>s.querySelector('.board-card'))?.querySelector('.board-card');
+        if(!template)return -1;
+        let total=slots.filter(s=>s.querySelector('.board-card')).length;
+        for(const slot of slots){
+          if(total>=24)break;
+          if(slot.querySelector('.board-card'))continue;
+          const copy=template.cloneNode(true);
+          copy.dataset.vrAcDenseClone='true';slot.append(copy);total++;
+        }
+        MRRIntegrated.scene.sync();
+        return total;
+      }""")
+      assert restored==24,('VR01AD viewport fixture repaint',ww,hh,restored)
+      page.wait_for_function('MRRIntegrated.state.scene.cardMeshCount===24',timeout=27000)
       page.wait_for_function("""key=>{
         const ctx=document.querySelector('#mrr-integrated-context');
         const stage=document.querySelector('#mrr-integrated-stage');
