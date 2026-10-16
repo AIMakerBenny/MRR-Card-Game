@@ -274,6 +274,61 @@ try:
           abs(after_hover['y']-before['y'])<3),('VR01AC jumpy quick command',before,after_hover)
         page.screenshot(path=str(ROOT/'tests/vr01ac_native_context_nonoverlap_1920x1080.png'),
           animations='disabled')
+    # VR01AD: stress the actual native toolbar using 22 additional
+    # public-DOM-only clones. Do not alter G, effects, original cards or
+    # any native legal/attack class. Compare the toolbar against every
+    # other projected card face and public status badge at PC widths.
+    qa_clones=page.evaluate("""() => {
+      const slots=[...document.querySelectorAll('#arena .slot[data-slot]')];
+      const template=slots.find(s=>s.querySelector('.board-card'))?.querySelector('.board-card');
+      if(!template)return -1;
+      let added=0;
+      for(const slot of slots){
+        if(added>=22)break;
+        if(slot.querySelector('.board-card'))continue;
+        const clone=template.cloneNode(true);
+        clone.dataset.vrAcDenseClone='true';
+        slot.append(clone);added++;
+      }
+      MRRIntegrated.scene.sync();
+      return added;
+    }""")
+    assert qa_clones==22,qa_clones
+    page.wait_for_function('MRRIntegrated.state.scene.cardMeshCount===24',timeout=35000)
+    for ww,hh in ((1920,1080),(1366,768)):
+      page.set_viewport_size({'width':ww,'height':hh})
+      page.wait_for_timeout(900)
+      page.wait_for_function("""key=>{
+        const ctx=document.querySelector('#mrr-integrated-context');
+        const stage=document.querySelector('#mrr-integrated-stage');
+        const state=MRRIntegrated.state.scene;
+        if(!ctx||ctx.hidden||!stage||state.cardMeshCount!==24)return false;
+        const screen=stage.getBoundingClientRect();
+        const a=ctx.getBoundingClientRect();
+        if(a.left<screen.left+10||a.right>screen.right-10||
+          a.top<screen.top+79||a.bottom>screen.bottom-110)return false;
+        const intersection=b=>Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left))*
+          Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top));
+        const native=[...document.querySelectorAll('#arena .slot[data-slot]')]
+          .filter(s=>s.dataset.slot!==key&&s.querySelector('.board-card .card-ui'));
+        if(native.length!==23)return false;
+        const blocked=native.some(s=>{
+          const b=MRRIntegrated.scene.projectCardBounds(s.dataset.slot);
+          return !b||intersection(b)>4;
+        });
+        const marks=[...document.querySelectorAll(
+          '#vr-public-plaques .vr-public-action:not([hidden]),'+
+          '#vr-public-plaques .vr-public-combat:not([hidden])')];
+        return !blocked&&marks.every(e=>intersection(e.getBoundingClientRect())<4);
+      }""",arg=mine,timeout=28000)
+      assert snap()==baseline,('VR01AD dense display changed native game',ww,hh)
+      page.screenshot(path=str(ROOT/f'tests/vr01ad_dense_native_context_{ww}x{hh}.png'),
+        animations='disabled')
+    page.evaluate("""() => {
+      document.querySelectorAll('[data-vr-ac-dense-clone]').forEach(n=>n.remove());
+      MRRIntegrated.scene.sync();
+    }""")
+    page.wait_for_function('MRRIntegrated.state.scene.cardMeshCount===2',timeout=26000)
     page.set_viewport_size({'width':1920,'height':1080})
     page.wait_for_function("""key=>{
       const ctx=document.querySelector('#mrr-integrated-context');

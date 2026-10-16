@@ -186,7 +186,18 @@ window.MRRIntegratedUIInit=function(loadThree){
                   {x:local.right+12,y:center,priority:0},
                   {x:local.left-width-12,y:center,priority:4},
                   {x:mx,y:local.top-height/2-12,priority:8},
-                  {x:mx,y:local.bottom+height/2+12,priority:12}
+                  {x:mx,y:local.bottom+height/2+12,priority:12},
+                  // A congested battlefield needs reserved spaces above,
+                  // below or to the sides of the card grid, not an overlay
+                  // across neighboring real card faces.
+                  {x:mx,y:Math.max(topBound,105+height/2),priority:18},
+                  {x:pos.x-rect.left-width/2,y:bottomBound,priority:20},
+                  {x:12,y:center,priority:23},
+                  {x:maxX,y:center,priority:24},
+                  {x:12,y:Math.max(topBound,105+height/2),priority:26},
+                  {x:maxX,y:Math.max(topBound,105+height/2),priority:27},
+                  {x:12,y:bottomBound,priority:29},
+                  {x:maxX,y:bottomBound,priority:30}
                 ];
                 const sideActions=document.querySelector('#mrr-integrated-actions');
                 const rightHUD=sideActions?.getBoundingClientRect();
@@ -194,8 +205,27 @@ window.MRRIntegratedUIInit=function(loadThree){
                   right:rightHUD.right-rect.left+5,
                   top:rightHUD.top-rect.top-5,
                   bottom:rightHUD.bottom-rect.top+5}:null;
+                // VR01AD: changing public card occupancy invalidates a cached
+                // position. Dense games must not leave a button floating over
+                // newly summoned cards. Read PUBLIC native slots only.
+                const otherSlots=[...document.querySelectorAll('#arena .slot[data-slot]')]
+                  .filter(slot=>slot.dataset.slot!==info.selectedKey&&
+                    slot.querySelector('.board-card .card-ui'));
+                const occupancy=otherSlots.map(slot=>slot.dataset.slot).sort().join(',');
+                const otherFaces=otherSlots.map(slot=>{
+                  const f=view.projectCardBounds?.(slot.dataset.slot);
+                  return f?{left:f.left-rect.left-4,right:f.right-rect.left+4,
+                    top:f.top-rect.top-4,bottom:f.bottom-rect.top+4}:null;
+                }).filter(Boolean);
+                const publicMarks=[...document.querySelectorAll(
+                  '#vr-public-plaques .vr-public-action:not([hidden]),'+
+                  '#vr-public-plaques .vr-public-combat:not([hidden])')].map(node=>{
+                    const b=node.getBoundingClientRect();
+                    return {left:b.left-rect.left,right:b.right-rect.left,
+                      top:b.top-rect.top,bottom:b.bottom-rect.top};
+                  });
                 const layoutKey=[info.selectedKey,Math.round(rect.width),
-                  Math.round(rect.height),width,height].join('|');
+                  Math.round(rect.height),width,height,occupancy].join('|');
                 const lastSlotX=Number(context.dataset.vrSlotX);
                 const lastSlotY=Number(context.dataset.vrSlotY);
                 // Once the button has a safe seat, keep that physical
@@ -209,9 +239,14 @@ window.MRRIntegratedUIInit=function(loadThree){
                 const scored=candidates.map(c=>{
                   const x=clamp(c.x,12,maxX),y=clamp(c.y,topBound,bottomBound);
                   const box={left:x,top:y-height/2,right:x+width,bottom:y+height/2};
-                  return {x,y,score:area(box,shield)*120+
-                    (hud?area(box,hud)*24:0)+
-                    Math.abs(c.x-x)*2+Math.abs(c.y-y)*2+c.priority};
+                  const neighbors=otherFaces.reduce((sum,f)=>sum+area(box,f),0);
+                  const badges=publicMarks.reduce((sum,f)=>sum+area(box,f),0);
+                  return {x,y,score:area(box,shield)*220+
+                    neighbors*90+badges*20+
+                    (hud?area(box,hud)*32:0)+
+                    Math.abs(c.x-x)*2+Math.abs(c.y-y)*2+
+                    Math.hypot((x+width/2)-(local.left+local.right)/2,
+                      y-center)*.03+c.priority};
                 }).sort((a,b)=>a.score-b.score);
                 context.style.left=Math.round(scored[0].x)+'px';
                 context.style.top=Math.round(scored[0].y)+'px';
