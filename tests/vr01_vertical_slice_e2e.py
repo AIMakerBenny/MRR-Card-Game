@@ -261,6 +261,17 @@ try:
       }""",arg=mine,timeout=16000)
       assert snap()==baseline,('VR01AC layout changed original game',ww,hh)
       if ww==1920:
+        # The quick native buttons must not chase the pointer when
+        # selected 3D artwork animates or hover focus changes.
+        before=page.locator('#mrr-integrated-context').bounding_box()
+        action_box=page.locator('#mrr-quick-attack').bounding_box()
+        assert before and action_box
+        page.mouse.move(action_box['x']+action_box['width']/2,
+          action_box['y']+action_box['height']/2)
+        page.wait_for_timeout(850)
+        after_hover=page.locator('#mrr-integrated-context').bounding_box()
+        assert after_hover and abs(after_hover['x']-before['x'])<3 and (
+          abs(after_hover['y']-before['y'])<3),('VR01AC jumpy quick command',before,after_hover)
         page.screenshot(path=str(ROOT/'tests/vr01ac_native_context_nonoverlap_1920x1080.png'),
           animations='disabled')
     page.set_viewport_size({'width':1920,'height':1080})

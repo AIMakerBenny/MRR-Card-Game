@@ -194,6 +194,18 @@ window.MRRIntegratedUIInit=function(loadThree){
                   right:rightHUD.right-rect.left+5,
                   top:rightHUD.top-rect.top-5,
                   bottom:rightHUD.bottom-rect.top+5}:null;
+                const layoutKey=[info.selectedKey,Math.round(rect.width),
+                  Math.round(rect.height),width,height].join('|');
+                const lastSlotX=Number(context.dataset.vrSlotX);
+                const lastSlotY=Number(context.dataset.vrSlotY);
+                // Once the button has a safe seat, keep that physical
+                // position while the Three.js card lifts, settles or
+                // the auto-camera eases. Only a changed viewport/action
+                // layout or a substantial slot displacement may re-seat.
+                const stable=context.dataset.vrLayoutKey===layoutKey &&
+                  Number.isFinite(lastSlotX)&&Number.isFinite(lastSlotY)&&
+                  Math.hypot(pos.x-lastSlotX,pos.y-lastSlotY)<36;
+                if(!stable){
                 const scored=candidates.map(c=>{
                   const x=clamp(c.x,12,maxX),y=clamp(c.y,topBound,bottomBound);
                   const box={left:x,top:y-height/2,right:x+width,bottom:y+height/2};
@@ -201,8 +213,12 @@ window.MRRIntegratedUIInit=function(loadThree){
                     (hud?area(box,hud)*24:0)+
                     Math.abs(c.x-x)*2+Math.abs(c.y-y)*2+c.priority};
                 }).sort((a,b)=>a.score-b.score);
-                context.style.left=scored[0].x.toFixed(1)+'px';
-                context.style.top=scored[0].y.toFixed(1)+'px';
+                context.style.left=Math.round(scored[0].x)+'px';
+                context.style.top=Math.round(scored[0].y)+'px';
+                context.dataset.vrLayoutKey=layoutKey;
+                context.dataset.vrSlotX=String(pos.x);
+                context.dataset.vrSlotY=String(pos.y);
+                }
               }else{
                 context.style.left=Math.max(12,Math.min(maxX,pos.x-rect.left+48))+'px';
                 context.style.top=Math.max(topBound,Math.min(bottomBound,pos.y-rect.top-48))+'px';
