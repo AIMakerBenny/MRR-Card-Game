@@ -294,6 +294,37 @@ try:
       return added;
     }""")
     assert qa_clones==22,qa_clones
+    # VR01AD: Phase21 may re-render the entire public slot grid whenever
+    # the 3D viewport is resized. Hold ONLY synthetic cloned public DOM
+    # cards while the dense layout QA is active, never native game state.
+    page.evaluate("""() => {
+      const arena=document.querySelector('#arena');
+      window.__vrAdDenseActive=true;
+      window.__vrAdDenseQueued=false;
+      window.__vrAdDenseObserver=new MutationObserver(()=>{
+        if(!window.__vrAdDenseActive||window.__vrAdDenseQueued)return;
+        window.__vrAdDenseQueued=true;
+        requestAnimationFrame(()=>{
+          window.__vrAdDenseQueued=false;
+          if(!window.__vrAdDenseActive)return;
+          const slots=[...document.querySelectorAll('#arena .slot[data-slot]')];
+          const template=slots.find(s=>s.querySelector(
+            '.board-card:not([data-vr-ac-dense-clone])'))?.querySelector('.board-card');
+          if(!template)return;
+          let count=slots.filter(s=>s.querySelector('.board-card')).length;
+          let changed=false;
+          for(const slot of slots){
+            if(count>=24)break;
+            if(slot.querySelector('.board-card'))continue;
+            const clone=template.cloneNode(true);
+            clone.dataset.vrAcDenseClone='true';slot.append(clone);
+            changed=true;count++;
+          }
+          if(changed)MRRIntegrated.scene.sync();
+        });
+      });
+      window.__vrAdDenseObserver.observe(arena,{childList:true,subtree:true});
+    }""")
     # Renderer and native DOM can repaint at different animation frames.
     # Keep the display-only fixture honest: it must contain exactly 24
     # public cards BEFORE accepting a 24-mesh projection snapshot.
@@ -340,7 +371,8 @@ try:
         const ctx=document.querySelector('#mrr-integrated-context');
         const stage=document.querySelector('#mrr-integrated-stage');
         const state=MRRIntegrated.state.scene;
-        if(!ctx||ctx.hidden||!stage||state.cardMeshCount!==24)return false;
+        if(!ctx||ctx.hidden||!stage||state.cardMeshCount!==24||
+          document.querySelectorAll('#arena .slot .board-card').length!==24)return false;
         const screen=stage.getBoundingClientRect();
         const a=ctx.getBoundingClientRect();
         if(a.left<screen.left+10||a.right>screen.right-10||
@@ -382,6 +414,9 @@ try:
       page.screenshot(path=str(ROOT/f'tests/vr01ad_dense_native_context_{ww}x{hh}.png'),
         animations='disabled')
     page.evaluate("""() => {
+      window.__vrAdDenseActive=false;
+      window.__vrAdDenseObserver?.disconnect();
+      window.__vrAdDenseObserver=null;
       document.querySelectorAll('[data-vr-ac-dense-clone]').forEach(n=>n.remove());
       MRRIntegrated.scene.sync();
     }""")
