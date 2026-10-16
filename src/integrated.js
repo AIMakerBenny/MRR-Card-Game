@@ -164,8 +164,49 @@ window.MRRIntegratedUIInit=function(loadThree){
               const maxX=Math.max(12,rect.width-width-12);
               const topBound=82+height/2;
               const bottomBound=Math.max(topBound,rect.height-118-height/2);
-              context.style.left=Math.max(12,Math.min(maxX,pos.x-rect.left+48))+'px';
-              context.style.top=Math.max(topBound,Math.min(bottomBound,pos.y-rect.top-48))+'px';
+              // VR01AC: choose a measured, card-face-aware placement for
+              // the actual native action buttons. The old fixed +48 offset
+              // could cover the selected card on edge seats / laptops.
+              // The original integrated view retains its historic position.
+              const face=document.body.classList.contains('mrr-vr-active')?
+                view.projectCardBounds?.(info.selectedKey):null;
+              if(face&&Number.isFinite(face.left)&&Number.isFinite(face.right)&&
+                Number.isFinite(face.top)&&Number.isFinite(face.bottom)){
+                const local={left:face.left-rect.left,right:face.right-rect.left,
+                  top:face.top-rect.top,bottom:face.bottom-rect.top};
+                const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+                const area=(a,b)=>Math.max(0,Math.min(a.right,b.right)-
+                  Math.max(a.left,b.left))*Math.max(0,Math.min(a.bottom,b.bottom)-
+                  Math.max(a.top,b.top));
+                const pad=8,shield={left:local.left-pad,right:local.right+pad,
+                  top:local.top-pad,bottom:local.bottom+pad};
+                const center=(local.top+local.bottom)/2;
+                const mx=(local.left+local.right-width)/2;
+                const candidates=[
+                  {x:local.right+12,y:center,priority:0},
+                  {x:local.left-width-12,y:center,priority:4},
+                  {x:mx,y:local.top-height/2-12,priority:8},
+                  {x:mx,y:local.bottom+height/2+12,priority:12}
+                ];
+                const sideActions=document.querySelector('#mrr-integrated-actions');
+                const rightHUD=sideActions?.getBoundingClientRect();
+                const hud=rightHUD?{left:rightHUD.left-rect.left-5,
+                  right:rightHUD.right-rect.left+5,
+                  top:rightHUD.top-rect.top-5,
+                  bottom:rightHUD.bottom-rect.top+5}:null;
+                const scored=candidates.map(c=>{
+                  const x=clamp(c.x,12,maxX),y=clamp(c.y,topBound,bottomBound);
+                  const box={left:x,top:y-height/2,right:x+width,bottom:y+height/2};
+                  return {x,y,score:area(box,shield)*120+
+                    (hud?area(box,hud)*24:0)+
+                    Math.abs(c.x-x)*2+Math.abs(c.y-y)*2+c.priority};
+                }).sort((a,b)=>a.score-b.score);
+                context.style.left=scored[0].x.toFixed(1)+'px';
+                context.style.top=scored[0].y.toFixed(1)+'px';
+              }else{
+                context.style.left=Math.max(12,Math.min(maxX,pos.x-rect.left+48))+'px';
+                context.style.top=Math.max(topBound,Math.min(bottomBound,pos.y-rect.top-48))+'px';
+              }
             }else context.hidden=true;
           }
         }finally{updating=false;}

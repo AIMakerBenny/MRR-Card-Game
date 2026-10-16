@@ -242,6 +242,34 @@ try:
         Math.abs(s.vrSelectionRingScale-1)<.001;
     }""",timeout=12000)
     assert snap()==baseline
+    # VR01AC: native contextual actions must remain within all supported
+    # PC viewports without covering their selected real 3D card face.
+    # This checks the EXISTING native buttons, not a simulated toolbar.
+    for ww,hh in ((1920,1080),(1366,768),(2560,1440)):
+      page.set_viewport_size({'width':ww,'height':hh})
+      page.wait_for_function("""key=>{
+        const ctx=document.querySelector('#mrr-integrated-context');
+        const stage=document.querySelector('#mrr-integrated-stage');
+        if(!ctx||ctx.hidden||!stage)return false;
+        const face=MRRIntegrated.scene.projectCardBounds(key);
+        if(!face)return false;
+        const a=ctx.getBoundingClientRect(),b=stage.getBoundingClientRect();
+        const overlap=Math.max(0,Math.min(a.right,face.right)-Math.max(a.left,face.left))*
+          Math.max(0,Math.min(a.bottom,face.bottom)-Math.max(a.top,face.top));
+        return a.left>=b.left+10&&a.right<=b.right-10 &&
+          a.top>=b.top+79&&a.bottom<=b.bottom-110 && overlap<4;
+      }""",arg=mine,timeout=16000)
+      assert snap()==baseline,('VR01AC layout changed original game',ww,hh)
+      if ww==1920:
+        page.screenshot(path=str(ROOT/'tests/vr01ac_native_context_nonoverlap_1920x1080.png'),
+          animations='disabled')
+    page.set_viewport_size({'width':1920,'height':1080})
+    page.wait_for_function("""key=>{
+      const ctx=document.querySelector('#mrr-integrated-context');
+      return !ctx.hidden&&MRRIntegrated.state.scene.selectedKey===key;
+    }""",arg=mine,timeout=14000)
+    assert page.locator('#mrr-quick-attack').is_visible()
+    assert snap()==baseline
     before_hp=page.evaluate("""key=>{const [owner,row,col]=key.split(':');
       return G.players[+owner][row][+col]?.hp}""",opponent)
     assert before_hp and before_hp>0
