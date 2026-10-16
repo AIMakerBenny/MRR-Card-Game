@@ -393,6 +393,12 @@ try:
     }""",arg=mine,timeout=14000)
     assert page.locator('#mrr-quick-attack').is_visible()
     assert snap()==baseline
+    # VR01AD: removing display-only stress cards deliberately produces
+    # cosmetic 3D exit effects. Let them finish and use this counter as a
+    # strict baseline for the NEXT genuinely native Phase21 attack.
+    page.wait_for_function('MRRIntegrated.state.scene.vrDepartActive===0',timeout=15000)
+    departures_before_native_attack=page.evaluate(
+      'MRRIntegrated.state.scene.vrDepartStarted')
     before_hp=page.evaluate("""key=>{const [owner,row,col]=key.split(':');
       return G.players[+owner][row][+col]?.hp}""",opponent)
     assert before_hp and before_hp>0
@@ -599,10 +605,13 @@ try:
         !document.querySelector('#vr-aim-line')?.getAttribute('d');
     }""",timeout=14000)
     if page.locator(f'#arena [data-slot="{opponent}"] .board-card').count()==0:
-      page.wait_for_function('MRRIntegrated.state.scene.vrDepartStarted>=1',timeout=14000)
+      page.wait_for_function(
+        'base=>MRRIntegrated.state.scene.vrDepartStarted>base',
+        arg=departures_before_native_attack,timeout=14000)
     else:
-      assert page.evaluate('MRRIntegrated.state.scene.vrDepartStarted')==0,(
-        'An ordinary surviving hit must not look like a card destruction')
+      assert page.evaluate('MRRIntegrated.state.scene.vrDepartStarted')==(
+        departures_before_native_attack),(
+        'An ordinary surviving hit must not cause a NEW card destruction')
     page.screenshot(path=str(ROOT/'tests/vr01_attack_confirmed_1920x1080.png'),animations='disabled')
 
     # VR01-D: deliberately dense DISPLAY-ONLY stress fixture. Clone only
