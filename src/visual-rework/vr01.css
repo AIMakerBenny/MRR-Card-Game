@@ -514,3 +514,17 @@ body.mrr-vr-active #mrr-vr-shell #vr-hint[data-mode=move] .vr-hint-mode{
 @media(prefers-reduced-motion:reduce){
  #mrr-vr-shell #vr-aim .vr-legal-guide{animation:none}
 }
+
+/* VR01AE: lightweight PC shortcut tags on the original native context
+   controls. Purely decorative; keyboard dispatch remains Phase21-based. */
+body.mrr-vr-active #mrr-integrated-context button[data-vr-shortcut]{
+ position:relative;padding-right:32px!important;
+}
+body.mrr-vr-active #mrr-integrated-context button[data-vr-shortcut]::after{
+ content:attr(data-vr-shortcut);position:absolute;right:7px;top:50%;
+ transform:translateY(-50%);display:grid;place-items:center;
+ min-width:19px;height:20px;border-radius:4px;
+ border:1px solid #d9c39c88;background:#0f2129d9;
+ color:#f6dfb6;font:700 12px/1 Georgia,serif;
+ pointer-events:none;
+}

@@ -529,6 +529,24 @@ function refresh(){
  const moveControl=q('#inspectBody button[data-actor="move"]');
  const attackQuick=q('#mrr-quick-attack');
  const moveQuick=q('#mrr-quick-move');
+ // VR01AE: label the existing REAL Phase21 actions with their VR-only
+ // shortcuts. Only enabled native actions are advertised; no duplicate
+ // buttons or game commands are created.
+ for(const [control,key,enabled] of [
+   [attackQuick,'A',!!attackControl&&!attackControl.disabled],
+   [moveQuick,'M',!!moveControl&&!moveControl.disabled]
+ ]){
+   if(!control)continue;
+   if(enabled&&!control.hidden){
+     control.setAttribute('aria-keyshortcuts',key);
+     control.dataset.vrShortcut=key;
+     control.title=control.textContent.trim()+' · '+key+' 단축키';
+   }else{
+     control.removeAttribute('aria-keyshortcuts');
+     delete control.dataset.vrShortcut;
+     control.removeAttribute('title');
+   }
+ }
  const canNativeCommand=(native,quick)=>!!(selectedKey&&native&&!native.disabled&&
    quick&&!quick.hidden&&!quick.disabled&&!q('#mrr-integrated-context')?.hidden);
  const canAttack=mode==='selected'&&canNativeCommand(attackControl,attackQuick);
@@ -602,6 +620,12 @@ function cleanup(){
   nativeHpSnapshot.clear();recentHpChanges.clear();lastCombatTime=null;vrOutcomeCount=0;lastOutcome=null;outcomeNodes.length=0;outcomeHistory.length=0;
 }
 function closeUI(){
+ for(const id of ['#mrr-quick-attack','#mrr-quick-move']){
+   const control=q(id);if(!control)continue;
+   control.removeAttribute('aria-keyshortcuts');
+   delete control.dataset.vrShortcut;
+   control.removeAttribute('title');
+ }
  open=false;busy=false;cleanup();
  if(window.MRRIntegrated?.state.open)window.MRRIntegrated.close();
  document.body.classList.remove('mrr-vr-active');

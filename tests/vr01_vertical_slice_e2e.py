@@ -427,6 +427,22 @@ try:
       return !ctx.hidden&&MRRIntegrated.state.scene.selectedKey===key;
     }""",arg=mine,timeout=14000)
     assert page.locator('#mrr-quick-attack').is_visible()
+    # VR01AE: shortcut badges are the SAME native buttons, and never
+    # promise an unavailable command. Browser click hit-test is unchanged.
+    keys=page.evaluate("""() => ['attack','move'].map(k=>{
+      const button=document.querySelector('#mrr-quick-'+k);
+      const original=document.querySelector('#inspectBody button[data-actor="'+k+'"]');
+      return {kind:k,enabled:!!original&&!original.disabled&&!button.hidden,
+        key:button.dataset.vrShortcut||null,
+        aria:button.getAttribute('aria-keyshortcuts'),
+        decoration:getComputedStyle(button,'::after').content,
+        pointer:getComputedStyle(button,'::after').pointerEvents};
+    })""")
+    for item in keys:
+      expected={'attack':'A','move':'M'}[item['kind']] if item['enabled'] else None
+      assert item['key']==expected and item['aria']==expected,item
+      if expected:
+        assert expected in item['decoration'] and item['pointer']=='none',item
     assert snap()==baseline
     # VR01AD: removing display-only stress cards deliberately produces
     # cosmetic 3D exit effects. Let them finish and use this counter as a
