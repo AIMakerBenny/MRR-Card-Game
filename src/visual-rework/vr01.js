@@ -529,12 +529,19 @@ function refresh(){
  const moveControl=q('#inspectBody button[data-actor="move"]');
  const attackQuick=q('#mrr-quick-attack');
  const moveQuick=q('#mrr-quick-move');
- // VR01AE: label the existing REAL Phase21 actions with their VR-only
- // shortcuts. Only enabled native actions are advertised; no duplicate
- // buttons or game commands are created.
+ // VR01AF: advertise A/M only while the SAME native action can run.
+ // A targeting state, private handoff or hidden/disabled native command
+ // must never display a shortcut that the real keyboard handler rejects.
+ const canNativeCommand=(native,quick)=>!!(mode==='selected'&&selectedKey&&
+   native&&!native.disabled&&quick&&!quick.hidden&&!quick.disabled&&
+   !q('#mrr-integrated-context')?.hidden&&
+   q('#overlay')?.classList.contains('hidden'));
+ const canAttack=canNativeCommand(attackControl,attackQuick);
+ const canMove=canNativeCommand(moveControl,moveQuick);
+ // VR01AE: cosmetic key labels remain on the ORIGINAL Phase21 buttons.
  for(const [control,key,enabled] of [
-   [attackQuick,'A',!!attackControl&&!attackControl.disabled],
-   [moveQuick,'M',!!moveControl&&!moveControl.disabled]
+   [attackQuick,'A',canAttack],
+   [moveQuick,'M',canMove]
  ]){
    if(!control)continue;
    if(enabled&&!control.hidden){
@@ -547,10 +554,7 @@ function refresh(){
      control.removeAttribute('title');
    }
  }
- const canNativeCommand=(native,quick)=>!!(selectedKey&&native&&!native.disabled&&
-   quick&&!quick.hidden&&!quick.disabled&&!q('#mrr-integrated-context')?.hidden);
- const canAttack=mode==='selected'&&canNativeCommand(attackControl,attackQuick);
- const canMove=mode==='selected'&&canNativeCommand(moveControl,moveQuick);
+
  const commands=[canAttack?'A 공격':'',canMove?'M 이동':''].filter(Boolean);
  const instruction=mode==='attack'?'공격 대상 '+attackCount+'곳 · 카드 선택':
    mode==='move'?'이동 가능 '+legalCount+'곳 · 인접 빈칸 선택':

@@ -477,6 +477,16 @@ try:
         document.querySelector('#vr-hint-text')?.textContent.includes(count+'곳');
     }""",timeout=14000)
     assert snap()==baseline,'VR01X attack command strip changed Phase21 state'
+    # VR01AF: a real targeting operation disables fresh A/M hotkeys.
+    # Cosmetic key labels must agree without mutating the Phase21 game.
+    page.wait_for_function("""() => ['attack','move'].every(kind=>{
+      const button=document.querySelector('#mrr-quick-'+kind);
+      return !!button && !button.dataset.vrShortcut &&
+        !button.hasAttribute('aria-keyshortcuts');
+    })""",timeout=12000)
+    assert snap()==baseline,'VR01AF keycap cleanup changed native game'
+    page.screenshot(path=str(ROOT/'tests/vr01af_targeting_keys_suppressed_1920x1080.png'),
+      animations='disabled')
     page.screenshot(path=str(ROOT/'tests/vr01x_native_attack_command_1920x1080.png'),
       animations='disabled')
     # VR01W: the new C shortcut must perform exactly the same native
