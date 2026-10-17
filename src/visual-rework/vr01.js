@@ -13,7 +13,7 @@ const clean=v=>String(v||'').replace(/\s+/g,' ').trim();
 const native=selector=>{const n=q(selector);if(!n||n.disabled)return false;n.click();return true;};
 const entry=el('button','','VR01 새 게임 화면');entry.id='mrr-vr-open';entry.type='button';bar.append(entry);
 let open=false,busy=false,ui=null,stage=null,observer=null,interval=null,scheduled=0,handSignature='',handArtSources=[],backCount=-1;
-let tacticalCamera='tabletop';
+let tacticalCamera='tabletop',keyboardEntryPending=false;
 const nativeCardLabels=new Map(),nativeStatBadges=new Map(),nativeActionMarks=new Map();
 let nativeHpSnapshot=new Map(),recentHpChanges=new Map(),lastCombatTime=null,vrOutcomeCount=0,lastOutcome=null;
 const outcomeNodes=[],outcomeHistory=[];
@@ -713,7 +713,7 @@ function closeUI(){
  if(returnFocus&&entry.isConnected&&!root.classList.contains('hidden'))
    entry.focus({preventScroll:true});
 }
-async function openUI(){
+async function openUI(focusOnEntry=false){
  if(open||busy||root.classList.contains('hidden'))return;
  busy=true;entry.disabled=true;document.body.classList.add('mrr-vr-active');
  root.classList.add('mrr-vr-playing');
@@ -728,6 +728,10 @@ async function openUI(){
   stage=q('#mrr-integrated-stage');
   if(!stage)throw Error('Native battlefield stage absent');
   open=true;buildUI();refresh();
+  // VR01AL: entering the 3D view using Enter/Space moves keyboard focus
+  // into its first real control. Pointer entry and API-driven opening must
+  // keep their existing focus behavior; no native game command is invoked.
+  if(focusOnEntry)q('#vr-piles',ui)?.focus({preventScroll:true});
   observer=new MutationObserver(schedule);
   for(const s of ['#hand','#enemyHand','#arena','#myPortrait','#enemyPortrait','#myMana','#enemyMana','#endTurn','#overlay']){
     const target=q(s);if(target)observer.observe(target,{childList:true,characterData:true,attributes:true,subtree:true});
@@ -736,7 +740,17 @@ async function openUI(){
  }catch(err){console.warn('VR01 unavailable:',err);closeUI();}
  finally{busy=false;entry.disabled=false;}
 }
-entry.addEventListener('click',()=>open?closeUI():openUI());
+// The browser fires a click for Enter/Space with detail=0, but so does
+// element.click(). Track a real entry keypress to avoid stealing focus when
+// scripts open the 3D view or a user clicks it with the mouse.
+entry.addEventListener('keydown',ev=>{
+ if(ev.key==='Enter'||ev.key===' ')keyboardEntryPending=true;
+});
+entry.addEventListener('blur',()=>{keyboardEntryPending=false;});
+entry.addEventListener('click',()=>{
+ const fromKeyboard=keyboardEntryPending;keyboardEntryPending=false;
+ if(open)closeUI();else openUI(fromKeyboard);
+});
 window.addEventListener('keydown',handleHandShortcut,true);
 window.addEventListener('resize',()=>{if(open){
  handSignature='';backCount=-1;

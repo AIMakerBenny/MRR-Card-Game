@@ -1123,6 +1123,18 @@ try:
     page.wait_for_function('MRRVR.status.open && MRRIntegrated.state.scene.frames>3',
       timeout=45000)
     assert snap()==after,'VR01AK keyboard reopen changed Phase21 engine'
+    # VR01AL: a genuine Enter key on the original entry should place focus
+    # on the FIRST real 3D toolbar control, without executing a card action.
+    assert page.evaluate("""() =>
+      document.activeElement?.id==='vr-piles'"""),(
+      'VR01AL keyboard 3D entry did not focus first toolbar control')
+    page.screenshot(path=str(ROOT/'tests/vr01al_keyboard_entry_focus_1920x1080.png'),
+      animations='disabled')
+    page.keyboard.press('Tab')
+    assert page.evaluate("""() =>
+      document.activeElement?.id==='vr-inspector'"""),(
+      'VR01AL keyboard toolbar tab order lost')
+    assert snap()==after,'VR01AL focus/tab navigation changed Phase21 engine'
     page.locator('#vr-return').click()
     assert page.evaluate("""() => !MRRVR.status.open &&
       document.activeElement?.id==='mrr-vr-open'"""),(
