@@ -1147,6 +1147,21 @@ try:
           });
         }""",timeout=15000)
         assert snap()==prior,'VR01AA marker changed native placement state'
+        # VR01AI: during a genuine Phase21 target declaration 1–0 cannot
+        # start another hand selection. Only the cue/ARIA mirror changes.
+        page.wait_for_function("""() => {
+          const shell=document.querySelector('#mrr-vr-shell');
+          return shell?.classList.contains('vr-hand-hotkeys-paused') &&
+            [...shell.querySelectorAll('#vr-hand .vr-card')].every((card,i)=>{
+              if(i>=10)return true;
+              const keycap=card.querySelector('.vr-shortcut-key');
+              return !card.hasAttribute('aria-keyshortcuts') && keycap &&
+                Number(getComputedStyle(keycap).opacity)<.5;
+            });
+        }""",timeout=14000)
+        assert snap()==prior,'VR01AI paused hand cues changed Phase21 state'
+        page.screenshot(path=str(ROOT/'tests/vr01ai_hand_hotkeys_paused_1920x1080.png'),
+          animations='disabled')
         page.screenshot(path=str(ROOT/'tests/vr01aa_native_place_guides_1920x1080.png'),
           animations='disabled')
         page.screenshot(path=str(ROOT/'tests/vr01x_native_place_command_1920x1080.png'),
@@ -1155,6 +1170,13 @@ try:
         page.wait_for_function("""() => !document.querySelector('#arena .slot.legal') &&
           !document.querySelector('#mrr-vr-shell').classList.contains('vr-placing')""",timeout=14000)
         assert snap()==prior,'Cancelling hand placement spent native resources'
+        page.wait_for_function("""() => {
+          const shell=document.querySelector('#mrr-vr-shell');
+          return shell && !shell.classList.contains('vr-hand-hotkeys-paused') &&
+            [...shell.querySelectorAll('#vr-hand .vr-card')].every((card,i)=>
+              i>=10||card.getAttribute('aria-keyshortcuts')===(i===9?'0':String(i+1)));
+        }""",timeout=14000)
+        assert snap()==prior,'VR01AI restored hand cues changed Phase21 state'
         page.wait_for_function("""() =>
           !document.querySelector('#hand .hand-slot.active') &&
           !document.querySelector('#vr-hand .vr-card.vr-native-selected') &&

@@ -528,3 +528,10 @@ body.mrr-vr-active #mrr-integrated-context button[data-vr-shortcut]::after{
  color:#f6dfb6;font:700 12px/1 Georgia,serif;
  pointer-events:none;
 }
+
+/* VR01AI: numeric keys cannot select another hand card while genuine native
+   placement/targeting or handoff is active. Keep the approved hand design
+   and click surfaces, but make unavailable keyboard cues visually quiet. */
+body.mrr-vr-active #mrr-vr-shell.vr-hand-hotkeys-paused .vr-shortcut-key{
+ opacity:.28;filter:grayscale(.85);pointer-events:none;
+}

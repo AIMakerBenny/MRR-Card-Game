@@ -234,6 +234,7 @@ function updateHand(){
       const shortcut=d.i===9?'0':String(d.i+1);
       card.setAttribute('aria-keyshortcuts',shortcut);
       card.title=d.name+' · 단축키 '+shortcut;
+      card.dataset.vrKeyTitle=card.title;
     }
     card.style.setProperty('--x',((d.i-(n-1)/2)*step)+'px');
     card.style.setProperty('--hit',step+'px');
@@ -600,6 +601,25 @@ function refresh(){
      '선택 카드의 명령을 실행하세요'):
    '손패 클릭 또는 숫자 1–0으로 선택';
  ui.classList.toggle('vr-placing',!!(legalCount||attackCount));
+ // VR01AI: number keys are blocked by the existing Phase21-aware handler
+ // during targeting or private handoff. Match the cues on the same genuine
+ // current-player hand buttons without disabling mouse clicks or game rules.
+ const handButtons=qa('#vr-hand .vr-card',ui);
+ const handHotkeysActive=legalCount===0&&attackCount===0&&
+   q('#overlay')?.classList.contains('hidden')&&
+   handButtons.length===qa('#hand .hand-slot').length;
+ ui.classList.toggle('vr-hand-hotkeys-paused',!handHotkeysActive);
+ handButtons.forEach((card,i)=>{
+   if(i>=10)return;
+   const key=i===9?'0':String(i+1);
+   if(handHotkeysActive&&!card.disabled){
+     if(card.getAttribute('aria-keyshortcuts')!==key)card.setAttribute('aria-keyshortcuts',key);
+     if(card.title!==card.dataset.vrKeyTitle)card.title=card.dataset.vrKeyTitle||'';
+   }else{
+     card.removeAttribute('aria-keyshortcuts');
+     card.removeAttribute('title');
+   }
+ });
  const hint=q('#vr-hint',ui);
  hint.dataset.mode=mode;
  const tag=q('#vr-hint-mode',hint),label=q('#vr-hint-text',hint);
@@ -689,7 +709,7 @@ async function openUI(){
   if(!stage)throw Error('Native battlefield stage absent');
   open=true;buildUI();refresh();
   observer=new MutationObserver(schedule);
-  for(const s of ['#hand','#enemyHand','#arena','#myPortrait','#enemyPortrait','#myMana','#enemyMana','#endTurn']){
+  for(const s of ['#hand','#enemyHand','#arena','#myPortrait','#enemyPortrait','#myMana','#enemyMana','#endTurn','#overlay']){
     const target=q(s);if(target)observer.observe(target,{childList:true,characterData:true,attributes:true,subtree:true});
   }
   interval=setInterval(schedule,500);
