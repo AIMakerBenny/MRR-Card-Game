@@ -153,17 +153,39 @@ try:
       if(!well||well.querySelector('.mrr-owner-art'))return null;
       const img=document.createElement('img');
       img.className='mrr-owner-art';
-      const make=colour=>'data:image/svg+xml,'+encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="960">'+
-        '<rect width="1200" height="960" fill="'+colour+'"/></svg>');
+      // Use the same data:image/png format as the real Phase59 owner
+      // artwork importer, with generated test-only solid swatches.
+      const make=colour=>{
+        const canvas=document.createElement('canvas');
+        canvas.width=1200;canvas.height=960;
+        const ctx=canvas.getContext('2d');
+        ctx.fillStyle=colour;ctx.fillRect(0,0,1200,960);
+        return canvas.toDataURL('image/png');
+      };
       img.src=make('#146b80');well.append(img);
       window.__vr01agFixture={img,make};return img.getAttribute('src');
     }""")
-    assert art and art.startswith('data:image/svg+xml,'),'VR01AG native art fixture unavailable'
-    page.wait_for_function("""url=>{
-      const mirror=document.querySelector('#vr-hand .vr-card:first-child .vr-provided-art');
-      return mirror?.getAttribute('src')===url && mirror.complete && mirror.naturalWidth===1200;
-    }""",arg=art,timeout=15000)
+    assert art and art.startswith('data:image/png;base64,'),'VR01AG native art fixture unavailable'
+    try:
+      page.wait_for_function("""url=>{
+        const mirror=document.querySelector('#vr-hand .vr-card:first-child .vr-provided-art');
+        return mirror?.getAttribute('src')===url && mirror.complete && mirror.naturalWidth===1200;
+      }""",arg=art,timeout=15000)
+    except Exception:
+      print('VR01AG art diagnostics:',page.evaluate("""() => {
+        const original=document.querySelector('#hand .hand-slot .art-well > .mrr-owner-art');
+        const mirror=document.querySelector('#vr-hand .vr-card:first-child .vr-provided-art');
+        const fixture=window.__vr01agFixture?.img;
+        return {originalPresent:!!original,fixtureConnected:!!fixture?.isConnected,
+          originalMatchesFixture:original===fixture,
+          originalLength:original?.getAttribute('src')?.length,
+          mirrorPresent:!!mirror,mirrorLength:mirror?.getAttribute('src')?.length,
+          mirrorComplete:mirror?.complete,mirrorNaturalWidth:mirror?.naturalWidth,
+          mirrorMatchesOriginal:mirror?.getAttribute('src')===original?.getAttribute('src'),
+          nativeHandCount:document.querySelectorAll('#hand .hand-slot').length,
+          vrHandCount:document.querySelectorAll('#vr-hand .vr-card').length};
+      }"""),flush=True)
+      raise
     for w,h in ((1366,768),(1920,1080),(2560,1440)):
       page.set_viewport_size({'width':w,'height':h})
       page.wait_for_function("""url=>
