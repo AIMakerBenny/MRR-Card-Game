@@ -1113,6 +1113,21 @@ try:
     assert not page.evaluate('MRRVR.status.open')
     assert page.locator('#arena').is_visible()
     assert snap()==after,'2D return changed original engine snapshot'
+    # VR01AK: 2D return must restore focus to the existing VR entry so a
+    # keyboard-only player can immediately reopen the same game view.
+    assert page.evaluate("""() => document.activeElement?.id==='mrr-vr-open'"""),(
+      'VR01AK 2D return lost keyboard focus')
+    page.screenshot(path=str(ROOT/'tests/vr01ak_2d_return_focus_1920x1080.png'),
+      animations='disabled')
+    page.keyboard.press('Enter')
+    page.wait_for_function('MRRVR.status.open && MRRIntegrated.state.scene.frames>3',
+      timeout=45000)
+    assert snap()==after,'VR01AK keyboard reopen changed Phase21 engine'
+    page.locator('#vr-return').click()
+    assert page.evaluate("""() => !MRRVR.status.open &&
+      document.activeElement?.id==='mrr-vr-open'"""),(
+      'VR01AK keyboard reopen did not restore 2D focus')
+    assert snap()==after,'VR01AK second 2D return changed Phase21 engine'
     assert not errors,errors
 
     # A separate round tests a physical VR hand click, true 3D placement,

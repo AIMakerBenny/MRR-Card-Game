@@ -695,6 +695,10 @@ function cleanup(){
   nativeHpSnapshot.clear();recentHpChanges.clear();lastCombatTime=null;vrOutcomeCount=0;lastOutcome=null;outcomeNodes.length=0;outcomeHistory.length=0;
 }
 function closeUI(){
+ // VR01AK: when a keyboard/mouse user leaves the 3D shell, keep the
+ // currently visible original PC entry reachable. A programmatic close
+ // while focus is outside this shell must not steal somebody else's focus.
+ const returnFocus=!!(ui&&ui.contains(document.activeElement));
  for(const id of ['#mrr-quick-attack','#mrr-quick-move']){
    const control=q(id);if(!control)continue;
    control.removeAttribute('aria-keyshortcuts');
@@ -706,6 +710,8 @@ function closeUI(){
  document.body.classList.remove('mrr-vr-active');
  root.classList.remove('mrr-vr-playing');
  entry.disabled=false;
+ if(returnFocus&&entry.isConnected&&!root.classList.contains('hidden'))
+   entry.focus({preventScroll:true});
 }
 async function openUI(){
  if(open||busy||root.classList.contains('hidden'))return;
