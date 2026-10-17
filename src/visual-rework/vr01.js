@@ -199,12 +199,26 @@ function updateHand(){
       pair[1]!==handArtSources[i]?.[1]);
   if(handSignature===signature&&!artChanged)return;
   const fan=q('#vr-hand',ui);
-  // VR01AH: artwork-only native repaints must not destroy the player's
-  // currently hovered/focused hand button or reset its interaction.
-  // Reflect only the visible Phase21 image and leave original actions intact.
-  if(handSignature===signature&&artChanged&&fan.children.length===src.length){
+  // VR01AJ: the same visible Phase21 cards can have cosmetic changes
+  // to cost, rules or stats. Keep each existing 3D button/focus/hover and
+  // update its displayed text in place instead of replacing the whole fan.
+  // Genuine hand identity/order changes still use the full rebuild below.
+  const previousHand=handSignature?JSON.parse(handSignature):[];
+  const sameVisibleCards=previousHand.length===hand.length&&
+    fan.children.length===hand.length&&hand.every((d,i)=>
+      d.name===previousHand[i].name&&d.kind===previousHand[i].kind);
+  if(sameVisibleCards){
     src.forEach((slot,i)=>{
-      const face=q('.vr-art-blank',fan.children[i]);
+      const card=fan.children[i],d=hand[i];
+      for(const [selector,value] of [
+        ['.vr-mana',d.cost||'0'],
+        ['.vr-rules',d.summary||''],
+        ['.vr-stats',d.stats||'']]){
+        const node=q(selector,card);
+        if(node&&node.textContent!==value)node.textContent=value;
+      }
+      // Preserve VR01AG/AH dynamic Phase59 artwork behavior as well.
+      const face=q('.vr-art-blank',card);
       if(!face)return;
       const nativeArt=q('.art-well > .mrr-owner-art',slot);
       const mirrored=q('.vr-provided-art',face);
@@ -220,7 +234,7 @@ function updateHand(){
         }
       }else mirrored?.remove();
     });
-    handArtSources=artSources;
+    handSignature=signature;handArtSources=artSources;
     return;
   }
   handSignature=signature;handArtSources=artSources;

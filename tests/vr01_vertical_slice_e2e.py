@@ -233,6 +233,45 @@ try:
       '#vr-hand .vr-card[data-index="'+index+'"] .vr-provided-art')""",
       arg=art['index'],timeout=15000)
     assert snap()==baseline,'VR01AG artwork removal affected native game'
+    # VR01AJ: a cosmetic Phase21 hand cost repaint must NOT destroy an
+    # already focused/raised 3D hand button. No engine mana is changed.
+    cosmetic=page.evaluate("""index => {
+      const slot=[...document.querySelectorAll('#hand .hand-slot')][index];
+      const label=slot?.querySelector('.cost-bubble');
+      const card=document.querySelector('#vr-hand .vr-card[data-index="'+index+'"]');
+      if(!label||!card)return null;
+      window.__vr01ajLabel=label;
+      window.__vr01ajValue=label.textContent;
+      window.__vr01ajCard=card;
+      card.focus();
+      card.classList.add('raised');
+      label.textContent='77';
+      return {index,original:window.__vr01ajValue};
+    }""",art['index'])
+    assert cosmetic is not None,'VR01AJ visible native hand cost fixture unavailable'
+    page.wait_for_function("""() => {
+      const card=window.__vr01ajCard;
+      return card?.isConnected && document.activeElement===card &&
+        card.classList.contains('raised') &&
+        card.querySelector('.vr-mana')?.textContent==='77';
+    }""",timeout=15000)
+    assert snap()==baseline,'VR01AJ cosmetic hand refresh changed game state'
+    page.screenshot(path=str(ROOT/'tests/vr01aj_text_focus_preserved_1920x1080.png'),
+      animations='disabled')
+    page.evaluate("""() => {
+      window.__vr01ajLabel.textContent=window.__vr01ajValue;
+    }""")
+    page.wait_for_function("""original => {
+      const card=window.__vr01ajCard;
+      return card?.isConnected && document.activeElement===card &&
+        card.querySelector('.vr-mana')?.textContent===(original||'0');
+    }""",arg=cosmetic['original'],timeout=15000)
+    page.evaluate("""() => {
+      delete window.__vr01ajLabel;
+      delete window.__vr01ajValue;
+      delete window.__vr01ajCard;
+    }""")
+    assert snap()==baseline,'VR01AJ restored native text affected game state'
     page.set_viewport_size({'width':1920,'height':1080})
     # VR01L: mouse drag cannot orbit/pan the new fixed PC board, but
     # drag release must still not cause an accidental original slot click.
