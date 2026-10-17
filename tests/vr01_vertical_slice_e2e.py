@@ -144,17 +144,22 @@ try:
       print('VR01',w,h,'hand',page.locator('#vr-hand .vr-card').count(),
         'enemy backs',page.locator('#vr-enemy-fan .vr-back').count(),flush=True)
     page.set_viewport_size({'width':1920,'height':1080})
-    # VR01AG: native current-player artwork can change while the visible
-    # hand card's name, cost and stats remain byte-identical. Only the
-    # original #hand DOM supplies the artwork. This temporary test fixture
-    # must not alter Phase21 state or add shipped card illustrations.
+    # VR01AG: test owner artwork through the REAL Phase59 public-card
+    # artwork registry and native Phase21 renderHand(). Native hand repaints
+    # deliberately replace child nodes, so inserting a test image directly
+    # into .art-well is not a durable or representative fixture.
     art=page.evaluate("""() => {
-      const well=document.querySelector('#hand .hand-slot .art-well');
-      if(!well||well.querySelector('.mrr-owner-art'))return null;
-      const img=document.createElement('img');
-      img.className='mrr-owner-art';
-      // Use the same data:image/png format as the real Phase59 owner
-      // artwork importer, with generated test-only solid swatches.
+      const reg=window.MRRCardArtRegistry;
+      const slots=[...document.querySelectorAll('#hand .hand-slot')];
+      const index=slots.findIndex(slot=>{
+        const id=slot.querySelector('.card-ui')?.getAttribute('data-mrr-public-card-id');
+        return !!id&&reg?.knownIds?.includes(id);
+      });
+      if(index<0||typeof window.renderHand!=='function')return null;
+      const id=slots[index].querySelector('.card-ui')
+        .getAttribute('data-mrr-public-card-id');
+      const hadOriginal=Object.prototype.hasOwnProperty.call(reg.assets,id);
+      const original=reg.assets[id];
       const make=colour=>{
         const canvas=document.createElement('canvas');
         canvas.width=1200;canvas.height=960;
@@ -162,55 +167,55 @@ try:
         ctx.fillStyle=colour;ctx.fillRect(0,0,1200,960);
         return canvas.toDataURL('image/png');
       };
-      img.src=make('#146b80');well.append(img);
-      window.__vr01agFixture={img,make};return img.getAttribute('src');
+      reg.assets[id]=make('#146b80');
+      window.renderHand();
+      window.__vr01agFixture={id,index,original,hadOriginal,make};
+      const source=[...document.querySelectorAll('#hand .hand-slot')][index]
+        ?.querySelector('.art-well > .mrr-owner-art');
+      return {id,index,url:source?.getAttribute('src')||''};
     }""")
-    assert art and art.startswith('data:image/png;base64,'),'VR01AG native art fixture unavailable'
-    try:
-      page.wait_for_function("""url=>{
-        const mirror=document.querySelector('#vr-hand .vr-card:first-child .vr-provided-art');
-        return mirror?.getAttribute('src')===url && mirror.complete && mirror.naturalWidth===1200;
-      }""",arg=art,timeout=15000)
-    except Exception:
-      print('VR01AG art diagnostics:',page.evaluate("""() => {
-        const original=document.querySelector('#hand .hand-slot .art-well > .mrr-owner-art');
-        const mirror=document.querySelector('#vr-hand .vr-card:first-child .vr-provided-art');
-        const fixture=window.__vr01agFixture?.img;
-        return {originalPresent:!!original,fixtureConnected:!!fixture?.isConnected,
-          originalMatchesFixture:original===fixture,
-          originalLength:original?.getAttribute('src')?.length,
-          mirrorPresent:!!mirror,mirrorLength:mirror?.getAttribute('src')?.length,
-          mirrorComplete:mirror?.complete,mirrorNaturalWidth:mirror?.naturalWidth,
-          mirrorMatchesOriginal:mirror?.getAttribute('src')===original?.getAttribute('src'),
-          nativeHandCount:document.querySelectorAll('#hand .hand-slot').length,
-          vrHandCount:document.querySelectorAll('#vr-hand .vr-card').length};
-      }"""),flush=True)
-      raise
+    assert art and art['url'].startswith('data:image/png;base64,'),(
+      'VR01AG native Phase59 art pipeline fixture unavailable',art)
+    page.wait_for_function("""url=>{
+      const index=window.__vr01agFixture?.index;
+      const mirror=document.querySelector('#vr-hand .vr-card[data-index="'+index+'"] .vr-provided-art');
+      return mirror?.getAttribute('src')===url && mirror.complete && mirror.naturalWidth===1200;
+    }""",arg=art['url'],timeout=15000)
     for w,h in ((1366,768),(1920,1080),(2560,1440)):
       page.set_viewport_size({'width':w,'height':h})
-      page.wait_for_function("""url=>
-        document.querySelector('#vr-hand .vr-card:first-child .vr-provided-art')
-          ?.getAttribute('src')===url
-      """,arg=art,timeout=15000)
+      page.wait_for_function("""url=>{
+        const index=window.__vr01agFixture?.index;
+        return document.querySelector('#vr-hand .vr-card[data-index="'+index+'"] .vr-provided-art')
+          ?.getAttribute('src')===url;
+      }""",arg=art['url'],timeout=15000)
       assert snap()==baseline,('VR01AG artwork changed native game',w,h)
       page.screenshot(path=str(ROOT/f'tests/vr01ag_native_hand_art_{w}x{h}.png'),
         animations='disabled')
     changed=page.evaluate("""() => {
       const fixture=window.__vr01agFixture;
-      fixture.img.src=fixture.make('#b77a38');
-      return fixture.img.getAttribute('src');
+      const url=fixture.make('#b77a38');
+      window.MRRCardArtRegistry.assets[fixture.id]=url;
+      window.renderHand();
+      return url;
     }""")
-    page.wait_for_function("""url=>
-      document.querySelector('#vr-hand .vr-card:first-child .vr-provided-art')
-        ?.getAttribute('src')===url
-    """,arg=changed,timeout=15000)
-    assert changed!=art and snap()==baseline,'VR01AG artwork replacement affected game'
+    page.wait_for_function("""url=>{
+      const index=window.__vr01agFixture?.index;
+      return document.querySelector('#vr-hand .vr-card[data-index="'+index+'"] .vr-provided-art')
+        ?.getAttribute('src')===url;
+    }""",arg=changed,timeout=15000)
+    assert changed!=art['url'] and snap()==baseline,(
+      'VR01AG artwork replacement affected native game')
     page.evaluate("""() => {
-      window.__vr01agFixture.img.remove();
+      const fixture=window.__vr01agFixture;
+      if(fixture.hadOriginal)
+        window.MRRCardArtRegistry.assets[fixture.id]=fixture.original;
+      else delete window.MRRCardArtRegistry.assets[fixture.id];
+      window.renderHand();
       delete window.__vr01agFixture;
     }""")
-    page.wait_for_function("""() => !document.querySelector(
-      '#vr-hand .vr-card:first-child .vr-provided-art')""",timeout=15000)
+    page.wait_for_function("""index => !document.querySelector(
+      '#vr-hand .vr-card[data-index="'+index+'"] .vr-provided-art')""",
+      arg=art['index'],timeout=15000)
     assert snap()==baseline,'VR01AG artwork removal affected native game'
     page.set_viewport_size({'width':1920,'height':1080})
     # VR01L: mouse drag cannot orbit/pan the new fixed PC board, but
