@@ -35,7 +35,21 @@ try:
                i,cost:Number(e.querySelector('.cost-bubble')?.textContent||99),
                board:/type-(몬스터|시설|영웅유닛)/.test(e.querySelector('.card-ui')?.className||'')
             }))""")
-            affordable=next((c for c in hand if c['board'] and c['cost']<=2),None)
+            candidates=[c for c in hand if c['board'] and c['cost']<=2]
+            affordable=None
+            # Phase69 QA: the displayed mana cost and card type alone do
+            # not prove that the original engine allows a destination.
+            # Qualify each seed against genuine .slot.legal, then cancel
+            # without playing/spending the card before the visual review.
+            for candidate in candidates:
+                page.locator('#hand .hand-slot').nth(candidate['i']).evaluate('e=>e.click()')
+                if page.locator('#arena .slot.legal').count():
+                    affordable=candidate
+                    page.locator('#inspectBody button[data-cancel-action]').evaluate('e=>e.click()')
+                    assert not page.locator('#arena .slot.legal').count()
+                    break
+                cancel=page.locator('#inspectBody button[data-cancel-action]')
+                if cancel.count():cancel.evaluate('e=>e.click()')
             if affordable:break
         assert affordable,'No real affordable original field card found'
         def snap():
@@ -74,6 +88,8 @@ try:
             print('PHASE69 ZONE',w,h,'WebGL scene/hand/engine unchanged',flush=True)
         page.set_viewport_size({'width':1920,'height':1080})
         page.locator('#hand .hand-slot').nth(affordable['i']).evaluate('e=>e.click()')
+        page.wait_for_function("""() => document.querySelectorAll(
+            '#arena .slot.legal').length>0""",timeout=13000)
         target=page.locator('#arena .slot.legal').first.get_attribute('data-slot')
         assert target
         pt=page.evaluate('(key)=>MRRIntegrated.scene.projectSlot(key)',target)
