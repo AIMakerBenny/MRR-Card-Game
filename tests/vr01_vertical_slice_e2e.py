@@ -191,6 +191,14 @@ try:
       assert snap()==baseline,('VR01AG artwork changed native game',w,h)
       page.screenshot(path=str(ROOT/f'tests/vr01ag_native_hand_art_{w}x{h}.png'),
         animations='disabled')
+    # VR01AH: updating only native art must preserve existing hand
+    # button identity, focus and hover, avoiding a synthetic mouse reset.
+    page.evaluate("""() => {
+      const i=window.__vr01agFixture.index;
+      const node=document.querySelector('#vr-hand .vr-card[data-index="'+i+'"]');
+      window.__vr01ahNode=node;
+      node.focus();node.classList.add('raised');
+    }""")
     changed=page.evaluate("""() => {
       const fixture=window.__vr01agFixture;
       const url=fixture.make('#b77a38');
@@ -205,6 +213,14 @@ try:
     }""",arg=changed,timeout=15000)
     assert changed!=art['url'] and snap()==baseline,(
       'VR01AG artwork replacement affected native game')
+    assert page.evaluate("""() => {
+      const node=window.__vr01ahNode;
+      return node?.isConnected && document.activeElement===node &&
+        node.classList.contains('raised') &&
+        !!node.querySelector('.vr-provided-art');
+    }"""),'VR01AH art-only repaint recreated focused hand button'
+    page.screenshot(path=str(ROOT/'tests/vr01ah_art_focus_preserved_1920x1080.png'),
+      animations='disabled')
     page.evaluate("""() => {
       const fixture=window.__vr01agFixture;
       if(fixture.hadOriginal)

@@ -198,8 +198,33 @@ function updateHand(){
     artSources.some((pair,i)=>pair[0]!==handArtSources[i]?.[0]||
       pair[1]!==handArtSources[i]?.[1]);
   if(handSignature===signature&&!artChanged)return;
+  const fan=q('#vr-hand',ui);
+  // VR01AH: artwork-only native repaints must not destroy the player's
+  // currently hovered/focused hand button or reset its interaction.
+  // Reflect only the visible Phase21 image and leave original actions intact.
+  if(handSignature===signature&&artChanged&&fan.children.length===src.length){
+    src.forEach((slot,i)=>{
+      const face=q('.vr-art-blank',fan.children[i]);
+      if(!face)return;
+      const nativeArt=q('.art-well > .mrr-owner-art',slot);
+      const mirrored=q('.vr-provided-art',face);
+      if(nativeArt){
+        if(mirrored){
+          for(const attr of ['src','srcset','alt']){
+            if(nativeArt.hasAttribute(attr))mirrored.setAttribute(attr,nativeArt.getAttribute(attr));
+            else mirrored.removeAttribute(attr);
+          }
+        }else{
+          const img=nativeArt.cloneNode(false);
+          img.className='vr-provided-art';face.append(img);
+        }
+      }else mirrored?.remove();
+    });
+    handArtSources=artSources;
+    return;
+  }
   handSignature=signature;handArtSources=artSources;
-  const fan=q('#vr-hand',ui);fan.replaceChildren();
+  fan.replaceChildren();
   const n=hand.length,step=Math.min(innerWidth<1500?72:innerWidth<2200?91:108,
     Math.max(43,(innerWidth-420)/Math.max(1,n)));
   for(const d of hand){
