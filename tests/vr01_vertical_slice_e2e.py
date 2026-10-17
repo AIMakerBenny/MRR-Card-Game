@@ -1140,6 +1140,36 @@ try:
       document.activeElement?.id==='mrr-vr-open'"""),(
       'VR01AK keyboard reopen did not restore 2D focus')
     assert snap()==after,'VR01AK second 2D return changed Phase21 engine'
+    # VR01AM: Space is also a genuine keyboard activation and must reach
+    # the first 3D toolbar button without changing the Phase21 snapshot.
+    page.keyboard.press('Space')
+    page.wait_for_function('MRRVR.status.open && MRRIntegrated.state.scene.frames>3',
+      timeout=45000)
+    assert page.evaluate("""() =>
+      document.activeElement?.id==='vr-piles'"""),(
+      'VR01AM Space entry did not focus first 3D control')
+    assert snap()==after,'VR01AM Space entry changed native game'
+    page.locator('#vr-return').click()
+    assert page.evaluate("""() => !MRRVR.status.open &&
+      document.activeElement?.id==='mrr-vr-open'""")
+    # A cancelled synthetic keydown does not activate the button. A real
+    # pointer click afterward must NOT inherit that stale keyboard intent.
+    page.evaluate("""() => {
+      const entry=document.querySelector('#mrr-vr-open');
+      entry.dispatchEvent(new KeyboardEvent('keydown',{
+        key:'Enter',bubbles:true,cancelable:true
+      }));
+    }""")
+    page.locator('#mrr-vr-open').click()
+    page.wait_for_function('MRRVR.status.open && MRRIntegrated.state.scene.frames>3',
+      timeout=45000)
+    assert page.evaluate("""() => document.activeElement?.id!=='vr-piles'"""),(
+      'VR01AM pointer entry inherited stale keyboard focus')
+    assert snap()==after,'VR01AM pointer entry changed native game'
+    page.screenshot(path=str(ROOT/'tests/vr01am_pointer_entry_no_focus_1920x1080.png'),
+      animations='disabled')
+    page.locator('#vr-return').click()
+    assert snap()==after,'VR01AM pointer return changed native game'
     assert not errors,errors
 
     # A separate round tests a physical VR hand click, true 3D placement,

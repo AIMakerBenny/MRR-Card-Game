@@ -746,6 +746,10 @@ async function openUI(focusOnEntry=false){
 entry.addEventListener('keydown',ev=>{
  if(ev.key==='Enter'||ev.key===' ')keyboardEntryPending=true;
 });
+// VR01AM: even if an earlier keyboard activation was prevented, a genuine
+// pointer press is NEVER a keyboard entry. Keep the VR01AL Enter/Space path
+// intact and do not focus the 3D toolbar for a later mouse click.
+entry.addEventListener('pointerdown',()=>{keyboardEntryPending=false;});
 entry.addEventListener('blur',()=>{keyboardEntryPending=false;});
 entry.addEventListener('click',()=>{
  const fromKeyboard=keyboardEntryPending;keyboardEntryPending=false;
