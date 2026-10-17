@@ -144,6 +144,53 @@ try:
       print('VR01',w,h,'hand',page.locator('#vr-hand .vr-card').count(),
         'enemy backs',page.locator('#vr-enemy-fan .vr-back').count(),flush=True)
     page.set_viewport_size({'width':1920,'height':1080})
+    # VR01AG: native current-player artwork can change while the visible
+    # hand card's name, cost and stats remain byte-identical. Only the
+    # original #hand DOM supplies the artwork. This temporary test fixture
+    # must not alter Phase21 state or add shipped card illustrations.
+    art=page.evaluate("""() => {
+      const well=document.querySelector('#hand .hand-slot .art-well');
+      if(!well||well.querySelector('.mrr-owner-art'))return null;
+      const img=document.createElement('img');
+      img.className='mrr-owner-art';
+      const make=colour=>'data:image/svg+xml,'+encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="960">'+
+        '<rect width="1200" height="960" fill="'+colour+'"/></svg>');
+      img.src=make('#146b80');well.append(img);
+      window.__vr01agFixture={img,make};return img.getAttribute('src');
+    }""")
+    assert art and art.startswith('data:image/svg+xml,'),'VR01AG native art fixture unavailable'
+    page.wait_for_function("""url=>{
+      const mirror=document.querySelector('#vr-hand .vr-card:first-child .vr-provided-art');
+      return mirror?.getAttribute('src')===url && mirror.complete && mirror.naturalWidth===1200;
+    }""",arg=art,timeout=15000)
+    for w,h in ((1366,768),(1920,1080),(2560,1440)):
+      page.set_viewport_size({'width':w,'height':h})
+      page.wait_for_function("""url=>
+        document.querySelector('#vr-hand .vr-card:first-child .vr-provided-art')
+          ?.getAttribute('src')===url
+      """,arg=art,timeout=15000)
+      assert snap()==baseline,('VR01AG artwork changed native game',w,h)
+      page.screenshot(path=str(ROOT/f'tests/vr01ag_native_hand_art_{w}x{h}.png'),
+        animations='disabled')
+    changed=page.evaluate("""() => {
+      const fixture=window.__vr01agFixture;
+      fixture.img.src=fixture.make('#b77a38');
+      return fixture.img.getAttribute('src');
+    }""")
+    page.wait_for_function("""url=>
+      document.querySelector('#vr-hand .vr-card:first-child .vr-provided-art')
+        ?.getAttribute('src')===url
+    """,arg=changed,timeout=15000)
+    assert changed!=art and snap()==baseline,'VR01AG artwork replacement affected game'
+    page.evaluate("""() => {
+      window.__vr01agFixture.img.remove();
+      delete window.__vr01agFixture;
+    }""")
+    page.wait_for_function("""() => !document.querySelector(
+      '#vr-hand .vr-card:first-child .vr-provided-art')""",timeout=15000)
+    assert snap()==baseline,'VR01AG artwork removal affected native game'
+    page.set_viewport_size({'width':1920,'height':1080})
     # VR01L: mouse drag cannot orbit/pan the new fixed PC board, but
     # drag release must still not cause an accidental original slot click.
     page.wait_for_timeout(450)

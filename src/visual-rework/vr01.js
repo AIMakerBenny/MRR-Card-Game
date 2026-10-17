@@ -12,7 +12,7 @@ const el=(tag,cls,txt)=>{
 const clean=v=>String(v||'').replace(/\s+/g,' ').trim();
 const native=selector=>{const n=q(selector);if(!n||n.disabled)return false;n.click();return true;};
 const entry=el('button','','VR01 새 게임 화면');entry.id='mrr-vr-open';entry.type='button';bar.append(entry);
-let open=false,busy=false,ui=null,stage=null,observer=null,interval=null,scheduled=0,handSignature='',backCount=-1;
+let open=false,busy=false,ui=null,stage=null,observer=null,interval=null,scheduled=0,handSignature='',handArtSources=[],backCount=-1;
 let tacticalCamera='tabletop';
 const nativeCardLabels=new Map(),nativeStatBadges=new Map(),nativeActionMarks=new Map();
 let nativeHpSnapshot=new Map(),recentHpChanges=new Map(),lastCombatTime=null,vrOutcomeCount=0,lastOutcome=null;
@@ -186,8 +186,20 @@ function updateHand(){
     const c=q('.card-ui',slot),t=s=>clean(q(s,c||slot)?.textContent);
     return {i,name:t('.card-name')||'카드',cost:t('.cost-bubble'),kind:t('.card-kind'),summary:t('.card-summary'),stats:t('.card-stats')};
   });
-  const signature=JSON.stringify(hand);if(handSignature===signature)return;
-  handSignature=signature;const fan=q('#vr-hand',ui);fan.replaceChildren();
+  // VR01AG: existing current-player hand art may change independently
+  // of card text. Track only artwork already present in the visible native
+  // hand DOM, never game-engine or opponent private card data.
+  const artSources=src.map(slot=>{
+    const img=q('.art-well > .mrr-owner-art',slot);
+    return [img?.getAttribute('src')||'',img?.getAttribute('srcset')||''];
+  });
+  const signature=JSON.stringify(hand);
+  const artChanged=artSources.length!==handArtSources.length||
+    artSources.some((pair,i)=>pair[0]!==handArtSources[i]?.[0]||
+      pair[1]!==handArtSources[i]?.[1]);
+  if(handSignature===signature&&!artChanged)return;
+  handSignature=signature;handArtSources=artSources;
+  const fan=q('#vr-hand',ui);fan.replaceChildren();
   const n=hand.length,step=Math.min(innerWidth<1500?72:innerWidth<2200?91:108,
     Math.max(43,(innerWidth-420)/Math.max(1,n)));
   for(const d of hand){
@@ -620,7 +632,7 @@ function cleanup(){
  observer?.disconnect();observer=null;clearInterval(interval);interval=null;
  if(scheduled)cancelAnimationFrame(scheduled);scheduled=0;
  stage?.removeEventListener('pointermove',updateAim);ui?.remove();ui=stage=null;
- handSignature='';backCount=-1;tacticalCamera='tabletop';nativeCardLabels.clear();nativeStatBadges.clear();nativeActionMarks.clear();
+ handSignature='';handArtSources=[];backCount=-1;tacticalCamera='tabletop';nativeCardLabels.clear();nativeStatBadges.clear();nativeActionMarks.clear();
   nativeHpSnapshot.clear();recentHpChanges.clear();lastCombatTime=null;vrOutcomeCount=0;lastOutcome=null;outcomeNodes.length=0;outcomeHistory.length=0;
 }
 function closeUI(){
