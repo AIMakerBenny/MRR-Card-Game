@@ -8,21 +8,22 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // Phase55: use a dedicated art direction only in the main PC gameplay view.
   // The older 3D modal and authoritative HTML engine remain unchanged.
   const tabletop=mount.id==='mrr-integrated-stage';
+  const vrMode=tabletop&&document.body.classList.contains('mrr-vr-active');
   const scene=new THREE.Scene();
-  scene.background=new THREE.Color(tabletop?0x261a15:0x080f1a);
-  scene.fog=new THREE.FogExp2(tabletop?0x261a15:0x080f1a,tabletop?.009:.018);
-  const camera=new THREE.PerspectiveCamera(44,1,.1,130);
+  scene.background=new THREE.Color(vrMode?0x0b2024:tabletop?0x261a15:0x080f1a);
+  scene.fog=new THREE.FogExp2(vrMode?0x0b2024:tabletop?0x261a15:0x080f1a,tabletop?.008:.018);
+  const camera=new THREE.PerspectiveCamera(vrMode?40:44,1,.1,130);
   const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=tabletop?1.22:1.47;
+  renderer.toneMappingExposure=vrMode?1.06:tabletop?1.22:1.47;
   renderer.shadowMap.enabled=true;
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   renderer.domElement.setAttribute('aria-label','실시간 공개 카드 3D 전장');
   renderer.domElement.style.cssText='width:100%;height:100%;display:block';
   mount.appendChild(renderer.domElement);
-  scene.add(new THREE.HemisphereLight(tabletop?0xffe5c3:0xbad8e8,tabletop?0x49301f:0x423440,tabletop?2.4:2.0));
-  const sun=new THREE.DirectionalLight(tabletop?0xffe1b1:0xffe2b1,tabletop?3.3:4.2);
+  scene.add(new THREE.HemisphereLight(vrMode?0xb6d8d2:tabletop?0xffe5c3:0xbad8e8,vrMode?0x1b3539:tabletop?0x49301f:0x423440,tabletop?2.4:2.0));
+  const sun=new THREE.DirectionalLight(vrMode?0xc4dacc:tabletop?0xffe1b1:0xffe2b1,tabletop?3.3:4.2);
   sun.position.set(-8,18,13);sun.castShadow=true;
   sun.shadow.mapSize.set(2048,2048);
   sun.shadow.camera.left=-22;sun.shadow.camera.right=22;
@@ -56,7 +57,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const seam=kind==='wood'?Math.min(y%145,145-y%145):100;
       for(let x=0;x<n;x++){
         const k=(y*n+x)*4,noise=(rand()-.5)*23;
-        if(kind==='wood'){
+        if(kind==='parchment'&&vrMode){
+          const grain=Math.sin(x*.051+y*.011)*2.8+Math.cos(y*.037)*2.6;
+          pix.data[k]=Math.max(0,26+noise*.22+grain);
+          pix.data[k+1]=Math.max(0,53+noise*.22+grain);
+          pix.data[k+2]=Math.max(0,57+noise*.22+grain);
+        }else if(kind==='wood'){
           const grain=Math.sin(x*.083+Math.sin(y*.028)*3.4)*6+
             Math.sin(x*.012+y*.035)*4;
           const knot=((plank*17)%7)*2;
@@ -76,7 +82,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     ctx.putImageData(pix,0,0);
-    if(kind==='parchment'){
+    if(kind==='parchment'&&!vrMode){
       // Hand-drawn, low-contrast atlas: cartographic circles, compass rays,
       // border filigree and opposing zones. Slot hit targets live above it.
       ctx.save();ctx.strokeStyle='rgba(86,58,40,.24)';ctx.lineWidth=3;
@@ -122,13 +128,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   const woodSurface=tabletop?material({map:tabletopTexture('wood'),color:0xffffff,roughness:.83}):null;
   const parchmentSurface=tabletop?material({map:tabletopTexture('parchment'),color:0xffffff,roughness:.98}):null;
+  // VR01 has no constant, loudly outlined empty cells. Slot pick meshes are
+  // retained and raycastable; only their passive appearance changes.
+  const vrGround=vrMode?material({color:0x12282d,roughness:.94,metalness:.06}):null;
   const woodEdge=tabletop?material({color:0x51301d,roughness:.82}):null;
   // Phase69: quiet but readable physical placement beds. Distinguish the
   // two publicly visible territories without adding GUI panels or cards.
   // These are non-textured, non-interactive materials; no hidden data.
-  const allySlot=tabletop?material({color:0x497b79,roughness:.94,transparent:true,opacity:.16}):null;
-  const enemySlot=tabletop?material({color:0x946451,roughness:.94,transparent:true,opacity:.16}):null;
-  const parchmentInk=tabletop?material({color:0x80603b,roughness:.9,transparent:true,opacity:.20}):null;
+  const allySlot=tabletop?material({color:0x497b79,roughness:.94,transparent:true,opacity:vrMode?.008:.16}):null;
+  const enemySlot=tabletop?material({color:0x946451,roughness:.94,transparent:true,opacity:vrMode?.008:.16}):null;
+  const parchmentInk=tabletop?material({color:vrMode?0x6d9992:0x80603b,roughness:.9,transparent:true,opacity:vrMode?.005:.20}):null;
+  // Pick meshes are invisible to the GPU but remain fully raycastable in VR.
+  // Transparent depth-writing tiles otherwise cut 30 black holes in terrain.
+  const vrSlotHitMaterial=vrMode?material({color:0xffffff,transparent:true,
+    opacity:0,depthWrite:false,colorWrite:false}):null;
   const softZone=tabletop?material({color:0x9a7150,metalness:.25,roughness:.77}):null;
 
   const black=material({color:0x223746,metalness:.18,roughness:.72});
@@ -141,15 +154,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const edgeGeo=geometry(new THREE.BoxGeometry(2.38,tabletop?.023:.08,2.58));
   const platformGeo=geometry(new THREE.BoxGeometry(22,.65,22.1));
   const floor=new THREE.Mesh(geometry(new THREE.PlaneGeometry(180,180)),tabletop?woodSurface:black);
+  if(vrMode)floor.material=vrGround;
   floor.rotation.x=-Math.PI/2;floor.position.y=-.52;floor.receiveShadow=true;scene.add(floor);
-  const platform=new THREE.Mesh(platformGeo,tabletop?woodEdge:stone);
+  const platform=new THREE.Mesh(platformGeo,vrMode?vrGround:tabletop?woodEdge:stone);
   platform.position.y=-.22;platform.receiveShadow=true;scene.add(platform);
   if(tabletop){
     const sheet=new THREE.Mesh(geometry(new THREE.PlaneGeometry(21.95,21.94)),parchmentSurface);
     sheet.rotation.x=-Math.PI/2;sheet.position.y=.113;
     sheet.receiveShadow=true;scene.add(sheet);
   }
-  const border=new THREE.Mesh(geometry(new THREE.BoxGeometry(22.45,.17,22.55)),bronze);
+  const border=new THREE.Mesh(geometry(new THREE.BoxGeometry(22.45,.17,22.55)),vrMode?stone:bronze);
   border.position.y=-.58;scene.add(border);
   for(const sx of [-1,1]){
     const rail=new THREE.Mesh(geometry(new THREE.BoxGeometry(.17,.24,22.2)),gold);
@@ -179,7 +193,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   // Small dimensional tabletop props fill the unused PC desktop margins.
   // Purely decorative; they never enter the board raycaster or game state.
-  if(tabletop){
+  if(tabletop&&!vrMode){
     const leather=material({color:0x533022,roughness:.75,metalness:.08});
     const paper=material({color:0xe3c9a0,roughness:.95});
     const ink=material({color:0x242622,roughness:.26,metalness:.35});
@@ -234,6 +248,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // Phase73: secondary, physically separate golden focus ring on PC only.
   // Render-only mesh: it is deliberately absent from slotPickMeshes.
   const pcFocusGeo=tabletop?geometry(new THREE.TorusGeometry(1.32,.055,8,48)):null;
+  // Occupied-card staging is tied to PUBLIC mesh lifetimes. Empty legal
+  // positions remain an unobstructed physical arena, never thirty boxes.
+  const vrSeatSurface=vrMode?geometry(new THREE.BoxGeometry(2.54,.12,2.64)):null;
+  const vrSeatEdge=vrMode?geometry(new THREE.BoxGeometry(2.66,.035,2.76)):null;
+  const vrSeatBase=vrMode?material({color:0x132c30,metalness:.43,roughness:.59}):null;
+  const vrSeatFriendly=vrMode?material({color:0x7ebbb1,metalness:.48,roughness:.37,
+    emissive:0x174947,emissiveIntensity:.33}):null;
+  const vrSeatEnemy=vrMode?material({color:0xc49a79,metalness:.48,roughness:.39,
+    emissive:0x56342d,emissiveIntensity:.32}):null;
   const cardGeometry=geometry(new THREE.BoxGeometry(tabletop?2.22:2.08,2.84,.22));
   const cardFaceGeometry=geometry(new THREE.PlaneGeometry(tabletop?2.10:1.96,2.71));
   // Phase57: dimensional gilt trims are scenery, not selectable meshes.
@@ -255,13 +278,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   for(const lane of lanes){
     const laneMaterial=tabletop?softZone:(lane.owner===0?blue:red);
     const laneBorder=new THREE.Mesh(stripGeo,laneMaterial);
-    laneBorder.position.set(0,tabletop?.15:.17,lane.z-1.36);scene.add(laneBorder);
+    laneBorder.position.set(0,tabletop?.15:.17,lane.z-1.36);
+    if(!vrMode)scene.add(laneBorder);
     for(let col=0;col<5;col++){
       const x=(col-2)*3.37;
       const inset=new THREE.Mesh(edgeGeo,tabletop?parchmentInk:bronze);inset.position.set(x,tabletop?.134:.15,lane.z);
-      inset.receiveShadow=true;scene.add(inset);
-      const base=new THREE.Mesh(tileGeo,tabletop?(lane.owner===0?allySlot:enemySlot):black);base.position.set(x,tabletop?.156:.23,lane.z);
-      base.receiveShadow=true;scene.add(base);
+      inset.receiveShadow=!vrMode;if(vrMode)inset.visible=false;scene.add(inset);
+      const base=new THREE.Mesh(tileGeo,vrMode?vrSlotHitMaterial:tabletop?(lane.owner===0?allySlot:enemySlot):black);base.position.set(x,tabletop?.156:.23,lane.z);
+      base.receiveShadow=!vrMode;scene.add(base);
       const key=lane.owner+':'+lane.row+':'+col;
       base.userData.mrrSlotKey=key;slotPickMeshes.push(base);
       const halo=new THREE.Mesh(glowGeo,legalGlow);
@@ -274,9 +298,97 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         focusRing.visible=false;scene.add(focusRing);
       }
       const crest=new THREE.Mesh(geometry(new THREE.TorusGeometry(.5,.035,7,32)),tabletop?parchmentInk:laneMaterial);
-      crest.rotation.x=-Math.PI/2;crest.position.set(x,tabletop?.175:.32,lane.z);scene.add(crest);
+      crest.rotation.x=-Math.PI/2;crest.position.set(x,tabletop?.175:.32,lane.z);
+      if(vrMode)crest.visible=false;scene.add(crest);
       boardSlots.set(key,{x,z:lane.z,owner:lane.owner,row:lane.row,col,base,halo,focusRing});
     }
+  }
+  // VR01-B: the game world is an arena, not a 30-box grid. These physical
+  // surfaces are never added to pickMeshes, and all 30 original coordinates
+  // remain exactly where the Phase21 renderer expects them.
+  if(vrMode){
+    const enemyInk=material({color:0x976b5b,roughness:.76,metalness:.11,transparent:true,opacity:.23});
+    const allyInk=material({color:0x73b4a6,roughness:.72,metalness:.13,transparent:true,opacity:.25});
+    const brassInlay=material({color:0xb9a57b,metalness:.61,roughness:.35,transparent:true,opacity:.65});
+    const emboss=material({color:0x19373e,roughness:.66,metalness:.4});
+    // Two distinct territorial fabrics and three subtly carved paths per
+    // side. The background is generated geometrically, not supplied card art.
+    for(const [owner,tint] of [[1,[94,52,55]],[0,[25,95,92]]]){
+      const surface=document.createElement('canvas');
+      surface.width=1024;surface.height=512;
+      const c=surface.getContext('2d');
+      const wash=c.createLinearGradient(0,0,0,512);
+      const rgba=(alpha)=>'rgba('+tint.join(',')+','+alpha+')';
+      wash.addColorStop(0,rgba('.03'));
+      wash.addColorStop(.26,rgba('.44'));
+      wash.addColorStop(.75,rgba('.39'));
+      wash.addColorStop(1,rgba('.03'));
+      c.fillStyle=wash;c.fillRect(0,0,1024,512);
+      // Wide woven strips imply physical ranks, without outlining empty cells.
+      for(let i=0;i<3;i++){
+        const cy=84+i*169;
+        const lane=c.createLinearGradient(0,cy-56,0,cy+56);
+        lane.addColorStop(0,'rgba(230,221,188,0)');
+        lane.addColorStop(.5,'rgba(216,224,195,.055)');
+        lane.addColorStop(1,'rgba(230,221,188,0)');
+        c.fillStyle=lane;c.fillRect(25,cy-57,974,114);
+        c.lineWidth=1;c.strokeStyle='rgba(207,199,172,.11)';
+        c.beginPath();c.moveTo(45,cy-74);c.lineTo(979,cy-74);c.stroke();
+        // Stone direction markers, symmetric but unobtrusive.
+        for(const side of [-1,1]){
+          const x=side<0?47:977;
+          c.fillStyle='rgba(209,192,154,.30)';
+          c.beginPath();c.moveTo(x,cy-10);
+          c.lineTo(x-side*11,cy);c.lineTo(x,cy+10);c.closePath();c.fill();
+        }
+      }
+      // Fine diagonal fabric fibers are batched into one texture.
+      c.strokeStyle='rgba(242,231,207,.045)';c.lineWidth=1;
+      for(let x=-512;x<1500;x+=26){
+        c.beginPath();c.moveTo(x,0);c.lineTo(x+512,512);c.stroke();
+      }
+      const tex=new THREE.CanvasTexture(surface);
+      tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;
+      // Long-lived terrain belongs to scene resources, not per-card textures.
+      tabletopTextures.push(tex);
+      const mat=material({map:tex,transparent:true,depthWrite:false,roughness:.84,
+        metalness:.08,side:THREE.DoubleSide});
+      const carpet=new THREE.Mesh(geometry(new THREE.PlaneGeometry(20.72,10.05)),mat);
+      carpet.rotation.x=-Math.PI/2;
+      carpet.position.set(0,.129,owner===1?-5.54:5.54);
+      scene.add(carpet);
+    }
+    // The center emblem visually divides territories. All it does is reflect
+    // existing world ownership; combat simulation and pathing never read it.
+    const medallion=new THREE.Group();
+    medallion.position.set(0,.155,0);
+    const disc=new THREE.Mesh(geometry(new THREE.CylinderGeometry(1.11,1.16,.048,64)),emboss);
+    disc.position.y=.04;medallion.add(disc);
+    for(const radius of [1.23,.93]){
+      const ring=new THREE.Mesh(geometry(new THREE.TorusGeometry(radius,.045,8,80)),brassInlay);
+      ring.rotation.x=-Math.PI/2;ring.position.y=.087;medallion.add(ring);
+    }
+    for(let i=0;i<8;i++){
+      const a=i*Math.PI/4;
+      const stud=new THREE.Mesh(geometry(new THREE.BoxGeometry(.075,.028,.23)),brassInlay);
+      stud.rotation.y=-a;stud.position.set(Math.sin(a)*1.05,.094,Math.cos(a)*1.05);
+      medallion.add(stud);
+    }
+    scene.add(medallion);
+    // Lanes are engraved on the physical side edge, not empty slot frames.
+    for(const lane of lanes){
+      const ally=lane.owner===0;
+      const m=ally?allyInk:enemyInk;
+      for(const side of [-1,1]){
+        const block=new THREE.Mesh(geometry(new THREE.BoxGeometry(.64,.035,1.62)),m);
+        block.position.set(side*9.92,.145,lane.z);scene.add(block);
+        const dot=new THREE.Mesh(geometry(new THREE.CylinderGeometry(.075,.075,.023,18)),brassInlay);
+        dot.position.set(side*9.92,.188,lane.z);scene.add(dot);
+      }
+    }
+    // A thin metallic fracture between two territories, below every card.
+    const borderline=new THREE.Mesh(geometry(new THREE.BoxGeometry(20.5,.014,.07)),brassInlay);
+    borderline.position.set(0,.155,0);scene.add(borderline);
   }
   const attackArrowGeo=geometry(new THREE.BufferGeometry());
   attackArrowGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));
@@ -613,6 +725,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const impactLamp=new THREE.PointLight(0xffffff,0,17,2);
   impactLamp.position.set(0,2,0);scene.add(impactLamp);
   let pendingStrike=null,cinemaImpact=null,confirmedStrikes=0,cinematicFrameCount=0;
+  let vrHitReactions=0,vrLandingDustStarted=0;
+  const vrLandingDust=[],vrDepartBursts=[];
+  let vrDepartCount=0;
   let latestCombat=null;
   const nativeCombatEvents=[];
   function stageAttack(sourceKey,targetKey){
@@ -701,6 +816,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     beacon.position.y=1.2;group.add(beacon);
     scene.add(group);
     cinematicLight(type,key,now);
+    // VR01F: a card visibly recoils ONLY after the original game actually
+    // emits fx-hit, never on mouse hover, speculative click or targeting.
+    // The original Phase76 3D presentation is untouched.
+    if(vrMode&&type==='hit'){
+      const victim=cardIndex.get(key);
+      if(victim&&!victim.deploy){
+        const from=pendingStrike?.targetKey===key?boardSlots.get(pendingStrike.sourceKey):null;
+        const dx=spot.x-(from?.x??spot.x+.4),dz=spot.z-(from?.z??spot.z+1);
+        const length=Math.hypot(dx,dz)||1;
+        victim.hitReaction={born:now,dx:dx/length,dz:dz/length};
+        vrHitReactions++;
+      }
+    }
     // Attack vectors originate from the player's actual delegated selection.
     // The beam is committed only when the original engine emits fx-hit.
     const strike=type==='hit'&&pendingStrike?.targetKey===key &&
@@ -747,6 +875,99 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     scene.remove(fx.group);
     for(const res of fx.resources)res.dispose();
   }
+  // Ground-contact dust is triggered only after a confirmed Phase21 hand
+  // placement actually FINISHES its 3D arrival. Not a second summon event.
+  // No rings, click surfaces or extra canvas textures.
+  function spawnVrLandingDust(slot,at){
+    if(!vrMode||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    const count=18,coords=new Float32Array(count*3),velocity=new Float32Array(count*3);
+    for(let i=0;i<count;i++){
+      const angle=i*2.399963229728653,spread=.45+(i%5)*.085;
+      velocity[i*3]=Math.cos(angle)*spread*2.6;
+      velocity[i*3+1]=.45+(i%4)*.16;
+      velocity[i*3+2]=Math.sin(angle)*spread*2.6;
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(coords,3));
+    const mat=new THREE.PointsMaterial({color:slot.owner===0?0x9fc4b9:0xc0a18b,
+      size:.14,transparent:true,opacity:.68,depthWrite:false,sizeAttenuation:true});
+    const points=new THREE.Points(geo,mat);
+    points.position.set(slot.x,.35,slot.z);scene.add(points);
+    vrLandingDust.push({points,geo,mat,velocity,born:at,life:520});
+    vrLandingDustStarted++;
+  }
+  function advanceVrLandingDust(now){
+    for(let i=vrLandingDust.length-1;i>=0;i--){
+      const f=vrLandingDust[i],p=Math.max(0,(now-f.born)/f.life);
+      if(p>=1){
+        scene.remove(f.points);f.geo.dispose();f.mat.dispose();vrLandingDust.splice(i,1);continue;
+      }
+      const pos=f.geo.attributes.position;
+      for(let j=0;j<f.velocity.length/3;j++){
+        const k=j*3;
+        pos.setXYZ(j,f.velocity[k]*p,
+          f.velocity[k+1]*p-.35*p*p,
+          f.velocity[k+2]*p);
+      }
+      pos.needsUpdate=true;f.mat.opacity=Math.pow(1-p,1.6)*.68;
+    }
+  }
+  // VR01O: the public board has actually LOST a card. A short neutral
+  // departure/dissolve is valid for destruction, sacrifice or recall;
+  // NEVER claim a kill from DOM removal alone or keep a ghost pick mesh.
+  // Visual-only: a native public-card departure leaves a short, low profile
+  // ground ripple alongside the existing particle burst. It is not a kill
+  // assertion, target, or game rule event.
+  function removeVrDeparture(fx){
+    scene.remove(fx.points,fx.halo);
+    fx.geo.dispose();fx.mat.dispose();
+    fx.halo.geometry.dispose();fx.halo.material.dispose();
+  }
+  let vrDepartHaloCount=0;
+  function spawnVrDeparture(slot,at){
+    if(!vrMode||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    if(vrDepartBursts.length>=7)return;
+    const count=16,geo=new THREE.BufferGeometry();
+    const coords=new Float32Array(count*3),velocity=new Float32Array(count*3);
+    for(let i=0;i<count;i++){
+      const a=i*2.399963229728653,rad=.18+(i%5)*.13;
+      velocity[i*3]=Math.cos(a)*rad*2.5;
+      velocity[i*3+1]=.55+(i%7)*.16;
+      velocity[i*3+2]=Math.sin(a)*rad*2.5;
+    }
+    geo.setAttribute('position',new THREE.BufferAttribute(coords,3));
+    const mat=new THREE.PointsMaterial({color:slot.owner===0?0x9cc8ba:0xe7ae83,
+      size:.18,transparent:true,opacity:.76,depthWrite:false,sizeAttenuation:true});
+    const points=new THREE.Points(geo,mat);
+    points.position.set(slot.x,1.2,slot.z);
+    const halo=new THREE.Mesh(
+      new THREE.RingGeometry(.43,.51,36),
+      new THREE.MeshBasicMaterial({color:slot.owner===0?0x9cc8ba:0xe7ae83,
+        transparent:true,opacity:.40,depthWrite:false,side:THREE.DoubleSide}));
+    halo.rotation.x=-Math.PI/2;
+    halo.position.set(slot.x,.16,slot.z);
+    scene.add(points,halo);
+    vrDepartBursts.push({points,halo,geo,mat,velocity,born:at,life:650});
+    vrDepartCount++;vrDepartHaloCount++;
+  }
+  function advanceVrDeparture(now){
+    for(let i=vrDepartBursts.length-1;i>=0;i--){
+      const fx=vrDepartBursts[i],p=Math.max(0,(now-fx.born)/fx.life);
+      if(p>=1){
+        removeVrDeparture(fx);
+        vrDepartBursts.splice(i,1);continue;
+      }
+      const pos=fx.geo.attributes.position;
+      for(let j=0;j<fx.velocity.length/3;j++){
+        const k=j*3;
+        pos.setXYZ(j,fx.velocity[k]*p,
+          fx.velocity[k+1]*p-.5*p*p,fx.velocity[k+2]*p);
+      }
+      pos.needsUpdate=true;fx.mat.opacity=.76*Math.pow(1-p,1.55);
+      fx.halo.scale.setScalar(.85+p*.95);
+      fx.halo.material.opacity=.40*Math.pow(1-p,1.7);
+    }
+  }
   function advanceEffects(now){
     for(let i=liveEffects.length-1;i>=0;i--){
       const f=liveEffects[i],p=Math.max(0,(now-f.born)/f.life);
@@ -777,7 +998,29 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
   }
   let cards=[],signature='',publicCardCount=0,lastSync=0;
+  let vrPendingDeploy=null,vrDeployTransitions=0,vrReusedCards=0;
+  // A hand click only arms a presentation. Neither it nor this animation
+  // creates a unit: the public Phase21 board must confirm placement first.
+  function armDeployment(request){
+    if(!vrMode||!request||typeof request.name!=='string'||!request.name.trim())return false;
+    const r=renderer.domElement.getBoundingClientRect();
+    const screenX=Number(request.x),screenY=Number(request.y);
+    if(!Number.isFinite(screenX)||!Number.isFinite(screenY))return false;
+    const nx=(screenX-r.left)/r.width*2-1,ny=1-(screenY-r.top)/r.height*2;
+    const rayPoint=new THREE.Vector3(nx,ny,.5).unproject(camera);
+    const direction=rayPoint.sub(camera.position).normalize();
+    const distanceToStage=(1.76-camera.position.y)/direction.y;
+    const start=distanceToStage>0?camera.position.clone().addScaledVector(direction,distanceToStage):
+      new THREE.Vector3(0,1.76,15);
+    vrPendingDeploy={name:request.name.trim(),born:performance.now(),
+      origin:new THREE.Vector3(Math.max(-11,Math.min(11,start.x)),4.7,
+        Math.max(9.7,Math.min(17,start.z)))};
+    return true;
+  }
+  const vrCardFingerprint=p=>JSON.stringify([p.cardId,p.name,p.kind,p.cost,p.stats,p.sigil]);
   let hoveredKey=null,selectedKey=null,legalCount=0,attackTargetCount=0,statusSignature='';
+  let vrSelectionBursts=0,vrSelectionBurst=null;
+  let vrTargetLocks=0,vrTargetLock=null;
   let cardHealth=new Map(),healthIndicatorCount=0;
   let pickMeshes=slotPickMeshes.slice(),cardIndex=new Map();
   function publicHit(e){
@@ -786,7 +1029,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     pointer.set((e.clientX-rect.left)/rect.width*2-1,-((e.clientY-rect.top)/rect.height*2-1));
     raycaster.setFromCamera(pointer,camera);
     const hits=raycaster.intersectObjects(pickMeshes,false);
-    return hits[0]?.object.userData.mrrSlotKey||null;
+    // While the new model is arriving from the hand it cannot steal a click
+    // from the actual legal native slot beneath it.
+    return hits.find(hit=>!hit.object.userData.mrrDeploying)?.object.userData.mrrSlotKey||null;
   }
   function projectCard(key){
     const c=cardIndex.get(key);
@@ -795,6 +1040,28 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const point=c.group.localToWorld(new THREE.Vector3(0,.12,.15)).project(camera);
     const r=renderer.domElement.getBoundingClientRect();
     return {x:r.left+(point.x+1)*r.width/2,y:r.top+(1-point.y)*r.height/2};
+  }
+  // VR01-D: the public card's four REAL projected face corners. Dynamic
+  // nameplates use these bounds instead of an arbitrary offset from the slot
+  // center, so zoom, card count and camera pitch do not desync the labels.
+  function projectCardBounds(key){
+    if(!vrMode)return null;
+    const item=cardIndex.get(key);
+    if(!item)return null;
+    item.group.updateMatrixWorld(true);
+    const rect=renderer.domElement.getBoundingClientRect();
+    const halfW=1.05,halfH=1.355;
+    const vertices=[[-halfW,-halfH],[halfW,-halfH],
+      [halfW,halfH],[-halfW,halfH]];
+    const pixels=vertices.map(([x,y])=>{
+      const p=item.face.localToWorld(new THREE.Vector3(x,y,.002)).project(camera);
+      return {x:rect.left+(1+p.x)*rect.width/2,
+        y:rect.top+(1-p.y)*rect.height/2};
+    });
+    if(!pixels.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)))return null;
+    const xs=pixels.map(p=>p.x),ys=pixels.map(p=>p.y);
+    return {left:Math.min(...xs),right:Math.max(...xs),
+      top:Math.min(...ys),bottom:Math.max(...ys)};
   }
   // Phase53: render the exact card-face canvas already shown on the public
   // WebGL mesh. No second artwork catalogue or hidden-game data.
@@ -830,10 +1097,41 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const cardChanged=cardsSignature!==signature;
     if(cardChanged){
       signature=cardsSignature;
-      for(const c of cards){scene.remove(c.group);if(c.face.material.map){c.face.material.map.userData.artDisposed=true;c.face.material.map.dispose();}c.face.material.dispose();}
-      cards=[];madeTextures.length=0;cardIndex=new Map();pickMeshes=slotPickMeshes.slice();
+      // Preserve unchanged public 3D cards. Previously any new card replaced
+      // every mesh and texture, making a crowded board visibly flicker.
+      const reuse=new Map();
+      const occupiedNext=new Set(list.filter(p=>!!p.name).map(p=>p.key));
+      if(vrMode)for(const p of list){
+        const old=cardIndex.get(p.key);
+        if(p.name&&old?.fingerprint===vrCardFingerprint(p))reuse.set(p.key,old);
+      }
+      for(const c of cards){
+        if(reuse.get(c.key)===c)continue;
+        if(vrMode&&!occupiedNext.has(c.key))
+          spawnVrDeparture(c.slot,performance.now());
+        // Remove the real old mesh IMMEDIATELY. The ephemeral particles
+        // are non-pickable, bounded, and never counted as occupied cards.
+        scene.remove(c.group);if(c.seat)scene.remove(c.seat);
+        if(c.face.material.map){
+          const tex=c.face.material.map;tex.userData.artDisposed=true;tex.dispose();
+          if(vrMode){
+            const pos=madeTextures.indexOf(tex);
+            if(pos!==-1)madeTextures.splice(pos,1);
+          }
+        }
+        c.face.material.dispose();
+      }
+      cards=[];if(!vrMode)madeTextures.length=0;
+      cardIndex=new Map();pickMeshes=slotPickMeshes.slice();publicCardCount=0;
+      vrReusedCards=reuse.size;
       for(const p of list){
         if(!p.name)continue;
+        const retained=reuse.get(p.key);
+        if(retained){
+          cards.push(retained);cardIndex.set(p.key,retained);
+          pickMeshes.push(retained.frame,retained.face);publicCardCount++;
+          continue;
+        }
         const slot=boardSlots.get(p.key);
         const group=new THREE.Group();
         group.position.set(slot.x,1.76,slot.z);group.rotation.x=-.74;
@@ -862,15 +1160,55 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const statusDot=new THREE.Mesh(statusGeo,readyMat);
         statusDot.position.set(1.22,1.67,.26);group.add(statusDot);
         scene.add(group);
-        const item={key:p.key,group,face,frame,slot,hpBg,hpFill,statusDot};
+        let seat=null;
+        if(vrMode){
+          seat=new THREE.Group();
+          seat.position.set(slot.x,.25,slot.z);
+          const rim=new THREE.Mesh(vrSeatEdge,slot.owner===0?vrSeatFriendly:vrSeatEnemy);
+          rim.position.y=-.035;seat.add(rim);
+          const bed=new THREE.Mesh(vrSeatSurface,vrSeatBase);
+          bed.position.y=.017;bed.receiveShadow=true;seat.add(bed);
+          // Position is decorative: card clicks still hit the pre-existing
+          // raycast list and no seat surface is ever part of pickMeshes.
+          scene.add(seat);
+        }
+        const item={key:p.key,group,face,frame,seat,slot,hpBg,hpFill,statusDot,
+          fingerprint:vrCardFingerprint(p)};
+        // Only newly confirmed, friendly, matching real cards can launch
+        // from the last player hand click. Old cards never animate again.
+        if(vrMode&&slot.owner===0&&vrPendingDeploy&&
+          vrPendingDeploy.name===p.name&&
+          performance.now()-vrPendingDeploy.born<18000){
+          if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
+            item.deploy={started:performance.now(),from:vrPendingDeploy.origin.clone()};
+            frame.userData.mrrDeploying=face.userData.mrrDeploying=true;
+            vrDeployTransitions++;
+          }
+          vrPendingDeploy=null;
+        }
         cards.push(item);cardIndex.set(p.key,item);
         pickMeshes.push(frame,face);publicCardCount++;
       }
     }
-    selectedKey=list.find(p=>p.selected)?.key||null;
+    const nextSelectedKey=list.find(p=>p.selected)?.key||null;
+    // VR01M: a grounded selection response starts ONLY on a native
+    // .selected-slot transition. Never synthesize a click or an attack.
+    if(vrMode&&nextSelectedKey!==selectedKey){
+      vrSelectionBurst=nextSelectedKey?{key:nextSelectedKey,at:performance.now()}:null;
+      if(nextSelectedKey)vrSelectionBursts++;
+    }
+    selectedKey=nextSelectedKey;
     legalCount=list.filter(p=>p.legal).length;
     cardHealth=new Map();healthIndicatorCount=0;
     attackTargetCount=list.filter(p=>p.attackTarget).length;
+    // A target lock is a PURELY visual cue, valid only while the original
+    // game itself still marks this exact public card as attack-target.
+    if(vrTargetLock&&!list.some(p=>p.key===vrTargetLock.key&&p.attackTarget))
+      vrTargetLock=null;
+    // VR01P: a departed card must not leave hover light or its inspector
+    // attached to an empty, non-actionable slot. Legal empty slots remain.
+    if(vrMode&&hoveredKey&&!list.some(p=>p.key===hoveredKey&&
+      (p.name||p.legal||p.attackTarget)))setHover(null,true);
     for(const p of list){
       const slot=boardSlots.get(p.key);
       // Phase72: follow the original native .legal class; never change rules.
@@ -898,6 +1236,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     if(hoveredKey&&!list.some(p=>p.key===hoveredKey))hoveredKey=null;
+    // The authoritative Phase21 state ends the attack. No visual lock
+    // or target halo may persist after native target classes disappear.
+    if(!attackTargetCount)vrTargetLock=null;
     const hovered=list.find(p=>p.key===hoveredKey);
     const source=boardSlots.get(selectedKey),target=boardSlots.get(hoveredKey);
     const arrowVisible=!!(source&&target&&hovered?.attackTarget);
@@ -917,10 +1258,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   function setHover(key,force=false){
     if(hoveredKey===key&&!force)return;
-    hoveredKey=key;
     const slot=document.querySelector('#arena [data-slot="'+(key||'')+'"]');
+    // VR01N: acquire a target only on a TRUE native attack-target hover
+    // transition. Sync rechecks must never retrigger the short flash.
+    const canLock=vrMode&&!!key&&!!selectedKey&&key!==selectedKey&&
+      !!slot?.classList.contains('attack-target')&&
+      !!slot.querySelector('.board-card .card-ui');
+    if(!canLock)vrTargetLock=null;
+    else if(vrTargetLock?.key!==key){
+      vrTargetLock={key,at:performance.now()};vrTargetLocks++;
+    }
+    hoveredKey=key;
     const card=slot?.querySelector('.board-card .card-ui');
-    mount.style.cursor=key&&(card||slot?.classList.contains('legal')||slot?.classList.contains('attack-target'))?'pointer':'grab';
+    mount.style.cursor=key&&(card||slot?.classList.contains('legal')||slot?.classList.contains('attack-target'))?'pointer':vrMode?'default':'grab';
     events.onHover?.(key,card?{
       name:card.querySelector('.card-name')?.textContent?.trim()||'',
       kind:card.querySelector('.card-kind')?.textContent?.trim()||'',
@@ -932,6 +1282,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(!force)sync();
   }
   let yaw=0,pitch=.77,distance=29,focusX=0,focusZ=0,cameraPreset='all',focusKey=null;
+  // The player always wins control: density-aware camera framing runs only
+  // while using the untouched automatic tabletop preset.
+  let manualCamera=false;
   let drag=false,moved=false,lastX=0,lastY=0,startX=0,startY=0;
   function updateCamera(){
     const aspect=mount.clientWidth/Math.max(1,mount.clientHeight);
@@ -939,6 +1292,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     camera.position.set(focusX+Math.sin(yaw)*Math.cos(pitch)*d,
       1.3+Math.sin(pitch)*d,focusZ+Math.cos(yaw)*Math.cos(pitch)*d);
     camera.lookAt(focusX,.8,focusZ);
+    // Raycaster, projectCard and projectSlot can be called before the next
+    // WebGL frame after a camera button click. Never use a stale view matrix.
+    camera.updateMatrixWorld(true);
   }
   function down(e){
     if(e.button!==0||e.target!==renderer.domElement)return;
@@ -949,9 +1305,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   function move(e){
     if(!drag){setHover(e.target===renderer.domElement?publicHit(e):null);return;}
     if(Math.hypot(e.clientX-startX,e.clientY-startY)>6)moved=true;
-    if(moved){
+    // VR mode is a fixed tabletop: dragging must never turn, tilt or pan
+    // the entire board. Keep movement threshold to avoid accidental
+    // card selection when the player releases after a gesture.
+    if(moved&&!vrMode){
       yaw=Math.max(-.8,Math.min(.8,yaw+(e.clientX-lastX)*.004));
       pitch=Math.max(.42,Math.min(1.28,pitch+(e.clientY-lastY)*.003));
+      manualCamera=true;
       updateCamera();setHover(null);
     }
     lastX=e.clientX;lastY=e.clientY;
@@ -964,11 +1324,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     setHover(picked);
   }
   function leave(){if(!drag)setHover(null);}
-  function wheel(e){e.preventDefault();distance=Math.max(24,Math.min(47,distance+e.deltaY*.018));updateCamera();setHover(null);}
+  // Cancellation is never a card click, even if the pointer has not moved.
+  function cancelPointer(){drag=false;moved=false;setHover(null);}
+  function wheel(e){e.preventDefault();manualCamera=true;distance=Math.max(24,Math.min(47,distance+e.deltaY*.018));updateCamera();setHover(null);}
   mount.addEventListener('pointerdown',down);
   mount.addEventListener('pointermove',move);
   mount.addEventListener('pointerup',up);
-  mount.addEventListener('pointercancel',up);
+  mount.addEventListener('pointercancel',cancelPointer);
   mount.addEventListener('pointerleave',leave);
   mount.addEventListener('wheel',wheel,{passive:false});
   let frames=0,raf=0,running=false,disposed=false,lastDraw=0,lastVisualTime=0;
@@ -989,6 +1351,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     lastVisualTime=time;
     if(time-lastSync>220){lastSync=time;sync();}
     const frozen=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(vrMode&&cameraPreset==='tabletop'&&!manualCamera){
+      // VR01G: a crowded 6-row table needs more vertical screen real
+      // estate. Move the camera back a little while preserving true slot
+      // coordinates and the player's absolute priority over auto views.
+      const dense=cards.length>=16;
+      const desiredPitch=dense?1.31:cards.length>=9?1.245:1.17;
+      const desiredDistance=dense?32.2:cards.length>=9?30.2:28.8;
+      const alpha=frozen?1:1-Math.exp(-visualDelta/330);
+      const np=pitch+(desiredPitch-pitch)*alpha;
+      const nd=distance+(desiredDistance-distance)*alpha;
+      if(Math.abs(np-pitch)>.0002||Math.abs(nd-distance)>.001){
+        pitch=np;distance=nd;updateCamera();
+      }
+    }
     if(!frozen)sealCore.rotation.y=time*.00035;
     // Phase72: decorative slot halos never enter raycast target meshes.
     if(tabletop)for(const [key,slot] of boardSlots){
@@ -997,24 +1373,96 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const pulse=frozen?0:.5+.5*Math.sin(time*.0046);
       const size=frozen?1:slot.attackPulse?1.07+.16*pulse:
         slot.legalPulse?1.035+.075*pulse:hoveredKey===key?1.055:1;
-      slot.halo.scale.setScalar(size);
+      const lock=vrMode&&slot.attackPulse&&vrTargetLock?.key===key;
+      const lockAge=lock?Math.max(0,(time-vrTargetLock.at)/380):1;
+      // Single restrained acquisition pulse then a small stable hover
+      // emphasis; native attack, movement and raycast meshes are untouched.
+      const accent=lock&&!frozen?
+        .055+(lockAge < 1 ? .13*Math.sin(Math.PI*lockAge) : 0):0;
+      slot.halo.scale.setScalar(size+accent);
+      if(vrMode&&slot.focusRing){
+        const active=slot.focusRing.visible&&key===selectedKey;
+        const age=vrSelectionBurst?.key===key?
+          Math.max(0,(time-vrSelectionBurst.at)/460):1;
+        // One spring-like gold accent, no infinite attention animation.
+        // Face, seat and native raycast hitboxes never change position.
+        const pulse=active&&!frozen&&age<1?
+          .19*Math.sin(Math.PI*Math.max(0,age))*Math.pow(1-age,.38):0;
+        slot.focusRing.scale.setScalar(1+pulse);
+      }
     }
+    if(vrMode&&vrSelectionBurst&&time-vrSelectionBurst.at>520)
+      vrSelectionBurst=null;
     for(const [i,c] of cards.entries()){
       const hover=c.key===hoveredKey;
       if(tabletop){
-        // Phase67: physical cards must read like cards, not miniatures on an
-        // oversized app canvas. Smoothly elevate only the focused card.
-        // 3.37 world units separate adjacent columns: the 2.22-wide idle
-        // card at 1.30 scale is 2.886 units, with physical air between cards.
-        const targetScale=hover?1.52:c.key===selectedKey?1.35:1.30;
-        const targetLift=hover?.86:c.key===selectedKey?.18:0;
-        // Elapsed-time easing, not per-frame easing: low FPS Chromium/WebGL
-        // must not leave enlarged cards stranded for seconds after pointer exit.
+        // VR01-C: an occupied card gets larger when it has actual physical
+        // room. Dense battles retain a non-overlapping normal scale; lone
+        // cards must not look like thumbnails in a nearly empty arena.
+        // Only publicly rendered slot coordinates are considered.
+        // VR01G: measure actual occupied row direction, not just nearest
+        // radial neighbor. Card HEIGHT is the limiting dimension when
+        // adjacent native rows share a column; a 1.42 face can cover most
+        // of the face behind it even though native slot clicks still work.
+        const sameColumnRow=vrMode&&cards.some(other=>other!==c&&
+          Math.abs(other.slot.x-c.slot.x)<.65&&
+          Math.abs(other.slot.z-c.slot.z)<3.05);
+        const sameRowNeighbor=vrMode&&cards.some(other=>other!==c&&
+          Math.abs(other.slot.x-c.slot.x)<3.43&&
+          Math.abs(other.slot.z-c.slot.z)<.65);
+        const dense=vrMode&&cards.length>=16;
+        const adaptive=vrMode&&cameraPreset==='tabletop'?
+          sameColumnRow?(dense?.96:1.04):
+          sameRowNeighbor?(dense?1.19:1.31):dense?1.13:1.61:1.30;
+        // A focused card may rise for inspection, but never expand enough
+        // to hide an unrelated occupied row in a dense battlefield.
+        const lockedTarget=vrMode&&hover&&boardSlots.get(c.key)?.attackPulse;
+        const emphasis=hover?
+          lockedTarget?(sameColumnRow?.035:.11):(sameColumnRow?.10:.23):
+          c.key===selectedKey?(sameColumnRow?.045:.12):0;
+        const targetScale=vrMode?adaptive+emphasis:
+          hover?1.52:c.key===selectedKey?1.35:1.30;
+        // Attack targets do not jump up into the neighboring native row
+        // when the user aims. The separate card-focus inspector is the
+        // full-size reading surface.
+        const targetLift=hover?(lockedTarget?.38:.86):c.key===selectedKey?.18:0;
+        // Time-based smoothing stays stable on low-FPS software WebGL.
         const blend=frozen?1:1-Math.exp(-visualDelta/115);
         c.visualScale=(c.visualScale??1.30)+(targetScale-(c.visualScale??1.30))*blend;
         c.visualLift=(c.visualLift??0)+(targetLift-(c.visualLift??0))*blend;
-        c.group.scale.setScalar(c.visualScale);
-        c.group.position.y=1.76+c.visualLift+(frozen?0:Math.sin(time*.0015+i*.67)*.025);
+        if(vrMode&&c.deploy){
+          const raw=Math.max(0,Math.min(1,(performance.now()-c.deploy.started)/720));
+          const ease=1-Math.pow(1-raw,3);
+          const arc=Math.sin(Math.PI*raw)*1.65;
+          const start=c.deploy.from;
+          c.group.position.set(
+            start.x+(c.slot.x-start.x)*ease,
+            start.y+(1.76+c.visualLift-start.y)*ease+arc,
+            start.z+(c.slot.z-start.z)*ease);
+          c.group.rotation.x=.16+(-.74-.16)*ease;
+          c.group.rotation.z=(1-ease)*.13;
+          c.group.scale.setScalar(c.visualScale*(.66+.34*ease));
+          if(c.seat)c.seat.scale.setScalar(.72+.28*ease);
+          if(raw>=1){
+            c.deploy=null;
+            c.frame.userData.mrrDeploying=c.face.userData.mrrDeploying=false;
+            c.group.rotation.set(-.74,0,0);
+            if(c.seat)c.seat.scale.setScalar(1);
+            spawnVrLandingDust(c.slot,time);
+          }
+        }else{
+          c.group.scale.setScalar(c.visualScale);
+          c.group.position.y=1.76+c.visualLift+(frozen?0:Math.sin(time*.0015+i*.67)*.025);
+          if(vrMode){
+            const impact=c.hitReaction;
+            const age=impact?(time-impact.born)/390:1;
+            if(impact&&age>=1)c.hitReaction=null;
+            const recoil=impact&&age<1?Math.sin(Math.PI*Math.max(0,age))*(1-Math.max(0,age)*.35):0;
+            c.group.position.x=c.slot.x+(impact?.dx||0)*recoil*.34;
+            c.group.position.z=c.slot.z+(impact?.dz||0)*recoil*.34;
+            c.group.rotation.z=(impact?.dx||0)*recoil*.10;
+          }
+        }
       }else{
         // Keep the existing standalone battlefield presentation unchanged.
         c.group.scale.setScalar(hover?1.26:1);
@@ -1022,6 +1470,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     advanceEffects(time);
+    if(vrMode){advanceVrLandingDust(time);advanceVrDeparture(time);}
     advanceCinematics(time);
     renderer.render(scene,camera);frames++;
   }
@@ -1036,20 +1485,31 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(preset==='selected'&&!target)return false;
     if(!['all','ally','enemy','selected','tabletop'].includes(preset))return false;
     if(preset==='tabletop'&&!tabletop)return false;
-    yaw=0;pitch=preset==='tabletop'?1.17:preset==='selected'?.64:preset==='all'?.77:.67;
+    yaw=0;manualCamera=false;
+    pitch=vrMode&&['ally','enemy'].includes(preset)?1.12:
+      preset==='tabletop'?1.17:preset==='selected'?.64:preset==='all'?.77:.67;
     focusKey=target;cameraPreset=preset;
     const slot=target?boardSlots.get(target):null;
     focusX=slot?.x||0;
-    focusZ=slot?.z||(preset==='ally'?5.6:preset==='enemy'?-5.6:0);
-    distance=preset==='tabletop'?28.8:preset==='all'?29:preset==='selected'?11.5:18.5;
+    // Dedicated PC tactical views are high enough to preserve all five
+    // columns. The generic Phase76 camera and modal keep their exact values.
+    focusZ=slot?.z||(preset==='ally'?(vrMode?5.0:5.6):
+      preset==='enemy'?(vrMode?-5.0:-5.6):0);
+    distance=preset==='tabletop'?28.8:preset==='all'?29:
+      preset==='selected'?11.5:vrMode?22.8:18.5;
     updateCamera();return true;
   }
   function resetCamera(){setCameraPreset('all');}
   function dispose(){
     if(disposed)return;stop();disposed=true;
     for(const fx of liveEffects.splice(0))removeFx(fx);
+    for(const f of vrLandingDust.splice(0)){scene.remove(f.points);f.geo.dispose();f.mat.dispose();}
+    for(const f of vrDepartBursts.splice(0))removeVrDeparture(f);
     recentFx.clear();pendingStrike=null;cinemaImpact=null;impactLamp.intensity=0;
-    for(const c of cards){c.face.material.map.userData.artDisposed=true;c.face.material.map.dispose();c.face.material.dispose();}
+    for(const c of cards){
+      if(c.seat)scene.remove(c.seat);
+      c.face.material.map.userData.artDisposed=true;c.face.material.map.dispose();c.face.material.dispose();
+    }
     cards=[];for(const g of madeGeometry)g.dispose();
     for(const m of madeMaterials)m.dispose();
     for(const t of madeTextures)t.dispose();
@@ -1057,22 +1517,45 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     mount.removeEventListener('pointerdown',down);
     mount.removeEventListener('pointermove',move);
     mount.removeEventListener('pointerup',up);
-    mount.removeEventListener('pointercancel',up);
+    mount.removeEventListener('pointercancel',cancelPointer);
     mount.removeEventListener('pointerleave',leave);
     mount.removeEventListener('wheel',wheel);
     renderer.dispose();renderer.domElement.remove();
   }
-  return {start,stop,dispose,resize,resetCamera,setCameraPreset,sync,projectCard,projectSlot,stageAttack,getCardPreview,hasCard,
+  return {start,stop,dispose,resize,resetCamera,setCameraPreset,sync,projectCard,projectCardBounds,projectSlot,stageAttack,getCardPreview,hasCard,armDeployment,
     refreshHover:(key)=>setHover(key,true),
     get state(){return {revision:49,projection:camera.type,frames,slotCount:boardSlots.size,
       publicCardCount,cardMeshCount:cards.length,shadows:renderer.shadowMap.enabled,
       rendererAlive:renderer.domElement.isConnected,yaw,pitch,distance,
+      vrCameraAuto:vrMode?!manualCamera:null,
+      vrCrowdedComposition:vrMode&&cameraPreset==='tabletop'&&cards.length>=16,
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
       nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,peakLiveFxCount,
       fxSources:'native-slot-classes',cinematicRevision:49,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       realCombatQaRevision:50,nativeCombatEvents:nativeCombatEvents.slice(),
       visualArtRevision:51,pcArtRevision:tabletop?57:0,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
+      vrAdaptiveCardScales:vrMode?Object.fromEntries(cards.map(c=>[c.key,Math.round((c.visualScale||1.30)*1000)/1000])):null,
+      vrOccupiedSeats:vrMode?cards.filter(c=>!!c.seat).length:null,
+      vrReusedCards:vrMode?vrReusedCards:null,vrDeployTransitions:vrMode?vrDeployTransitions:null,
+      vrDeployActive:vrMode?cards.filter(c=>!!c.deploy).length:null,
+      vrLiveCardTextures:vrMode?madeTextures.length:null,
+      vrLandingDustStarted:vrMode?vrLandingDustStarted:null,
+      vrLandingDustActive:vrMode?vrLandingDust.length:null,
+      vrDepartStarted:vrMode?vrDepartCount:null,
+      vrDepartActive:vrMode?vrDepartBursts.length:null,
+      vrDepartHaloStarted:vrMode?vrDepartHaloCount:null,
+      vrDepartHaloActive:vrMode?vrDepartBursts.filter(f=>!!f.halo).length:null,
+      vrHitReactions:vrMode?vrHitReactions:null,
+      vrSelectionBursts:vrMode?vrSelectionBursts:null,
+      vrTargetLocks:vrMode?vrTargetLocks:null,
+      vrTargetLockKey:vrMode?vrTargetLock?.key||null:null,
+      vrTargetLockScale:vrMode&&vrTargetLock?
+        Number((boardSlots.get(vrTargetLock.key)?.halo?.scale.x||1).toFixed(4)):null,
+      vrSelectionBurstKey:vrMode?vrSelectionBurst?.key||null:null,
+      vrSelectionRingScale:vrMode&&selectedKey?
+        Number((boardSlots.get(selectedKey)?.focusRing?.scale.x||1).toFixed(4)):null,
+      vrActiveHitReactions:vrMode?cards.filter(c=>!!c.hitReaction).length:null,
       healthHudRevision:52,healthIndicatorCount,cardHealth:Object.fromEntries(cardHealth),
       previewRevision:53,previewReadyCards:cardIndex.size,
       artworkSlotRevision:tabletop?58:0,
@@ -1238,6 +1721,8 @@ window.MRRBattlefieldUIInit=function(loadThree){
         cardTip.append(headline,summary);cardTip.classList.add('visible');
       }
       const overlayHelp=document.createElement('div');overlayHelp.id='mrr-battlefield-help';
+      // This standalone Phase55 modal has its own orbit camera. The
+      // factory's local vrMode belongs only to the integrated VR scene.
       overlayHelp.textContent='카드 클릭 - 선택  |  공격 버튼 - 대상 지정  |  드래그 - 시점 회전  |  휠 - 확대·축소';
       const enemy=document.createElement('div');enemy.className='mrr-side-label enemy';enemy.textContent='OPPONENT TERRITORY';
       const friendly=document.createElement('div');friendly.className='mrr-side-label friendly';friendly.textContent='ALLIED TERRITORY';

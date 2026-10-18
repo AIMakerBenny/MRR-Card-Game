@@ -1,0 +1,24 @@
+/* Mouse-over readable field-card view; native 3D raycaster still owns input. */
+body.mrr-vr-active #mrr-vr-card-focus{
+  position:absolute;z-index:30;width:clamp(220px,15vw,290px);
+  pointer-events:none;isolation:isolate;
+  transform:perspective(900px) rotateY(-4deg);
+  filter:drop-shadow(0 24px 34px #000c);
+  transition:opacity .15s ease;
+}
+body.mrr-vr-active #mrr-vr-card-focus[hidden]{display:none!important}
+body.mrr-vr-active #mrr-vr-card-focus img{
+  width:100%;height:auto;display:block;aspect-ratio:512/704;
+  border:3px solid #c7a976;border-radius:10px;background:#192b31;
+  box-shadow:inset 0 0 0 2px #e7d1a1,0 0 0 7px #0a171a9e,0 3px 17px #040709dd;
+}
+body.mrr-vr-active #mrr-vr-card-focus .vr-card-focus-caption{
+  max-width:100%;padding:8px 9px 0;color:#dfdbc9;text-shadow:0 2px 6px #000;
+  font:500 12px 'Malgun Gothic',sans-serif;text-align:center;
+}
+@media(max-width:1500px){
+  body.mrr-vr-active #mrr-vr-card-focus{width:205px}
+}
+@media(prefers-reduced-motion:reduce){
+  body.mrr-vr-active #mrr-vr-card-focus{transition:none!important}
+}
