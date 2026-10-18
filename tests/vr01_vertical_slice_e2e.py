@@ -1427,6 +1427,24 @@ try:
         assert shield['handVisibility']=='hidden' and shield['hintVisibility']=='hidden',shield
         assert page.locator('#vr-hand .vr-card:visible').count()==0,(
           'VR01T handoff must not expose either player hand in the 3D shell')
+        # VR01AP: hidden cards also must be absent from keyboard and AT
+        # navigation. The original private Phase21 overlay is authoritative.
+        page.wait_for_function("""() => {
+          const hand=document.querySelector('#vr-hand');
+          const hint=document.querySelector('#vr-hint');
+          return hand?.inert && hint?.inert &&
+            hand.getAttribute('aria-hidden')==='true' &&
+            hint.getAttribute('aria-hidden')==='true';
+        }""",timeout=14000)
+        focus_blocked=page.evaluate("""() => {
+          const button=document.querySelector('#vr-hand .vr-card');
+          button?.focus();
+          return document.activeElement!==button;
+        }""")
+        assert focus_blocked,'VR01AP hidden opponent hand accepted keyboard focus'
+        assert snap()==prior,'VR01AP private hand guard changed native game'
+        page.screenshot(path=str(ROOT/'tests/vr01ap_native_private_handoff_1920x1080.png'),
+          animations='disabled')
         # VR01U hotkeys must not bypass the private turn handoff, even if
         # the next player's genuine native hand already exists underneath.
         shield_snapshot=snap()
@@ -1448,6 +1466,24 @@ try:
           document.querySelectorAll('#hand .hand-slot').length""",timeout=18000)
         assert page.evaluate('MRRVR.status.open'),(
           'Native turn handoff must preserve the 3D PC session')
+        # VR01AP: only the actual native reveal removes the keyboard/AT
+        # privacy barrier; focus returns to current-player hand controls.
+        page.wait_for_function("""() => {
+          const hand=document.querySelector('#vr-hand');
+          const hint=document.querySelector('#vr-hint');
+          return hand && hint && !hand.inert && !hint.inert &&
+            !hand.hasAttribute('aria-hidden') && !hint.hasAttribute('aria-hidden');
+        }""",timeout=14000)
+        hand_reenabled=page.evaluate("""() => {
+          const button=document.querySelector('#vr-hand .vr-card');
+          button?.focus();
+          return !!button&&document.activeElement===button;
+        }""")
+        assert hand_reenabled,'VR01AP newly revealed hand cannot receive keyboard focus'
+        reveal_snapshot=snap()
+        assert reveal_snapshot==snap(),'VR01AP focus altered native game'
+        page.screenshot(path=str(ROOT/'tests/vr01ap_native_private_reveal_1920x1080.png'),
+          animations='disabled')
         page.screenshot(path=str(ROOT/'tests/vr01t_turn_pass_revealed_1920x1080.png'),
           animations='disabled')
         placed=True

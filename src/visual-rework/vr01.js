@@ -574,8 +574,23 @@ function reconcileConfirmedOutcomes(){
     positionConfirmedOutcome(item.node,item.key,scene);
   }
 }
+// VR01AP: the native local-turn pass overlay is the ONLY authorization to
+// reveal another player's private hand. CSS hides immediately (VR01T);
+// inert/aria-hidden also prevent focus and assistive-tech navigation to the
+// mirrored cards until the genuine Phase21 passContinue finishes.
+function updatePrivateHandoff(){
+ const privatePass=!!q('#overlay:not(.hidden) #passContinue');
+ for(const host of [q('#vr-hand',ui),q('#vr-hint',ui)]){
+   if(!host)continue;
+   if(host.inert!==privatePass)host.inert=privatePass;
+   if(privatePass){
+     if(host.getAttribute('aria-hidden')!=='true')host.setAttribute('aria-hidden','true');
+   }else host.removeAttribute('aria-hidden');
+ }
+}
 function refresh(){
  if(!open||!ui)return;
+ updatePrivateHandoff();
  reconcileConfirmedOutcomes();
  updateHand();syncNativeHandSelection();updateBacks();updatePublicPlaques();
  for(const [sel,portrait,mana,fallback] of [
