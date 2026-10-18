@@ -535,3 +535,30 @@ body.mrr-vr-active #mrr-integrated-context button[data-vr-shortcut]::after{
 body.mrr-vr-active #mrr-vr-shell.vr-hand-hotkeys-paused .vr-shortcut-key{
  opacity:.28;filter:grayscale(.85);pointer-events:none;
 }
+
+/* VR01AR: readable inspected hand cards without changing the fixed native
+   hit anchor, fan spacing, art well, or Phase21 selection. Only a genuinely
+   hovered, keyboard-focused, or natively raised face receives the legibility
+   treatment. The rest of the fan retains its compact approved design. */
+body.mrr-vr-active #mrr-vr-shell .vr-card:is(:hover,:focus-visible,.raised) .vr-rules{
+ font-size:clamp(11px,.72vw,13px);
+ line-height:1.4;
+ color:#faf4e3;
+ text-shadow:0 1px 2px #000e;
+ background:linear-gradient(90deg,#08161cdd,#15282edb,#08161cdd);
+ border-radius:4px;
+ padding:2px 4px;
+}
+body.mrr-vr-active #mrr-vr-shell .vr-card:is(:hover,:focus-visible,.raised) .vr-name{
+ color:#fff1ce;
+ text-shadow:0 1px 3px #000;
+}
+body.mrr-vr-active #mrr-vr-shell .vr-card:focus-visible .vr-card-face{
+ outline:3px solid #f2d18b;
+ outline-offset:4px;
+}
+@media(max-width:1500px){
+ body.mrr-vr-active #mrr-vr-shell .vr-card:is(:hover,:focus-visible,.raised) .vr-rules{
+  font-size:11px;line-height:1.3;padding:1px 3px;
+ }
+}
