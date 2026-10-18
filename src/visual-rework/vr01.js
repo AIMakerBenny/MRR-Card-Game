@@ -227,6 +227,10 @@ function updateHand(){
   const artChanged=artSources.length!==handArtSources.length||
     artSources.some((pair,i)=>pair[0]!==handArtSources[i]?.[0]||
       pair[1]!==handArtSources[i]?.[1]);
+  // VR01AS: the face intentionally clamps longer native descriptions to two
+  // lines. Keep the complete PUBLIC Phase21 copy available for inspection.
+  // No private hand data, rules, or new UI hit targets are introduced.
+  const inspection=(d)=>[d.name,d.kind,d.summary,d.stats].filter(Boolean).join(' · ');
   const fan=q('#vr-hand',ui);
   if(handSignature===signature&&!artChanged){
     if(handLayoutDirty)reflowHand(fan);
@@ -249,6 +253,12 @@ function updateHand(){
         ['.vr-stats',d.stats||'']]){
         const node=q(selector,card);
         if(node&&node.textContent!==value)node.textContent=value;
+      }
+      const inspectionText=inspection(d);
+      if(card.dataset.vrInspection!==inspectionText){
+        card.dataset.vrInspection=inspectionText;
+        card.setAttribute('aria-description',inspectionText);
+        card.title=inspectionText+(card.dataset.vrKeyTitle?' · '+card.dataset.vrKeyTitle:'');
       }
       // Preserve VR01AG/AH dynamic Phase59 artwork behavior as well.
       const face=q('.vr-art-blank',card);
@@ -283,6 +293,9 @@ function updateHand(){
       card.title=d.name+' · 단축키 '+shortcut;
       card.dataset.vrKeyTitle=card.title;
     }
+    card.dataset.vrInspection=inspection(d);
+    card.setAttribute('aria-description',card.dataset.vrInspection);
+    card.title=card.dataset.vrInspection+(card.dataset.vrKeyTitle?' · '+card.dataset.vrKeyTitle:'');
     const surface=el('div','vr-card-face');
     const artwork=el('div','vr-art-blank');
     const ownerArt=q('.art-well > .mrr-owner-art',src[d.i]);
