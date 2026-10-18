@@ -1436,13 +1436,14 @@ try:
             hand.getAttribute('aria-hidden')==='true' &&
             hint.getAttribute('aria-hidden')==='true';
         }""",timeout=14000)
+        guard_snapshot=snap()
         focus_blocked=page.evaluate("""() => {
           const button=document.querySelector('#vr-hand .vr-card');
           button?.focus();
           return document.activeElement!==button;
         }""")
         assert focus_blocked,'VR01AP hidden opponent hand accepted keyboard focus'
-        assert snap()==prior,'VR01AP private hand guard changed native game'
+        assert snap()==guard_snapshot,'VR01AP private hand guard changed native game'
         page.screenshot(path=str(ROOT/'tests/vr01ap_native_private_handoff_1920x1080.png'),
           animations='disabled')
         # VR01U hotkeys must not bypass the private turn handoff, even if
@@ -1474,13 +1475,13 @@ try:
           return hand && hint && !hand.inert && !hint.inert &&
             !hand.hasAttribute('aria-hidden') && !hint.hasAttribute('aria-hidden');
         }""",timeout=14000)
+        reveal_snapshot=snap()
         hand_reenabled=page.evaluate("""() => {
           const button=document.querySelector('#vr-hand .vr-card');
           button?.focus();
           return !!button&&document.activeElement===button;
         }""")
         assert hand_reenabled,'VR01AP newly revealed hand cannot receive keyboard focus'
-        reveal_snapshot=snap()
         assert reveal_snapshot==snap(),'VR01AP focus altered native game'
         page.screenshot(path=str(ROOT/'tests/vr01ap_native_private_reveal_1920x1080.png'),
           animations='disabled')
