@@ -75,6 +75,13 @@ try:
     page.wait_for_function('MRRVR.status.open && MRRIntegrated.state.scene.frames>5',timeout=45000)
     assert snap()==baseline,'Opening VR changed actual gameplay'
     assert page.locator('#mrr-vr-shell').is_visible()
+    # VR01AO: save the same public opponent back node across real PC
+    # resize events. Only the publicly visible back count is consulted.
+    page.evaluate("""() => {
+      window.__vr01aoBack=document.querySelector('#vr-enemy-fan .vr-back');
+    }""")
+    assert page.locator('#vr-enemy-fan .vr-back').count()>0,(
+      'VR01AO requires genuine visible Phase21 opponent card backs')
     for w,h in ((1920,1080),(1366,768),(2560,1440)):
       page.set_viewport_size({'width':w,'height':h})
       page.mouse.move(5,h//2)
@@ -100,6 +107,25 @@ try:
         0<=info['rect']['top']<info['rect']['bottom']<=h),info
       assert '손패' in info['text'],info
       assert page.locator('#vr-enemy-fan .vr-back').count()==page.locator('#enemyHand .mcw-back').count()
+      # VR01AO: after responsive reflow, back identity, order and the
+      # old public-only count must be preserved with correct spacing.
+      page.wait_for_function("""width => {
+        const fan=document.querySelector('#vr-enemy-fan');
+        const n=fan?.children.length||0;
+        if(!n||!window.__vr01aoBack||fan.firstElementChild!==window.__vr01aoBack)
+          return false;
+        const step=Math.min(width<1500?41:52,(width-360)/Math.max(1,n));
+        return [...fan.children].every((back,i)=>{
+          const x=(i-(n-1)/2)*step;
+          const angle=(i-(n-1)/2)*Math.min(5,22/Math.max(n-1,1));
+          return back.isConnected&&back.getAttribute('aria-label')==='상대 카드 뒷면 '+(i+1)&&
+            Math.abs(parseFloat(back.style.getPropertyValue('--x'))-x)<.01&&
+            Math.abs(parseFloat(back.style.getPropertyValue('--angle'))-angle)<.01;
+        });
+      }""",arg=w,timeout=12000)
+      assert snap()==baseline,('VR01AO back reflow changed Phase21 game',w,h)
+      page.screenshot(path=str(ROOT/f'tests/vr01ao_opponent_reflow_{w}x{h}.png'),
+        animations='disabled')
       assert page.locator('#vr-hand .vr-card').count()==page.locator('#hand .hand-slot').count()
       visible_public=page.locator('#arena [data-slot] .board-card .card-ui').count()
       plaques=page.locator('#vr-public-plaques .vr-unit-plaque')

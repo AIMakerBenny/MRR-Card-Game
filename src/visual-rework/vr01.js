@@ -12,7 +12,7 @@ const el=(tag,cls,txt)=>{
 const clean=v=>String(v||'').replace(/\s+/g,' ').trim();
 const native=selector=>{const n=q(selector);if(!n||n.disabled)return false;n.click();return true;};
 const entry=el('button','','VR01 새 게임 화면');entry.id='mrr-vr-open';entry.type='button';bar.append(entry);
-let open=false,busy=false,ui=null,stage=null,observer=null,interval=null,scheduled=0,handSignature='',handArtSources=[],handLayoutDirty=false,backCount=-1;
+let open=false,busy=false,ui=null,stage=null,observer=null,interval=null,scheduled=0,handSignature='',handArtSources=[],handLayoutDirty=false,backCount=-1,backLayoutDirty=false;
 let tacticalCamera='tabletop',keyboardEntryPending=false;
 const nativeCardLabels=new Map(),nativeStatBadges=new Map(),nativeActionMarks=new Map();
 let nativeHpSnapshot=new Map(),recentHpChanges=new Map(),lastCombatTime=null,vrOutcomeCount=0,lastOutcome=null;
@@ -168,17 +168,31 @@ function updateAim(){
   path.dataset.mode=moveTarget?'move':'attack';
   path.setAttribute('marker-end',moveTarget?'url(#vr-move-arrow)':'url(#vr-arrow)');
 }
-function updateBacks(){
-  // Read only publicly displayed opponent backs. Never read the opponent hand array.
-  const n=qa('#enemyHand .mcw-back').length;if(n===backCount)return;
-  backCount=n;const fan=q('#vr-enemy-fan',ui);fan.replaceChildren();
+// VR01AO: the opponent hand is represented ONLY by publicly visible backs.
+// Reposition these same DOM nodes on resize; do not flash/recreate the fan.
+function reflowBacks(fan){
+  const n=fan.children.length;
   const step=Math.min(innerWidth<1500?41:52,(innerWidth-360)/Math.max(1,n));
   for(let i=0;i<n;i++){
-    const back=el('div','vr-back');back.setAttribute('aria-label','상대 카드 뒷면 '+(i+1));
+    const back=fan.children[i];
     back.style.setProperty('--x',((i-(n-1)/2)*step)+'px');
     back.style.setProperty('--angle',((i-(n-1)/2)*Math.min(5,22/Math.max(n-1,1)))+'deg');
+  }
+  backLayoutDirty=false;
+}
+function updateBacks(){
+  // Read only publicly displayed opponent backs. Never read the opponent hand array.
+  const n=qa('#enemyHand .mcw-back').length,fan=q('#vr-enemy-fan',ui);
+  if(n===backCount&&fan.children.length===n){
+    if(backLayoutDirty)reflowBacks(fan);
+    return;
+  }
+  backCount=n;fan.replaceChildren();
+  for(let i=0;i<n;i++){
+    const back=el('div','vr-back');back.setAttribute('aria-label','상대 카드 뒷면 '+(i+1));
     fan.append(back);
   }
+  reflowBacks(fan);
 }
 // VR01AN: viewport changes reflow the same real hand buttons in place.
 // Preserving their DOM identity keeps focus, hover, click delegation and
@@ -707,7 +721,7 @@ function cleanup(){
  observer?.disconnect();observer=null;clearInterval(interval);interval=null;
  if(scheduled)cancelAnimationFrame(scheduled);scheduled=0;
  stage?.removeEventListener('pointermove',updateAim);ui?.remove();ui=stage=null;
- handSignature='';handArtSources=[];handLayoutDirty=false;backCount=-1;tacticalCamera='tabletop';nativeCardLabels.clear();nativeStatBadges.clear();nativeActionMarks.clear();
+ handSignature='';handArtSources=[];handLayoutDirty=false;backCount=-1;backLayoutDirty=false;tacticalCamera='tabletop';nativeCardLabels.clear();nativeStatBadges.clear();nativeActionMarks.clear();
   nativeHpSnapshot.clear();recentHpChanges.clear();lastCombatTime=null;vrOutcomeCount=0;lastOutcome=null;outcomeNodes.length=0;outcomeHistory.length=0;
 }
 function closeUI(){
@@ -773,7 +787,7 @@ entry.addEventListener('click',()=>{
 });
 window.addEventListener('keydown',handleHandShortcut,true);
 window.addEventListener('resize',()=>{if(open){
- handLayoutDirty=true;backCount=-1;
+ handLayoutDirty=true;backLayoutDirty=true;
  positionActiveOutcomes();schedule();
 }});
 window.addEventListener('beforeunload',cleanup);
