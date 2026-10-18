@@ -12,7 +12,7 @@ const el=(tag,cls,txt)=>{
 const clean=v=>String(v||'').replace(/\s+/g,' ').trim();
 const native=selector=>{const n=q(selector);if(!n||n.disabled)return false;n.click();return true;};
 const entry=el('button','','VR01 새 게임 화면');entry.id='mrr-vr-open';entry.type='button';bar.append(entry);
-let open=false,busy=false,ui=null,stage=null,observer=null,interval=null,scheduled=0,handSignature='',handArtSources=[],backCount=-1;
+let open=false,busy=false,ui=null,stage=null,observer=null,interval=null,scheduled=0,handSignature='',handArtSources=[],handLayoutDirty=false,backCount=-1;
 let tacticalCamera='tabletop',keyboardEntryPending=false;
 const nativeCardLabels=new Map(),nativeStatBadges=new Map(),nativeActionMarks=new Map();
 let nativeHpSnapshot=new Map(),recentHpChanges=new Map(),lastCombatTime=null,vrOutcomeCount=0,lastOutcome=null;
@@ -180,6 +180,22 @@ function updateBacks(){
     fan.append(back);
   }
 }
+// VR01AN: viewport changes reflow the same real hand buttons in place.
+// Preserving their DOM identity keeps focus, hover, click delegation and
+// Phase21 native selection intact while changing only visual positions.
+function reflowHand(fan){
+  const n=fan.children.length;
+  const step=Math.min(innerWidth<1500?72:innerWidth<2200?91:108,
+    Math.max(43,(innerWidth-420)/Math.max(1,n)));
+  for(let i=0;i<n;i++){
+    const card=fan.children[i];
+    card.style.setProperty('--x',((i-(n-1)/2)*step)+'px');
+    card.style.setProperty('--hit',step+'px');
+    card.style.setProperty('--angle',((i-(n-1)/2)*Math.min(5,22/Math.max(n-1,1)))+'deg');
+    card.style.zIndex=String(i+2);
+  }
+  handLayoutDirty=false;
+}
 function updateHand(){
   const src=qa('#hand .hand-slot');
   const hand=src.map((slot,i)=>{
@@ -197,8 +213,11 @@ function updateHand(){
   const artChanged=artSources.length!==handArtSources.length||
     artSources.some((pair,i)=>pair[0]!==handArtSources[i]?.[0]||
       pair[1]!==handArtSources[i]?.[1]);
-  if(handSignature===signature&&!artChanged)return;
   const fan=q('#vr-hand',ui);
+  if(handSignature===signature&&!artChanged){
+    if(handLayoutDirty)reflowHand(fan);
+    return;
+  }
   // VR01AJ: the same visible Phase21 cards can have cosmetic changes
   // to cost, rules or stats. Keep each existing 3D button/focus/hover and
   // update its displayed text in place instead of replacing the whole fan.
@@ -235,12 +254,12 @@ function updateHand(){
       }else mirrored?.remove();
     });
     handSignature=signature;handArtSources=artSources;
+    if(handLayoutDirty)reflowHand(fan);
     return;
   }
   handSignature=signature;handArtSources=artSources;
   fan.replaceChildren();
-  const n=hand.length,step=Math.min(innerWidth<1500?72:innerWidth<2200?91:108,
-    Math.max(43,(innerWidth-420)/Math.max(1,n)));
+  const n=hand.length;
   for(const d of hand){
     const card=el('button','vr-card');card.type='button';
     card.setAttribute('aria-label',d.name+' 손패 선택');card.dataset.index=String(d.i);
@@ -250,10 +269,6 @@ function updateHand(){
       card.title=d.name+' · 단축키 '+shortcut;
       card.dataset.vrKeyTitle=card.title;
     }
-    card.style.setProperty('--x',((d.i-(n-1)/2)*step)+'px');
-    card.style.setProperty('--hit',step+'px');
-    card.style.setProperty('--angle',((d.i-(n-1)/2)*Math.min(5,22/Math.max(n-1,1)))+'deg');
-    card.style.zIndex=String(d.i+2);
     const surface=el('div','vr-card-face');
     const artwork=el('div','vr-art-blank');
     const ownerArt=q('.art-well > .mrr-owner-art',src[d.i]);
@@ -288,6 +303,7 @@ function updateHand(){
     fan.append(card);
   }
   fan.dataset.count=String(n);
+  reflowHand(fan);
 }
 // Native Phase21 .hand-slot.active is authoritative. Keep this in refresh,
 // outside the hand content signature, so selecting/cancelling never leaves
@@ -691,7 +707,7 @@ function cleanup(){
  observer?.disconnect();observer=null;clearInterval(interval);interval=null;
  if(scheduled)cancelAnimationFrame(scheduled);scheduled=0;
  stage?.removeEventListener('pointermove',updateAim);ui?.remove();ui=stage=null;
- handSignature='';handArtSources=[];backCount=-1;tacticalCamera='tabletop';nativeCardLabels.clear();nativeStatBadges.clear();nativeActionMarks.clear();
+ handSignature='';handArtSources=[];handLayoutDirty=false;backCount=-1;tacticalCamera='tabletop';nativeCardLabels.clear();nativeStatBadges.clear();nativeActionMarks.clear();
   nativeHpSnapshot.clear();recentHpChanges.clear();lastCombatTime=null;vrOutcomeCount=0;lastOutcome=null;outcomeNodes.length=0;outcomeHistory.length=0;
 }
 function closeUI(){
@@ -757,7 +773,7 @@ entry.addEventListener('click',()=>{
 });
 window.addEventListener('keydown',handleHandShortcut,true);
 window.addEventListener('resize',()=>{if(open){
- handSignature='';backCount=-1;
+ handLayoutDirty=true;backCount=-1;
  positionActiveOutcomes();schedule();
 }});
 window.addEventListener('beforeunload',cleanup);

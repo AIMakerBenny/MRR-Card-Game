@@ -272,6 +272,32 @@ try:
       delete window.__vr01ajCard;
     }""")
     assert snap()==baseline,'VR01AJ restored native text affected game state'
+    # VR01AN: a viewport resize is NOT a change to the player's cards.
+    # Reflow the original mirrored buttons (not replaceChildren), keeping
+    # focused/raised nodes and real Phase21 engine state unchanged.
+    page.evaluate("""() => {
+      const card=document.querySelector('#vr-hand .vr-card');
+      window.__vr01anCard=card;
+      card.focus();card.classList.add('raised');
+    }""")
+    for w,h in ((1366,768),(2560,1440),(1920,1080)):
+      page.set_viewport_size({'width':w,'height':h})
+      page.wait_for_function("""width => {
+        const card=window.__vr01anCard;
+        const fan=document.querySelector('#vr-hand');
+        const n=fan?.children.length||0;
+        const step=Math.min(width<1500?72:width<2200?91:108,
+          Math.max(43,(width-420)/Math.max(1,n)));
+        return !!card && card.isConnected && fan.children[0]===card &&
+          document.activeElement===card && card.classList.contains('raised') &&
+          Math.abs(parseFloat(card.style.getPropertyValue('--hit'))-step)<.01 &&
+          Math.abs(parseFloat(card.style.getPropertyValue('--x'))-
+            ((0-(n-1)/2)*step))<.01;
+      }""",arg=w,timeout=15000)
+      assert snap()==baseline,('VR01AN resized 3D hand changed Phase21',w,h)
+      page.screenshot(path=str(ROOT/f'tests/vr01an_hand_reflow_focus_{w}x{h}.png'),
+        animations='disabled')
+    page.evaluate("delete window.__vr01anCard")
     page.set_viewport_size({'width':1920,'height':1080})
     # VR01L: mouse drag cannot orbit/pan the new fixed PC board, but
     # drag release must still not cause an accidental original slot click.
