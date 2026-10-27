@@ -143,6 +143,9 @@ try:
             getComputedStyle(face).visibility==='visible' &&
             getComputedStyle(face).opacity!=='0'),
           raised:getComputedStyle(active).zIndex,
+          expanded:active.getBoundingClientRect().height,
+          faceTop:active.querySelector('.vr-card-face').getBoundingClientRect().top,
+          faceBottom:active.querySelector('.vr-card-face').getBoundingClientRect().bottom,
           neighbors:cards.filter(c=>c!==active).length
         };
         active.classList.remove('raised');
@@ -151,7 +154,13 @@ try:
       assert hand_review['count']>=2 and hand_review['sameNodes'] and (
         hand_review['visible'] and hand_review['neighbors']==hand_review['count']-1),(
           'VR01AW inspected card hid or replaced neighbors',w,h,hand_review)
-      assert snap()==baseline,('VR01AW inspection changed Phase21 state',w,h)
+      # VR01AX: check the inspected card actually rises into view and
+      # has the intended visual stacking priority. Mere DOM visibility is
+      # insufficient to detect an off-screen or obscured card face.
+      assert hand_review['raised']=='80' and (
+        0<=hand_review['faceTop']<hand_review['faceBottom']<=h+1),(
+          'VR01AX inspected card layering or viewport position',w,h,hand_review)
+      assert snap()==baseline,('VR01AW/AX inspection changed Phase21 state',w,h)
       visible_public=page.locator('#arena [data-slot] .board-card .card-ui').count()
       plaques=page.locator('#vr-public-plaques .vr-unit-plaque')
       assert plaques.count()==visible_public,(w,h,plaques.count(),visible_public)
