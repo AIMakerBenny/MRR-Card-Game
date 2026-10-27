@@ -127,6 +127,31 @@ try:
       page.screenshot(path=str(ROOT/f'tests/vr01ao_opponent_reflow_{w}x{h}.png'),
         animations='disabled')
       assert page.locator('#vr-hand .vr-card').count()==page.locator('#hand .hand-slot').count()
+      # VR01AW: a visually inspected hand card must not remove or hide
+      # neighboring real Phase21 cards at any supported PC resolution.
+      hand_review=page.evaluate("""() => {
+        const cards=[...document.querySelectorAll('#vr-hand .vr-card')];
+        if(cards.length<2)return {count:cards.length,skipped:true};
+        const active=cards[Math.floor(cards.length/2)];
+        const original=cards.map(c=>({node:c,face:c.querySelector('.vr-card-face')}));
+        active.classList.add('raised');
+        const result={
+          count:cards.length,
+          sameNodes:original.every(({node,face})=>node.isConnected&&face.isConnected),
+          visible:original.every(({node,face})=>
+            getComputedStyle(node).display!=='none' &&
+            getComputedStyle(face).visibility==='visible' &&
+            getComputedStyle(face).opacity!=='0'),
+          raised:getComputedStyle(active).zIndex,
+          neighbors:cards.filter(c=>c!==active).length
+        };
+        active.classList.remove('raised');
+        return result;
+      }""")
+      assert hand_review['count']>=2 and hand_review['sameNodes'] and (
+        hand_review['visible'] and hand_review['neighbors']==hand_review['count']-1),(
+          'VR01AW inspected card hid or replaced neighbors',w,h,hand_review)
+      assert snap()==baseline,('VR01AW inspection changed Phase21 state',w,h)
       visible_public=page.locator('#arena [data-slot] .board-card .card-ui').count()
       plaques=page.locator('#vr-public-plaques .vr-unit-plaque')
       assert plaques.count()==visible_public,(w,h,plaques.count(),visible_public)
