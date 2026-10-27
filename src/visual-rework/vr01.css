@@ -642,3 +642,17 @@ body.mrr-vr-active #mrr-vr-shell:not(.vr-placing) .vr-card:is(:hover,:focus-visi
   font-size:13px;
  }
 }
+
+/* VR01BB: permit two readable lines for long, genuine Phase21 card names
+   during inspection. Do not move the art window, alter the folded fan,
+   or create a floating information panel. */
+body.mrr-vr-active #mrr-vr-shell .vr-card:is(:hover,:focus-visible,.raised) .vr-name{
+ display:-webkit-box;
+ -webkit-box-orient:vertical;
+ -webkit-line-clamp:2;
+ white-space:normal;
+ line-height:1.15;
+ max-height:2.3em;
+ overflow:hidden;
+ overflow-wrap:anywhere;
+}
