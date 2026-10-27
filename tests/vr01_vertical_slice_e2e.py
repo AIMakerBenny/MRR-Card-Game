@@ -1503,6 +1503,14 @@ try:
         }""",arg=dest,timeout=13000)
         assert snap()!=prior,'The status marker must not change native game state'
         page.screenshot(path=str(ROOT/'tests/vr01_native_deploy_landed_1920x1080.png'),animations='disabled')
+        # VR01BF: recreate a genuine previous-player inspection state so
+        # the privacy assertion cannot pass vacuously on an already-flat hand.
+        page.evaluate("""() => {
+          const card=document.querySelector('#vr-hand .vr-card');
+          if(card){card.classList.add('raised');card.focus();}
+        }""")
+        assert page.locator('#vr-hand .vr-card.raised').count()>0,(
+          'VR01BF previous hand inspection fixture unavailable')
         page.locator('#vr-end-turn').click()
         page.wait_for_selector('#passContinue',timeout=12000)
         # VR01T: a real local turn handoff must hide the next player's
