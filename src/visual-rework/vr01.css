@@ -597,3 +597,21 @@ body.mrr-vr-active #mrr-vr-shell.vr-placing .vr-card:focus-visible{
  outline-offset:0;
 }
 /* Native handoff continues to suppress the entire mirrored hand. */
+
+/* VR01AV: keep the entire hand visible during inspection. The examined
+   card gets a restrained face rim, while neighboring cards remain fully
+   rendered and retain their original hit anchors and stacking rules. */
+body.mrr-vr-active #mrr-vr-shell .vr-card:is(:hover,:focus-visible,.raised) .vr-card-face{
+ border-color:#e6c68b;
+ box-shadow:inset 0 0 0 2px #ffe8ba80,inset 0 0 35px #091519,
+            0 0 0 2px #142a2c,0 0 18px #d1ae6866;
+}
+body.mrr-vr-active #mrr-vr-shell .vr-hand:has(.vr-card:is(:hover,:focus-visible,.raised)) .vr-card:not(:is(:hover,:focus-visible,.raised)) .vr-card-face{
+ filter:drop-shadow(0 5px 9px #000b);
+}
+/* The native-selected gold treatment remains stronger than inspection. */
+body.mrr-vr-active #mrr-vr-shell .vr-card.vr-native-selected:is(:hover,:focus-visible,.raised) .vr-card-face{
+ border-color:#f3cf86;
+ box-shadow:inset 0 0 0 2px #ffe3a777,inset 0 0 32px #b9914977,
+            0 0 22px #dfb87199;
+}
