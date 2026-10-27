@@ -615,3 +615,10 @@ body.mrr-vr-active #mrr-vr-shell .vr-card.vr-native-selected:is(:hover,:focus-vi
  box-shadow:inset 0 0 0 2px #ffe3a777,inset 0 0 32px #b9914977,
             0 0 22px #dfb87199;
 }
+
+/* VR01AY: scale(1.03) expands the inspected face past its bottom anchor.
+   Actual 1920x1080 Chromium showed bottom=1081.51px. Lift the face by
+   8px without altering the fixed pointer hitbox or native card actions. */
+body.mrr-vr-active #mrr-vr-shell:not(.vr-placing) .vr-card:is(:hover,:focus-visible,.raised) .vr-card-face{
+ bottom:8px;
+}
