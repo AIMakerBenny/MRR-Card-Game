@@ -1533,6 +1533,15 @@ try:
             hand.getAttribute('aria-hidden')==='true' &&
             hint.getAttribute('aria-hidden')==='true';
         }""",timeout=14000)
+        # VR01BF: a prior player's expanded hand must lose its transient
+        # inspection and tooltip state before the new hand is revealed.
+        page.wait_for_function("""() => {
+          const cards=[...document.querySelectorAll('#vr-hand .vr-card')];
+          return cards.length>0 && cards.every(card=>
+            !card.classList.contains('raised') &&
+            !card.hasAttribute('title') &&
+            !card.hasAttribute('aria-keyshortcuts'));
+        }""",timeout=14000)
         guard_snapshot=snap()
         focus_blocked=page.evaluate("""() => {
           const button=document.querySelector('#vr-hand .vr-card');
@@ -1571,6 +1580,20 @@ try:
           const hint=document.querySelector('#vr-hint');
           return hand && hint && !hand.inert && !hint.inert &&
             !hand.hasAttribute('aria-hidden') && !hint.hasAttribute('aria-hidden');
+        }""",timeout=14000)
+        # VR01BF: only actual passContinue can restore the newly
+        # authorized player's public hand inspection and numeric cues.
+        page.wait_for_function("""() => {
+          const cards=[...document.querySelectorAll('#vr-hand .vr-card')];
+          if(!cards.length)return false;
+          return cards.every((card,i)=>{
+            const hint=card.dataset.vrInspection+
+              (card.dataset.vrKeyTitle?' · '+card.dataset.vrKeyTitle:'');
+            const key=i<10?(i===9?'0':String(i+1)):null;
+            return card.title===hint && (key?
+              card.getAttribute('aria-keyshortcuts')===key:
+              !card.hasAttribute('aria-keyshortcuts'));
+          });
         }""",timeout=14000)
         reveal_snapshot=snap()
         hand_reenabled=page.evaluate("""() => {
