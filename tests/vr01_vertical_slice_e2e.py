@@ -1390,10 +1390,13 @@ try:
           const shell=document.querySelector('#mrr-vr-shell');
           return shell?.classList.contains('vr-hand-hotkeys-paused') &&
             [...shell.querySelectorAll('#vr-hand .vr-card')].every((card,i)=>{
+              // VR01BD: every card, including positions beyond ten,
+              // must lose the hover tooltip while placement is active.
+              if(card.hasAttribute('title')||card.hasAttribute('aria-keyshortcuts'))
+                return false;
               if(i>=10)return true;
               const keycap=card.querySelector('.vr-shortcut-key');
-              return !card.hasAttribute('aria-keyshortcuts') && keycap &&
-                Number(getComputedStyle(keycap).opacity)<.5;
+              return keycap&&Number(getComputedStyle(keycap).opacity)<.5;
             });
         }""",timeout=14000)
         assert snap()==prior,'VR01AI paused hand cues changed Phase21 state'
@@ -1410,8 +1413,13 @@ try:
         page.wait_for_function("""() => {
           const shell=document.querySelector('#mrr-vr-shell');
           return shell && !shell.classList.contains('vr-hand-hotkeys-paused') &&
-            [...shell.querySelectorAll('#vr-hand .vr-card')].every((card,i)=>
-              i>=10||card.getAttribute('aria-keyshortcuts')===(i===9?'0':String(i+1)));
+            [...shell.querySelectorAll('#vr-hand .vr-card')].every((card,i)=>{
+              const tip=card.dataset.vrInspection+
+                (card.dataset.vrKeyTitle?' · '+card.dataset.vrKeyTitle:'');
+              return card.title===tip && (i>=10?
+                !card.hasAttribute('aria-keyshortcuts'):
+                card.getAttribute('aria-keyshortcuts')===(i===9?'0':String(i+1)));
+            });
         }""",timeout=14000)
         assert snap()==prior,'VR01AI restored hand cues changed Phase21 state'
         page.wait_for_function("""() =>
