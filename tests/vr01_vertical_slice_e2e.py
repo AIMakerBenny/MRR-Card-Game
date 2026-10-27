@@ -160,6 +160,16 @@ try:
       assert hand_review['raised']=='80' and (
         0<=hand_review['faceTop']<hand_review['faceBottom']<=h+1),(
           'VR01AX inspected card layering or viewport position',w,h,hand_review)
+      # VR01AZ: capture the actual expanded hand at each desktop viewport,
+      # then remove only the QA marker. No native game action is invoked.
+      page.evaluate("""() => {
+        const cards=[...document.querySelectorAll('#vr-hand .vr-card')];
+        cards[Math.floor(cards.length/2)]?.classList.add('raised');
+      }""")
+      page.screenshot(path=str(ROOT/f'tests/vr01az_expanded_hand_{w}x{h}.png'),
+        animations='disabled')
+      page.evaluate("""() => document.querySelectorAll('#vr-hand .vr-card.raised')
+        .forEach(card=>card.classList.remove('raised'))""")
       assert snap()==baseline,('VR01AW/AX inspection changed Phase21 state',w,h)
       visible_public=page.locator('#arena [data-slot] .board-card .card-ui').count()
       plaques=page.locator('#vr-public-plaques .vr-unit-plaque')
