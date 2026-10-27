@@ -597,7 +597,19 @@ function reconcileConfirmedOutcomes(){
 // mirrored cards until the genuine Phase21 passContinue finishes.
 function updatePrivateHandoff(){
  const privatePass=!!q('#overlay:not(.hidden) #passContinue');
- for(const host of [q('#vr-hand',ui),q('#vr-hint',ui)]){
+ // VR01BE: a genuine local turn handoff must also clear the old
+ // player's transient inspection/focus state. CSS, inert and aria-hidden
+ // still provide the authoritative privacy barrier; no game data changes.
+ const hand=q('#vr-hand',ui);
+ if(privatePass&&hand){
+   if(hand.contains(document.activeElement))document.activeElement.blur();
+   for(const card of qa('.vr-card',hand)){
+     card.classList.remove('raised');
+     card.removeAttribute('title');
+     card.removeAttribute('aria-keyshortcuts');
+   }
+ }
+ for(const host of [hand,q('#vr-hint',ui)]){
    if(!host)continue;
    if(host.inert!==privatePass)host.inert=privatePass;
    if(privatePass){
