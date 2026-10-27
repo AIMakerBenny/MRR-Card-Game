@@ -186,6 +186,26 @@ try:
         animations='disabled')
       page.evaluate("""() => document.querySelectorAll('#vr-hand .vr-card.raised')
         .forEach(card=>card.classList.remove('raised'))""")
+      # VR01BC: shortcut refresh may suppress titles while targeting, but
+      # must show the current public inspection when native hand keys work.
+      tooltip_audit=page.evaluate("""() => {
+        const native=[...document.querySelectorAll('#hand .hand-slot')];
+        const cards=[...document.querySelectorAll('#vr-hand .vr-card')];
+        if(cards.length!==native.length)return false;
+        return cards.every((card,i)=>{
+          const name=native[i].querySelector('.card-name')?.textContent.trim()||'카드';
+          const cost=native[i].querySelector('.cost-bubble')?.textContent.trim()||'';
+          const parts=card.title.split(' · ');
+          const spoken=(card.getAttribute('aria-description')||'').split(' · ');
+          const shortcut=card.dataset.vrKeyTitle||'';
+          const expected=card.dataset.vrInspection+(shortcut?' · '+shortcut:'');
+          return card.title===expected && parts.filter(p=>p===name).length===1 &&
+            !spoken.includes(name) &&
+            (!cost||card.title.includes('비용 '+cost)) &&
+            (!shortcut||shortcut.startsWith('단축키 '));
+        });
+      }""")
+      assert tooltip_audit,('VR01BC publicly grounded hand tooltip mismatch',w,h)
       assert snap()==baseline,('VR01AW/AX inspection changed Phase21 state',w,h)
       visible_public=page.locator('#arena [data-slot] .board-card .card-ui').count()
       plaques=page.locator('#vr-public-plaques .vr-unit-plaque')
@@ -340,6 +360,15 @@ try:
       return card?.isConnected && document.activeElement===card &&
         card.classList.contains('raised') &&
         card.querySelector('.vr-mana')?.textContent==='77';
+    }""",timeout=15000)
+    # VR01BC: native cosmetic cost updates must refresh the same tooltip
+    # and accessible description while preserving the original focused node.
+    page.wait_for_function("""() => {
+      const card=window.__vr01ajCard;
+      return card?.title.includes('비용 77') &&
+        card.getAttribute('aria-description')?.includes('비용 77') &&
+        card.title===card.dataset.vrInspection+
+          (card.dataset.vrKeyTitle?' · '+card.dataset.vrKeyTitle:'');
     }""",timeout=15000)
     assert snap()==baseline,'VR01AJ cosmetic hand refresh changed game state'
     page.screenshot(path=str(ROOT/'tests/vr01aj_text_focus_preserved_1920x1080.png'),
