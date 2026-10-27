@@ -577,3 +577,23 @@ body.mrr-vr-active #mrr-vr-shell .vr-card.vr-native-selected::after{
 body.mrr-vr-active #mrr-vr-shell.vr-placing .vr-card.vr-native-selected::after{
  top:0;
 }
+
+/* VR01AU: keyboard focus must remain discernible on the fixed lower hand
+   anchor even when the card face is collapsed for native targeting. This
+   outline is presentation-only, and does not change hitboxes or selection. */
+body.mrr-vr-active #mrr-vr-shell .vr-card:focus-visible{
+ outline:2px solid #f2d18b;
+ outline-offset:-3px;
+ border-radius:8px 8px 0 0;
+}
+body.mrr-vr-active #mrr-vr-shell .vr-card:focus-visible .vr-shortcut-key{
+ background:#ead19c;
+ border-color:#fff3ca;
+ color:#11292c;
+ text-shadow:none;
+ box-shadow:0 0 0 2px #162a30,0 0 13px #efcf8c;
+}
+body.mrr-vr-active #mrr-vr-shell.vr-placing .vr-card:focus-visible{
+ outline-offset:0;
+}
+/* Native handoff continues to suppress the entire mirrored hand. */
