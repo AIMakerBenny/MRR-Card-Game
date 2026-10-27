@@ -685,12 +685,15 @@ function refresh(){
    q('#overlay')?.classList.contains('hidden')&&
    handButtons.length===qa('#hand .hand-slot').length;
  ui.classList.toggle('vr-hand-hotkeys-paused',!handHotkeysActive);
+ // VR01BD: even cards 11+ (without a numeric shortcut) must follow
+ // the same inspection-title visibility gate during targeting and handoff.
+ // Only the first ten receive genuine Phase21-delegating number hotkeys.
  handButtons.forEach((card,i)=>{
-   if(i>=10)return;
-   const key=i===9?'0':String(i+1);
+   const key=i<10?(i===9?'0':String(i+1)):'';
    if(handHotkeysActive&&!card.disabled){
-     if(card.getAttribute('aria-keyshortcuts')!==key)card.setAttribute('aria-keyshortcuts',key);
-     // VR01BC: shortcut refresh must not erase genuine native card info.
+     if(key){
+       if(card.getAttribute('aria-keyshortcuts')!==key)card.setAttribute('aria-keyshortcuts',key);
+     }else card.removeAttribute('aria-keyshortcuts');
      const tip=card.dataset.vrInspection+(card.dataset.vrKeyTitle?' · '+card.dataset.vrKeyTitle:'');
      if(card.title!==tip)card.title=tip;
    }else{
