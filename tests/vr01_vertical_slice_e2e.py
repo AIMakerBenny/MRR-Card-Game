@@ -148,6 +148,8 @@ try:
           faceBottom:active.querySelector('.vr-card-face').getBoundingClientRect().bottom,
           neighbors:cards.filter(c=>c!==active).length,
           nameFont:parseFloat(getComputedStyle(active.querySelector('.vr-name')).fontSize),
+          nameWhiteSpace:getComputedStyle(active.querySelector('.vr-name')).whiteSpace,
+          nameClamp:getComputedStyle(active.querySelector('.vr-name')).webkitLineClamp,
           rulesFont:parseFloat(getComputedStyle(active.querySelector('.vr-rules')).fontSize)
         };
         active.classList.remove('raised');
@@ -170,6 +172,10 @@ try:
       else:
         assert hand_review['nameFont']<=14 and hand_review['rulesFont']<=13,(
           'VR01BA changed standard desktop typography',w,h,hand_review)
+      # VR01BB: inspected long names may wrap twice, but never trigger a
+      # rebuild or expose additional card content. Confirm at every width.
+      assert hand_review['nameWhiteSpace']=='normal' and hand_review['nameClamp']=='2',(
+        'VR01BB name inspection wrapping missing',w,h,hand_review)
       # VR01AZ: capture the actual expanded hand at each desktop viewport,
       # then remove only the QA marker. No native game action is invoked.
       page.evaluate("""() => {
