@@ -230,7 +230,10 @@ function updateHand(){
   // VR01AS: the face intentionally clamps longer native descriptions to two
   // lines. Keep the complete PUBLIC Phase21 copy available for inspection.
   // No private hand data, rules, or new UI hit targets are introduced.
-  const inspection=(d)=>[d.name,d.kind,d.summary,d.stats].filter(Boolean).join(' · ');
+  // VR01BC: all inspection fields come from the CURRENT public native hand.
+  // Keep the spoken description separate from the button's name label.
+  const detail=(d)=>[d.cost!==''?'비용 '+d.cost:'',d.kind,d.summary,d.stats].filter(Boolean).join(' · ');
+  const inspection=(d)=>[d.name,detail(d)].filter(Boolean).join(' · ');
   const fan=q('#vr-hand',ui);
   if(handSignature===signature&&!artChanged){
     if(handLayoutDirty)reflowHand(fan);
@@ -257,8 +260,10 @@ function updateHand(){
       const inspectionText=inspection(d);
       if(card.dataset.vrInspection!==inspectionText){
         card.dataset.vrInspection=inspectionText;
-        card.setAttribute('aria-description',inspectionText);
-        card.title=inspectionText+(card.dataset.vrKeyTitle?' · '+card.dataset.vrKeyTitle:'');
+        card.setAttribute('aria-description',detail(d));
+        // Keep title removed when native targeting or privacy blocks hand hints.
+        if(card.hasAttribute('title'))
+          card.title=inspectionText+(card.dataset.vrKeyTitle?' · '+card.dataset.vrKeyTitle:'');
       }
       // Preserve VR01AG/AH dynamic Phase59 artwork behavior as well.
       const face=q('.vr-art-blank',card);
@@ -290,11 +295,10 @@ function updateHand(){
     if(d.i<10){
       const shortcut=d.i===9?'0':String(d.i+1);
       card.setAttribute('aria-keyshortcuts',shortcut);
-      card.title=d.name+' · 단축키 '+shortcut;
-      card.dataset.vrKeyTitle=card.title;
+      card.dataset.vrKeyTitle='단축키 '+shortcut;
     }
     card.dataset.vrInspection=inspection(d);
-    card.setAttribute('aria-description',card.dataset.vrInspection);
+    card.setAttribute('aria-description',detail(d));
     card.title=card.dataset.vrInspection+(card.dataset.vrKeyTitle?' · '+card.dataset.vrKeyTitle:'');
     const surface=el('div','vr-card-face');
     const artwork=el('div','vr-art-blank');
@@ -686,7 +690,9 @@ function refresh(){
    const key=i===9?'0':String(i+1);
    if(handHotkeysActive&&!card.disabled){
      if(card.getAttribute('aria-keyshortcuts')!==key)card.setAttribute('aria-keyshortcuts',key);
-     if(card.title!==card.dataset.vrKeyTitle)card.title=card.dataset.vrKeyTitle||'';
+     // VR01BC: shortcut refresh must not erase genuine native card info.
+     const tip=card.dataset.vrInspection+(card.dataset.vrKeyTitle?' · '+card.dataset.vrKeyTitle:'');
+     if(card.title!==tip)card.title=tip;
    }else{
      card.removeAttribute('aria-keyshortcuts');
      card.removeAttribute('title');
