@@ -656,3 +656,20 @@ body.mrr-vr-active #mrr-vr-shell .vr-card:is(:hover,:focus-visible,.raised) .vr-
  overflow:hidden;
  overflow-wrap:anywhere;
 }
+
+/* VR01BP: a pointer may remain over the old hand card while keyboard focus
+   moves to another. Give the focused card sole full-height inspection;
+   collapse a different hovered/raised card without changing any hit
+   anchors, pointer handlers, or native Phase21 game state. */
+body.mrr-vr-active #mrr-vr-shell:not(.vr-placing) .vr-hand:has(.vr-card:focus-visible)
+ .vr-card:is(:hover,.raised):not(:focus-visible){
+ height:var(--peek)!important;
+ width:var(--hit)!important;
+ z-index:1!important;
+}
+body.mrr-vr-active #mrr-vr-shell:not(.vr-placing) .vr-hand:has(.vr-card:focus-visible)
+ .vr-card:is(:hover,.raised):not(:focus-visible) .vr-card-face{
+ bottom:calc(-1 * var(--card-h) + var(--peek))!important;
+ transform:translateX(-50%) rotate(var(--angle))!important;
+ filter:drop-shadow(0 7px 13px #000d)!important;
+}
