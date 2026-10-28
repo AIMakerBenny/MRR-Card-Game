@@ -905,6 +905,11 @@ try:
         assert before and action_box
         page.mouse.move(action_box['x']+action_box['width']/2,
           action_box['y']+action_box['height']/2)
+        # VR01BT: the native quick command is genuinely under the pointer;
+        # its selected-card placement must not re-seat while safe to click.
+        assert page.locator('#mrr-integrated-context').evaluate(
+          "node=>node.matches(':hover')"),(
+          'VR01BT expected native quick command to receive actual mouse hover')
         page.wait_for_timeout(850)
         after_hover=page.locator('#mrr-integrated-context').bounding_box()
         assert after_hover and abs(after_hover['x']-before['x'])<3 and (
