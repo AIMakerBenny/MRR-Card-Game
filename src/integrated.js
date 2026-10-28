@@ -250,7 +250,10 @@ window.MRRIntegratedUIInit=function(loadThree){
                 const stable=context.dataset.vrLayoutKey===layoutKey &&
                   Number.isFinite(lastSlotX)&&Number.isFinite(lastSlotY)&&
                   (Math.hypot(pos.x-lastSlotX,pos.y-lastSlotY)<36||
-                    (context.matches(':hover')&&heldSafe));
+                    // VR01BU: keyboard focus on a native command deserves
+                    // the same safe, steady click target as pointer hover.
+                    ((context.matches(':hover')||
+                      context.matches(':focus-within'))&&heldSafe));
                 if(!stable){
                 const scored=candidates.map(c=>{
                   const x=clamp(c.x,12,maxX),y=clamp(c.y,topBound,bottomBound);
