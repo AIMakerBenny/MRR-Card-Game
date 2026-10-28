@@ -1009,6 +1009,66 @@ try:
           'VR01BW command did not clear newly overlapping public status badge',
           status_collision)
         assert snap()==baseline,'VR01BW public-status fixture altered Phase21'
+        # VR01BX: temporarily withdraw all original inspector commands
+        # without clicking or changing G. The actual integrated adapter
+        # must hide its quick group and discard the old cached seat.
+        cache_reset=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene;
+          const ctx=document.querySelector('#mrr-integrated-context');
+          const attack=document.querySelector('#inspectBody button[data-actor="attack"]');
+          const move=document.querySelector('#inspectBody button[data-actor="move"]');
+          const cancel=document.querySelector('#inspectBody button[data-cancel-action]');
+          if(!ctx||!attack||!ctx.dataset.vrLayoutKey)return null;
+          const oldA=attack.disabled,oldM=move?.disabled;
+          const parent=cancel?.parentNode,next=cancel?.nextSibling;
+          try{
+            attack.disabled=true;
+            if(move)move.disabled=true;
+            cancel?.remove();
+            scene.sync();
+            const blocked={hidden:ctx.hidden,
+              cacheGone:!ctx.hasAttribute('data-vr-layout-key')&&
+                !ctx.hasAttribute('data-vr-slot-x')&&
+                !ctx.hasAttribute('data-vr-slot-y')};
+            return blocked;
+          }finally{
+            attack.disabled=oldA;
+            if(move)move.disabled=oldM;
+            if(cancel&&parent)parent.insertBefore(cancel,next);
+            scene.sync();
+          }
+        }""")
+        assert cache_reset and cache_reset['hidden'] and (
+          cache_reset['cacheGone']),(
+          'VR01BX hidden action group retained a stale command seat',
+          cache_reset)
+        page.wait_for_function("""() => {
+          const ctx=document.querySelector('#mrr-integrated-context');
+          return ctx&&!ctx.hidden&&!!ctx.dataset.vrLayoutKey;
+        }""",timeout=12000)
+        assert snap()==baseline,'VR01BX native command cache reset changed Phase21'
+        # VR01BX: viewport reflow must retain the SAME focused native
+        # command and keep its actual clickable rectangle inside stage.
+        page.locator('#mrr-quick-attack').focus()
+        for focus_w,focus_h in ((1366,768),(2560,1440),(1920,1080)):
+          page.set_viewport_size({'width':focus_w,'height':focus_h})
+          page.wait_for_function("""() => {
+            const ctx=document.querySelector('#mrr-integrated-context');
+            const stage=document.querySelector('#mrr-integrated-stage');
+            if(!ctx||ctx.hidden||!stage)return false;
+            const a=ctx.getBoundingClientRect(),b=stage.getBoundingClientRect();
+            const face=MRRIntegrated.scene.projectCardBounds(
+              MRRIntegrated.state.scene.selectedKey);
+            const overlap=face?Math.max(0,Math.min(a.right,face.right)-
+              Math.max(a.left,face.left))*
+              Math.max(0,Math.min(a.bottom,face.bottom)-Math.max(a.top,face.top)):999;
+            return document.activeElement?.id==='mrr-quick-attack' &&
+              a.left>=b.left+10&&a.right<=b.right-10&&
+              a.top>=b.top+79&&a.bottom<=b.bottom-110&&overlap<4;
+          }""",timeout=20000)
+          assert snap()==baseline,(
+            'VR01BX focused action resize changed Phase21',focus_w,focus_h)
+        page.evaluate('document.activeElement?.blur()')
     # VR01AD: stress the actual native toolbar using 22 additional
     # public-DOM-only clones. Do not alter G, effects, original cards or
     # any native legal/attack class. Compare the toolbar against every
