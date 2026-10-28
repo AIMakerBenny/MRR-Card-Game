@@ -214,7 +214,7 @@ function updateHand(){
   const src=qa('#hand .hand-slot');
   const hand=src.map((slot,i)=>{
     const c=q('.card-ui',slot),t=s=>clean(q(s,c||slot)?.textContent);
-    return {i,name:t('.card-name')||'카드',cost:t('.cost-bubble'),kind:t('.card-kind'),summary:t('.card-summary'),stats:t('.card-stats')};
+    return {i,publicId:c?.getAttribute('data-mrr-public-card-id')||'',name:t('.card-name')||'카드',cost:t('.cost-bubble'),kind:t('.card-kind'),summary:t('.card-summary'),stats:t('.card-stats')};
   });
   // VR01AG: existing current-player hand art may change independently
   // of card text. Track only artwork already present in the visible native
@@ -239,18 +239,30 @@ function updateHand(){
     if(handLayoutDirty)reflowHand(fan);
     return;
   }
+  // VR01BG: use publicly visible native card IDs when available so a
+  // cosmetic name/kind repaint preserves the same hand button and focus.
+  // Without IDs, retain the earlier conservative name/kind comparison.
   // VR01AJ: the same visible Phase21 cards can have cosmetic changes
   // to cost, rules or stats. Keep each existing 3D button/focus/hover and
   // update its displayed text in place instead of replacing the whole fan.
   // Genuine hand identity/order changes still use the full rebuild below.
   const previousHand=handSignature?JSON.parse(handSignature):[];
   const sameVisibleCards=previousHand.length===hand.length&&
-    fan.children.length===hand.length&&hand.every((d,i)=>
-      d.name===previousHand[i].name&&d.kind===previousHand[i].kind);
+    fan.children.length===hand.length&&hand.every((d,i)=>{
+      const before=previousHand[i];
+      if(d.publicId||before.publicId)
+        return !!(d.publicId&&before.publicId&&d.publicId===before.publicId);
+      return d.name===before.name&&d.kind===before.kind;
+    });
   if(sameVisibleCards){
     src.forEach((slot,i)=>{
       const card=fan.children[i],d=hand[i];
+      // Name and kind may now change cosmetically for the same public ID.
+      const label=d.name+' 손패 선택';
+      if(card.getAttribute('aria-label')!==label)card.setAttribute('aria-label',label);
       for(const [selector,value] of [
+        ['.vr-name',d.name],
+        ['.vr-kind',d.kind||'카드'],
         ['.vr-mana',d.cost||'0'],
         ['.vr-rules',d.summary||''],
         ['.vr-stats',d.stats||'']]){
