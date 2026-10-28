@@ -106,6 +106,13 @@ try:
       assert info['rect']['left']>=0 and info['rect']['right']<=w and (
         0<=info['rect']['top']<info['rect']['bottom']<=h),info
       assert '손패' in info['text'],info
+      # VR01BO: discoverability must match the actual keyboard behavior.
+      # Arrows/Home/End focus cards; numbers select via native Phase21.
+      assert '← → 탐색' in info['text'] and 'Home/End' in info['text'],(
+        'VR01BO missing PC navigation hint',w,h,info)
+      spoken=page.locator('#vr-hand').get_attribute('aria-description') or ''
+      assert all(key in spoken for key in ('방향키','Home','End','숫자')),(
+        'VR01BO missing accessible navigation guidance',w,h,spoken)
       assert page.locator('#vr-enemy-fan .vr-back').count()==page.locator('#enemyHand .mcw-back').count()
       # VR01AO: after responsive reflow, back identity, order and the
       # old public-only count must be preserved with correct spacing.
@@ -1628,6 +1635,10 @@ try:
           });
         }""",timeout=15000)
         assert snap()==prior,'VR01AA marker changed native placement state'
+        # VR01BO: navigating hands is not a legal action during placement;
+        # the status hint must prioritize the actual native placement.
+        assert '← → 탐색' not in (page.locator('#vr-hint-text').text_content() or ''),(
+          'VR01BO focus hint shown during real placement')
         # VR01AI: during a genuine Phase21 target declaration 1–0 cannot
         # start another hand selection. Only the cue/ARIA mirror changes.
         page.wait_for_function("""() => {
