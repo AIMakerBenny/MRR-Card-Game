@@ -452,6 +452,10 @@ try:
         document.activeElement!==old);
     }""",arg=identity['index'],timeout=15000)
     assert snap()==baseline,'VR01BH public identity change touched native game'
+    page.evaluate("""index => {
+      window.__vr01bhReplacement=document.querySelector(
+        '#vr-hand .vr-card[data-index="'+index+'"]');
+    }""",identity['index'])
     page.evaluate("""() => {
       window.__vr01bhSource.setAttribute(
         'data-mrr-public-card-id',window.__vr01bhId);
@@ -460,13 +464,15 @@ try:
       const source=window.__vr01bhSource;
       const mirror=document.querySelector('#vr-hand .vr-card[data-index="'+index+'"]');
       return source?.getAttribute('data-mrr-public-card-id')===window.__vr01bhId &&
-        !!mirror && mirror!==window.__vr01bhOldMirror &&
+        window.__vr01bhReplacement && !window.__vr01bhReplacement.isConnected &&
+        !!mirror && mirror!==window.__vr01bhReplacement &&
         mirror.getAttribute('aria-label')?.endsWith(' 손패 선택');
     }""",arg=identity['index'],timeout=15000)
     page.evaluate("""() => {
       delete window.__vr01bhSource;
       delete window.__vr01bhId;
       delete window.__vr01bhOldMirror;
+      delete window.__vr01bhReplacement;
     }""")
     assert snap()==baseline,'VR01BH restored native identity affected game'
     # VR01AN: a viewport resize is NOT a change to the player's cards.
