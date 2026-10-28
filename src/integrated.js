@@ -147,6 +147,14 @@ window.MRRIntegratedUIInit=function(loadThree){
           quickMove.hidden=!valid||move.disabled;
           quickCancel.hidden=!valid||cancel.disabled;
           const show=valid&&(!quickAttack.hidden||!quickMove.hidden||!quickCancel.hidden);
+          // VR01BX: a context that genuinely disappears must not retain
+          // the previous selected card's cached seat. The next real native
+          // command gets a fresh collision-aware placement after reopening.
+          if(!show){
+            delete context.dataset.vrLayoutKey;
+            delete context.dataset.vrSlotX;
+            delete context.dataset.vrSlotY;
+          }
           context.hidden=!show;
           if(show){
             // Phase70: use the fixed native slot, not the animated card mesh.
