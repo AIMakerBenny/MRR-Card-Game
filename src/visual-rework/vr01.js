@@ -782,6 +782,10 @@ function handleHandShortcut(ev){
    const next=cards[i+(ev.key==='ArrowRight'?1:-1)];
    if(i<0||!next||next.disabled)return;
    ev.preventDefault();ev.stopImmediatePropagation();
+   // VR01BQ: mouseenter may leave a stale .raised marker on the
+   // previously inspected card. Clear that marker when keyboard navigation
+   // intentionally picks a different card, while native click remains idle.
+   for(const prior of cards)if(prior!==next)prior.classList.remove('raised');
    next.focus({preventScroll:true});
    return;
  }
@@ -796,6 +800,10 @@ function handleHandShortcut(ev){
    const next=ev.key==='Home'?cards[0]:cards[cards.length-1];
    if(!next||next.disabled)return;
    ev.preventDefault();ev.stopImmediatePropagation();
+   // VR01BQ: mouseenter may leave a stale .raised marker on the
+   // previously inspected card. Clear that marker when keyboard navigation
+   // intentionally picks a different card, while native click remains idle.
+   for(const prior of cards)if(prior!==next)prior.classList.remove('raised');
    next.focus({preventScroll:true});
    return;
  }
