@@ -766,6 +766,20 @@ function handleHandShortcut(ev){
    next.focus({preventScroll:true});
    return;
  }
+ // VR01BM: Home/End jump to the first/last visible hand button.
+ // Navigation is limited to a focused hand, never selects a native card,
+ // and respects the very same private/targeting gate as arrow navigation.
+ if(ev.key==='Home'||ev.key==='End'){
+   const current=ev.target?.closest?.('#vr-hand .vr-card');
+   if(!current||!ui.contains(current)||
+      ui.classList.contains('vr-hand-hotkeys-paused'))return;
+   const cards=qa('#vr-hand .vr-card',ui);
+   const next=ev.key==='Home'?cards[0]:cards[cards.length-1];
+   if(!next||next.disabled)return;
+   ev.preventDefault();ev.stopImmediatePropagation();
+   next.focus({preventScroll:true});
+   return;
+ }
  if(key==='a'||key==='m'){
    // VR01Y: never reinterpret an active placement/target declaration, a
    // private handoff or a native-disabled command as a fresh action.
