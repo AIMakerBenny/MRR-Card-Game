@@ -945,6 +945,39 @@ try:
             'VR01BU focused native quick command unexpectedly jumped',
             focused_command)
         assert snap()==baseline,'VR01BU focused native command altered Phase21'
+        # VR01BV: force the SAME cached action into the selected public
+        # card's projected face without changing native gameplay state.
+        # Even with zero slot displacement, a newly unsafe seat must move.
+        unsafe_cache=page.evaluate("""() => {
+          const ctx=document.querySelector('#mrr-integrated-context');
+          const stage=document.querySelector('#mrr-integrated-stage');
+          const scene=MRRIntegrated.scene;
+          const face=scene.projectCardBounds(scene.state.selectedKey);
+          if(!ctx||!stage||!face||ctx.hidden)return null;
+          const stageBox=stage.getBoundingClientRect();
+          const old={left:ctx.style.left,top:ctx.style.top};
+          const overlap=(a,b)=>Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left))*
+            Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top));
+          ctx.style.left=(face.left-stageBox.left+
+            (face.right-face.left-ctx.offsetWidth)/2)+'px';
+          ctx.style.top=((face.top+face.bottom)/2-stageBox.top)+'px';
+          const invalid=overlap(ctx.getBoundingClientRect(),face);
+          try{scene.sync();}
+          finally{
+            // Preserve the real computed safe location if it was fixed;
+            // otherwise restore original styles before raising an error.
+            if(overlap(ctx.getBoundingClientRect(),face)>=4){
+              ctx.style.left=old.left;ctx.style.top=old.top;
+            }
+          }
+          const now=ctx.getBoundingClientRect();
+          return {invalid,remaining:overlap(now,face),
+            moved:now.left!==face.left||now.top!==face.top};
+        }""")
+        assert unsafe_cache and unsafe_cache['invalid']>4 and (
+          unsafe_cache['remaining']<4),(
+          'VR01BV cached command stayed over selected real card',unsafe_cache)
+        assert snap()==baseline,'VR01BV cache safety changed native game'
     # VR01AD: stress the actual native toolbar using 22 additional
     # public-DOM-only clones. Do not alter G, effects, original cards or
     # any native legal/attack class. Compare the toolbar against every
