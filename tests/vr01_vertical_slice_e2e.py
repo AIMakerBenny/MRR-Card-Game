@@ -413,6 +413,36 @@ try:
         card.dataset.vrInspection.startsWith('임시 카드명 확인');
     }""",timeout=15000)
     assert snap()==baseline,'VR01BG cosmetic native name changed Phase21 state'
+    # VR01BJ: click after the in-place cosmetic rename. Spy on visual
+    # launch and Phase21 delegation so the test invokes no actual game action.
+    click_audit=page.evaluate("""index => {
+      const mirror=window.__vr01bgMirror;
+      const original=[...document.querySelectorAll('#hand .hand-slot')][index];
+      const scene=window.MRRIntegrated?.scene;
+      if(!mirror||!original||typeof scene?.armDeployment!=='function')
+        return null;
+      const oldClick=original.click,oldArm=scene.armDeployment;
+      const clickOwn=Object.prototype.hasOwnProperty.call(original,'click');
+      const armOwn=Object.prototype.hasOwnProperty.call(scene,'armDeployment');
+      const events=[];
+      original.click=()=>events.push({type:'native'});
+      scene.armDeployment=data=>events.push({
+        type:'visual',name:data.name,x:data.x,y:data.y});
+      try{mirror.click();}
+      finally{
+        if(clickOwn)original.click=oldClick;
+        else delete original.click;
+        if(armOwn)scene.armDeployment=oldArm;
+        else delete scene.armDeployment;
+      }
+      return events;
+    }""",art['index'])
+    assert click_audit and len(click_audit)==2 and (
+      click_audit[0]['type']=='visual' and
+      click_audit[0]['name']=='임시 카드명 확인' and
+      click_audit[1]['type']=='native'),(
+        'VR01BJ launch name/delegation out of sync',click_audit)
+    assert snap()==baseline,'VR01BJ visual launch spy changed Phase21 state'
     page.evaluate("""() => {
       window.__vr01bgName.textContent=window.__vr01bgBefore;
     }""")
