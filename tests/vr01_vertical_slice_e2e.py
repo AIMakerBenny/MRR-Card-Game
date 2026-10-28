@@ -978,6 +978,37 @@ try:
           unsafe_cache['remaining']<4),(
           'VR01BV cached command stayed over selected real card',unsafe_cache)
         assert snap()==baseline,'VR01BV cache safety changed native game'
+        # VR01BW: a new PUBLIC status badge can overlap a previously safe
+        # quick command without any camera-slot displacement. The native
+        # view must re-seat the real button away from that visible marker.
+        status_collision=page.evaluate("""() => {
+          const ctx=document.querySelector('#mrr-integrated-context');
+          const host=document.querySelector('#vr-public-plaques');
+          const scene=MRRIntegrated.scene;
+          if(!ctx||!host||ctx.hidden)return null;
+          const r=ctx.getBoundingClientRect(),h=host.getBoundingClientRect();
+          const badge=document.createElement('span');
+          badge.className='vr-public-action';
+          badge.style.left=(r.left-h.left+r.width/2-14)+'px';
+          badge.style.top=(r.top-h.top+r.height/2-14)+'px';
+          badge.style.width='28px';badge.style.height='28px';
+          badge.textContent='◆';
+          const area=(a,b)=>Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left))*
+            Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top));
+          host.append(badge);
+          let before=0,after=0;
+          try{
+            before=area(r,badge.getBoundingClientRect());
+            scene.sync();
+            after=area(ctx.getBoundingClientRect(),badge.getBoundingClientRect());
+          }finally{badge.remove();}
+          return {before,after,focused:document.activeElement?.id==='mrr-quick-attack'};
+        }""")
+        assert status_collision and status_collision['before']>30 and (
+          status_collision['after']<4),(
+          'VR01BW command did not clear newly overlapping public status badge',
+          status_collision)
+        assert snap()==baseline,'VR01BW public-status fixture altered Phase21'
     # VR01AD: stress the actual native toolbar using 22 additional
     # public-DOM-only clones. Do not alter G, effects, original cards or
     # any native legal/attack class. Compare the toolbar against every
