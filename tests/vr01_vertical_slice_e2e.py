@@ -581,6 +581,56 @@ try:
       delete window.__vr01bhReplacement;
     }""")
     assert snap()==baseline,'VR01BH restored native identity affected game'
+    # VR01BN: a native DOM hand reorder rebuilds indexed delegates.
+    # Preserve focus on the SAME unique public card, not its old position.
+    reorder=page.evaluate("""() => {
+      const slots=[...document.querySelectorAll('#hand .hand-slot')];
+      const id=slot=>slot.querySelector('.card-ui')
+        ?.getAttribute('data-mrr-public-card-id')||'';
+      const ids=slots.map(id);
+      const k=slots.findIndex((slot,i)=>i+1<slots.length&&
+        ids[i]&&ids[i+1]&&ids[i]!==ids[i+1]&&
+        ids.filter(x=>x===ids[i+1]).length===1);
+      if(k<0)return null;
+      const first=slots[k],second=slots[k+1],parent=first.parentElement;
+      const focus=document.querySelectorAll('#vr-hand .vr-card')[k+1];
+      window.__vr01bnFirst=first;window.__vr01bnSecond=second;
+      window.__vr01bnFocusId=ids[k+1];
+      window.__vr01bnOriginalFocus=focus;
+      focus.focus();focus.classList.add('raised');
+      parent.insertBefore(second,first);
+      return {index:k,focusedId:ids[k+1]};
+    }""")
+    assert reorder,'VR01BN requires adjacent unique public card identities'
+    page.wait_for_function("""index=>{
+      const active=document.activeElement;
+      const source=[...document.querySelectorAll('#hand .hand-slot')][index]
+        ?.querySelector('.card-ui')?.getAttribute('data-mrr-public-card-id');
+      return active?.matches('#vr-hand .vr-card')&&
+        active.dataset.index===String(index)&&
+        active!==window.__vr01bnOriginalFocus &&
+        source===window.__vr01bnFocusId;
+    }""",arg=reorder['index'],timeout=15000)
+    assert snap()==baseline,'VR01BN hand reorder changed native game state'
+    page.evaluate("""() => {
+      window.__vr01bnFirst.parentElement.insertBefore(
+        window.__vr01bnFirst,window.__vr01bnSecond);
+    }""")
+    page.wait_for_function("""index=>{
+      const active=document.activeElement;
+      const original=[...document.querySelectorAll('#hand .hand-slot')][index+1]
+        ?.querySelector('.card-ui')?.getAttribute('data-mrr-public-card-id');
+      return active?.matches('#vr-hand .vr-card')&&
+        active.dataset.index===String(index+1)&&
+        original===window.__vr01bnFocusId;
+    }""",arg=reorder['index'],timeout=15000)
+    assert snap()==baseline,'VR01BN hand reorder restore changed native game'
+    page.evaluate("""() => {
+      delete window.__vr01bnFirst;
+      delete window.__vr01bnSecond;
+      delete window.__vr01bnFocusId;
+      delete window.__vr01bnOriginalFocus;
+    }""")
     # VR01AN: a viewport resize is NOT a change to the player's cards.
     # Reflow the original mirrored buttons (not replaceChildren), keeping
     # focused/raised nodes and real Phase21 engine state unchanged.
