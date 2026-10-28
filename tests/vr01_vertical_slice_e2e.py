@@ -304,6 +304,38 @@ try:
       page.evaluate("""() => document.querySelector('#vr-hand .vr-card')
         ?.classList.remove('raised')""")
       assert snap()==baseline,('VR01BP focus stacking changed Phase21',w,h)
+      # VR01BQ: reproduce real mouse hover on the last hand anchor, then
+      # keyboard-navigate to the first card without moving the pointer.
+      page.evaluate('document.activeElement?.blur()')
+      last=page.locator('#vr-hand .vr-card').last
+      bounds=last.bounding_box()
+      assert bounds,('VR01BQ last hand anchor unavailable',w,h)
+      page.mouse.move(bounds['x']+bounds['width']/2,
+        min(h-8,bounds['y']+bounds['height']-8))
+      page.wait_for_function("""() => {
+        const last=document.querySelector('#vr-hand .vr-card:last-child');
+        return last?.matches(':hover')&&last.classList.contains('raised');
+      }""",timeout=12000)
+      last.focus()
+      page.keyboard.press('Home')
+      mixed_input=page.evaluate("""() => {
+        const cards=[...document.querySelectorAll('#vr-hand .vr-card')];
+        const first=cards[0],last=cards[cards.length-1];
+        return {firstFocused:document.activeElement===first,
+          firstFocusVisible:first.matches(':focus-visible'),
+          lastHovered:last.matches(':hover'),
+          staleRaised:last.classList.contains('raised'),
+          firstHeight:first.getBoundingClientRect().height,
+          lastHeight:last.getBoundingClientRect().height};
+      }""")
+      assert mixed_input['firstFocused'] and mixed_input['firstFocusVisible'] and (
+        mixed_input['lastHovered'] and not mixed_input['staleRaised'] and
+        mixed_input['firstHeight']>240 and mixed_input['lastHeight']<160),(
+          'VR01BQ pointer and keyboard inspection conflict',w,h,mixed_input)
+      assert snap()==baseline,('VR01BQ pointer/keyboard navigation changed Phase21',w,h)
+      page.screenshot(path=str(ROOT/f'tests/vr01bq_mixed_input_{w}x{h}.png'),
+        animations='disabled')
+      page.mouse.move(5,h//2)
       page.evaluate('document.activeElement?.blur()')
       print('VR01',w,h,'hand',page.locator('#vr-hand .vr-card').count(),
         'enemy backs',page.locator('#vr-enemy-fan .vr-back').count(),flush=True)
