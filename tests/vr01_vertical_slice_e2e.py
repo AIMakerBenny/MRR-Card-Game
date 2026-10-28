@@ -284,6 +284,26 @@ try:
         document.querySelector('#vr-hand .vr-card')"""),(
           'VR01BM Home did not focus first card',w,h)
       assert snap()==baseline,('VR01BM Home/End changed Phase21',w,h)
+      # VR01BP: keyboard focus takes priority over a stale mouse-raised
+      # card. Exactly one card should occupy expanded hand height.
+      page.evaluate("""() => document.querySelector('#vr-hand .vr-card')
+        ?.classList.add('raised')""")
+      page.keyboard.press('End')
+      focused_layout=page.evaluate("""() => {
+        const cards=[...document.querySelectorAll('#vr-hand .vr-card')];
+        const first=cards[0],last=cards[cards.length-1];
+        return {firstHeight:first.getBoundingClientRect().height,
+          lastHeight:last.getBoundingClientRect().height,
+          firstFaceBottom:first.querySelector('.vr-card-face').getBoundingClientRect().bottom,
+          focused:last.matches(':focus-visible')};
+      }""")
+      assert focused_layout['focused'] and focused_layout['firstHeight']<160 and (
+        focused_layout['lastHeight']>240),(
+          'VR01BP multiple expanded cards during keyboard hand navigation',
+          w,h,focused_layout)
+      page.evaluate("""() => document.querySelector('#vr-hand .vr-card')
+        ?.classList.remove('raised')""")
+      assert snap()==baseline,('VR01BP focus stacking changed Phase21',w,h)
       page.evaluate('document.activeElement?.blur()')
       print('VR01',w,h,'hand',page.locator('#vr-hand .vr-card').count(),
         'enemy backs',page.locator('#vr-enemy-fan .vr-back').count(),flush=True)
