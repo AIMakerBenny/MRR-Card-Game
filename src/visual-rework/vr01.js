@@ -784,6 +784,9 @@ function handleHandShortcut(ev){
    if(!current||!ui.contains(current)||nativeTargeting||
       ui.classList.contains('vr-hand-hotkeys-paused'))return;
    const cards=qa('#vr-hand .vr-card',ui);
+   // VR01BS: genuine hand redraws may change native count before
+   // the 3D mirror's next frame. Never navigate a stale index map.
+   if(cards.length!==qa('#hand .hand-slot').length)return;
    const i=cards.indexOf(current);
    const next=cards[i+(ev.key==='ArrowRight'?1:-1)];
    if(i<0||!next||next.disabled)return;
@@ -803,6 +806,8 @@ function handleHandShortcut(ev){
    if(!current||!ui.contains(current)||nativeTargeting||
       ui.classList.contains('vr-hand-hotkeys-paused'))return;
    const cards=qa('#vr-hand .vr-card',ui);
+   // VR01BS: apply the same immediate native-count guard to Home/End.
+   if(cards.length!==qa('#hand .hand-slot').length)return;
    const next=ev.key==='Home'?cards[0]:cards[cards.length-1];
    if(!next||next.disabled)return;
    ev.preventDefault();ev.stopImmediatePropagation();
