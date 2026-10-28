@@ -770,12 +770,18 @@ function handleHandShortcut(ev){
  if(ev.target?.closest?.('input,textarea,select,[contenteditable],[role="textbox"]'))return;
  if(!q('#overlay')?.classList.contains('hidden'))return;
  const key=ev.key.toLowerCase();
+ // VR01BR: the original Phase21 legal target DOM is authoritative even
+ // before the visual adapter's next requestAnimationFrame refresh.
+ // This is only a focus-navigation guard; gameplay hotkeys below retain
+ // their existing native legality checks.
+ const nativeTargeting=!!(q('#arena .slot.legal')||
+   q('#arena .slot.attack-target'));
  // VR01BL: the left/right arrows navigate the REAL mirrored hand buttons.
  // Focus only: do not trigger a Phase21 selection, spend mana or change
  // native legality. Yield while placement/targeting or private pass is active.
  if(ev.key==='ArrowLeft'||ev.key==='ArrowRight'){
    const current=ev.target?.closest?.('#vr-hand .vr-card');
-   if(!current||!ui.contains(current)||
+   if(!current||!ui.contains(current)||nativeTargeting||
       ui.classList.contains('vr-hand-hotkeys-paused'))return;
    const cards=qa('#vr-hand .vr-card',ui);
    const i=cards.indexOf(current);
@@ -794,7 +800,7 @@ function handleHandShortcut(ev){
  // and respects the very same private/targeting gate as arrow navigation.
  if(ev.key==='Home'||ev.key==='End'){
    const current=ev.target?.closest?.('#vr-hand .vr-card');
-   if(!current||!ui.contains(current)||
+   if(!current||!ui.contains(current)||nativeTargeting||
       ui.classList.contains('vr-hand-hotkeys-paused'))return;
    const cards=qa('#vr-hand .vr-card',ui);
    const next=ev.key==='Home'?cards[0]:cards[cards.length-1];
