@@ -334,8 +334,12 @@ function updateHand(){
         // The 3D scene waits until original Phase21 rules really create a
         // public allied card before animating; no imaginary summon is made.
         const origin=surface.getBoundingClientRect();
+        // VR01BI: the retained button can receive a native cosmetic
+        // name repaint (VR01BG). Read the current visible name instead
+        // of the stale value captured when this listener was created.
         window.MRRIntegrated?.scene?.armDeployment?.({
-          name:d.name,x:origin.left+origin.width/2,
+          name:clean(q('.vr-name',surface)?.textContent)||d.name,
+          x:origin.left+origin.width/2,
           y:Math.min(origin.bottom-20,window.innerHeight-20)});
         original.click(); // Exactly one original hand click.
       }
