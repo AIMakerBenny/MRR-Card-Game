@@ -284,6 +284,35 @@ try:
         document.querySelector('#vr-hand .vr-card')"""),(
           'VR01BM Home did not focus first card',w,h)
       assert snap()==baseline,('VR01BM Home/End changed Phase21',w,h)
+      # VR01BR: native legality may flip before the adapter refreshes its
+      # cosmetic paused class. Dispatch four keys in that exact same DOM
+      # task; no synthetic click, engine command or saved state is touched.
+      immediate_guard=page.evaluate("""() => {
+        const cards=[...document.querySelectorAll('#vr-hand .vr-card')];
+        const slot=[...document.querySelectorAll('#arena .slot')]
+          .find(n=>!n.classList.contains('legal')&&
+            !n.classList.contains('attack-target'));
+        if(cards.length<3||!slot)return null;
+        const focus=cards[1],results=[];
+        focus.focus();
+        if(document.activeElement!==focus)return null;
+        for(const nativeMode of ['legal','attack-target']){
+          slot.classList.add(nativeMode);
+          for(const key of ['ArrowLeft','ArrowRight','Home','End']){
+            focus.dispatchEvent(new KeyboardEvent('keydown',
+              {key,bubbles:true,cancelable:true}));
+            results.push({nativeMode,key,stayed:document.activeElement===focus});
+          }
+          slot.classList.remove(nativeMode);
+        }
+        return {results,focusKept:document.activeElement===focus};
+      }""")
+      assert immediate_guard and immediate_guard['focusKept'] and all(
+        case['stayed'] for case in immediate_guard['results']) and (
+        len(immediate_guard['results'])==8),(
+          'VR01BR native targeting guard missed immediate keydown',
+          w,h,immediate_guard)
+      assert snap()==baseline,('VR01BR immediate targeting guard altered Phase21',w,h)
       # VR01BP: keyboard focus takes priority over a stale mouse-raised
       # card. Exactly one card should occupy expanded hand height.
       page.evaluate("""() => document.querySelector('#vr-hand .vr-card')
