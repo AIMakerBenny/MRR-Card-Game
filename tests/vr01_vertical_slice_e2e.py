@@ -297,6 +297,51 @@ try:
       assert snap()==baseline,('VR01AG artwork changed native game',w,h)
       page.screenshot(path=str(ROOT/f'tests/vr01ag_native_hand_art_{w}x{h}.png'),
         animations='disabled')
+    # VR01BK: update only the native art's alt text, not the image data.
+    # Keep the same mirrored button and owner image while focus persists.
+    art_alt=page.evaluate("""index => {
+      const source=[...document.querySelectorAll('#hand .hand-slot')][index]
+        ?.querySelector('.art-well > .mrr-owner-art');
+      const card=document.querySelector('#vr-hand .vr-card[data-index="'+index+'"]');
+      const art=card?.querySelector('.vr-provided-art');
+      if(!source||!card||!art)return null;
+      window.__vr01bkSource=source;
+      window.__vr01bkCard=card;
+      window.__vr01bkArt=art;
+      window.__vr01bkHadAlt=source.hasAttribute('alt');
+      window.__vr01bkOldAlt=source.getAttribute('alt');
+      card.focus();card.classList.add('raised');
+      source.setAttribute('alt','VR01BK 공개 카드 이미지 설명');
+      return {index};
+    }""",art['index'])
+    assert art_alt,'VR01BK visible native artwork fixture unavailable'
+    page.wait_for_function("""() => {
+      const card=window.__vr01bkCard,art=window.__vr01bkArt;
+      return card?.isConnected&&document.activeElement===card &&
+        card.classList.contains('raised') && art?.isConnected &&
+        card.querySelector('.vr-provided-art')===art &&
+        art.getAttribute('alt')==='VR01BK 공개 카드 이미지 설명';
+    }""",timeout=15000)
+    assert snap()==baseline,'VR01BK alt-only repaint altered native game'
+    page.evaluate("""() => {
+      const native=window.__vr01bkSource;
+      if(window.__vr01bkHadAlt)native.setAttribute('alt',window.__vr01bkOldAlt);
+      else native.removeAttribute('alt');
+    }""")
+    page.wait_for_function("""() => {
+      const art=window.__vr01bkArt,source=window.__vr01bkSource;
+      return art?.isConnected &&
+        art.getAttribute('alt')===source?.getAttribute('alt') &&
+        document.activeElement===window.__vr01bkCard;
+    }""",timeout=15000)
+    page.evaluate("""() => {
+      delete window.__vr01bkSource;
+      delete window.__vr01bkCard;
+      delete window.__vr01bkArt;
+      delete window.__vr01bkHadAlt;
+      delete window.__vr01bkOldAlt;
+    }""")
+    assert snap()==baseline,'VR01BK restored art description changed Phase21'
     # VR01AH: updating only native art must preserve existing hand
     # button identity, focus and hover, avoiding a synthetic mouse reset.
     page.evaluate("""() => {
