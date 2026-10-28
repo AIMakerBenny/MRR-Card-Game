@@ -57,7 +57,12 @@ function buildUI(){
   const heroAlly=el('div','vr-hero vr-ally');heroAlly.id='vr-ally';
   heroAlly.append(el('div','vr-portrait','M'),el('div','vr-profile'),el('div','vr-hp'));
   footer.append(heroAlly,button('vr-end-turn','턴 종료',()=>native('#endTurn')));ui.append(footer);
-  const hand=el('div','vr-hand');hand.id='vr-hand';hand.setAttribute('aria-label','내 실제 손패');ui.append(hand);
+  const hand=el('div','vr-hand');hand.id='vr-hand';hand.setAttribute('aria-label','내 실제 손패');
+  // VR01BO: expose the existing keyboard navigation to assistive tech.
+  // The native local-turn privacy barrier still hides this entire region.
+  hand.setAttribute('aria-description',
+    '왼쪽 오른쪽 방향키: 손패 탐색. Home: 첫 카드. End: 마지막 카드. 숫자 1부터 0: 해당 카드 선택.');
+  ui.append(hand);
   const hint=el('div','vr-hint');hint.id='vr-hint';
   const hintMode=el('span','vr-hint-mode','손패');
   hintMode.id='vr-hint-mode';hintMode.setAttribute('aria-hidden','true');
@@ -720,7 +725,8 @@ function refresh(){
    mode==='place'?'배치 가능 '+legalCount+'곳 · 전장 위치 선택':
    mode==='selected'?(commands.length?'카드 명령 · '+commands.join(' · '):
      '선택 카드의 명령을 실행하세요'):
-   '손패 클릭 또는 숫자 1–0으로 선택';
+   // VR01BO: explain focus-only navigation separately from native select.
+   '손패 클릭·숫자 1–0 선택 · ← → 탐색 · Home/End 처음·끝';
  ui.classList.toggle('vr-placing',!!(legalCount||attackCount));
  // VR01AI: number keys are blocked by the existing Phase21-aware handler
  // during targeting or private handoff. Match the cues on the same genuine
