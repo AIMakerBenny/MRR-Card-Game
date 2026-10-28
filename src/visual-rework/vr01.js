@@ -221,12 +221,16 @@ function updateHand(){
   // hand DOM, never game-engine or opponent private card data.
   const artSources=src.map(slot=>{
     const img=q('.art-well > .mrr-owner-art',slot);
-    return [img?.getAttribute('src')||'',img?.getAttribute('srcset')||''];
+    // VR01BK: native accessibility metadata can change without changing
+    // pixels; mirror alt-only updates without recreating a focused hand card.
+    return [img?.getAttribute('src')||'',img?.getAttribute('srcset')||'',
+      img?.getAttribute('alt')||''];
   });
   const signature=JSON.stringify(hand);
   const artChanged=artSources.length!==handArtSources.length||
     artSources.some((pair,i)=>pair[0]!==handArtSources[i]?.[0]||
-      pair[1]!==handArtSources[i]?.[1]);
+      pair[1]!==handArtSources[i]?.[1]||
+      pair[2]!==handArtSources[i]?.[2]);
   // VR01AS: the face intentionally clamps longer native descriptions to two
   // lines. Keep the complete PUBLIC Phase21 copy available for inspection.
   // No private hand data, rules, or new UI hit targets are introduced.
