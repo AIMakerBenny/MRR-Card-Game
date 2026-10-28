@@ -751,6 +751,21 @@ function handleHandShortcut(ev){
  if(ev.target?.closest?.('input,textarea,select,[contenteditable],[role="textbox"]'))return;
  if(!q('#overlay')?.classList.contains('hidden'))return;
  const key=ev.key.toLowerCase();
+ // VR01BL: the left/right arrows navigate the REAL mirrored hand buttons.
+ // Focus only: do not trigger a Phase21 selection, spend mana or change
+ // native legality. Yield while placement/targeting or private pass is active.
+ if(ev.key==='ArrowLeft'||ev.key==='ArrowRight'){
+   const current=ev.target?.closest?.('#vr-hand .vr-card');
+   if(!current||!ui.contains(current)||
+      ui.classList.contains('vr-hand-hotkeys-paused'))return;
+   const cards=qa('#vr-hand .vr-card',ui);
+   const i=cards.indexOf(current);
+   const next=cards[i+(ev.key==='ArrowRight'?1:-1)];
+   if(i<0||!next||next.disabled)return;
+   ev.preventDefault();ev.stopImmediatePropagation();
+   next.focus({preventScroll:true});
+   return;
+ }
  if(key==='a'||key==='m'){
    // VR01Y: never reinterpret an active placement/target declaration, a
    // private handoff or a native-disabled command as a fresh action.
