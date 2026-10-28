@@ -232,9 +232,25 @@ window.MRRIntegratedUIInit=function(loadThree){
                 // position while the Three.js card lifts, settles or
                 // the auto-camera eases. Only a changed viewport/action
                 // layout or a substantial slot displacement may re-seat.
+                // VR01BT: do not move a real clickable command out from
+                // under the user's mouse while auto-camera easing runs.
+                // Hold only while the current position still clears the
+                // selected card, other public faces, HUD and stage edges.
+                const commandRect=context.getBoundingClientRect();
+                const heldBox={left:commandRect.left-rect.left,
+                  right:commandRect.right-rect.left,
+                  top:commandRect.top-rect.top,
+                  bottom:commandRect.bottom-rect.top};
+                const heldSafe=heldBox.left>=12&&heldBox.right<=rect.width-12&&
+                  heldBox.top>=82&&heldBox.bottom<=rect.height-118&&
+                  area(heldBox,shield)<4&&
+                  otherFaces.every(face=>area(heldBox,face)<4)&&
+                  publicMarks.every(mark=>area(heldBox,mark)<4)&&
+                  (!hud||area(heldBox,hud)<4);
                 const stable=context.dataset.vrLayoutKey===layoutKey &&
                   Number.isFinite(lastSlotX)&&Number.isFinite(lastSlotY)&&
-                  Math.hypot(pos.x-lastSlotX,pos.y-lastSlotY)<36;
+                  (Math.hypot(pos.x-lastSlotX,pos.y-lastSlotY)<36||
+                    (context.matches(':hover')&&heldSafe));
                 if(!stable){
                 const scored=candidates.map(c=>{
                   const x=clamp(c.x,12,maxX),y=clamp(c.y,topBound,bottomBound);
