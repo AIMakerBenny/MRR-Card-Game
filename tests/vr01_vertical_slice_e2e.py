@@ -387,6 +387,47 @@ try:
       delete window.__vr01ajCard;
     }""")
     assert snap()==baseline,'VR01AJ restored native text affected game state'
+    # VR01BG: a cosmetic native label repaint for an unchanged PUBLIC card
+    # identity must update the same mirrored button without losing focus.
+    rename=page.evaluate("""index => {
+      const source=[...document.querySelectorAll('#hand .hand-slot')][index];
+      const name=source?.querySelector('.card-name');
+      const nativeId=source?.querySelector('.card-ui')
+        ?.getAttribute('data-mrr-public-card-id');
+      const mirror=document.querySelector('#vr-hand .vr-card[data-index="'+index+'"]');
+      if(!name||!nativeId||!mirror)return null;
+      window.__vr01bgName=name;
+      window.__vr01bgBefore=name.textContent;
+      window.__vr01bgMirror=mirror;
+      mirror.focus();mirror.classList.add('raised');
+      name.textContent='임시 카드명 확인';
+      return {nativeId,index};
+    }""",art['index'])
+    assert rename,'VR01BG native public-card identity fixture unavailable'
+    page.wait_for_function("""() => {
+      const card=window.__vr01bgMirror;
+      return card?.isConnected && document.activeElement===card &&
+        card.classList.contains('raised') &&
+        card.querySelector('.vr-name')?.textContent==='임시 카드명 확인' &&
+        card.getAttribute('aria-label')==='임시 카드명 확인 손패 선택' &&
+        card.dataset.vrInspection.startsWith('임시 카드명 확인');
+    }""",timeout=15000)
+    assert snap()==baseline,'VR01BG cosmetic native name changed Phase21 state'
+    page.evaluate("""() => {
+      window.__vr01bgName.textContent=window.__vr01bgBefore;
+    }""")
+    page.wait_for_function("""() => {
+      const card=window.__vr01bgMirror;
+      return card?.isConnected && document.activeElement===card &&
+        card.querySelector('.vr-name')?.textContent===
+          window.__vr01bgBefore.trim();
+    }""",timeout=15000)
+    page.evaluate("""() => {
+      delete window.__vr01bgName;
+      delete window.__vr01bgBefore;
+      delete window.__vr01bgMirror;
+    }""")
+    assert snap()==baseline,'VR01BG restored name affected native game'
     # VR01AN: a viewport resize is NOT a change to the player's cards.
     # Reflow the original mirrored buttons (not replaceChildren), keeping
     # focused/raised nodes and real Phase21 engine state unchanged.
