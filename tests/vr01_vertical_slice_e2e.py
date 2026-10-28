@@ -916,6 +916,35 @@ try:
           abs(after_hover['y']-before['y'])<3),('VR01AC jumpy quick command',before,after_hover)
         page.screenshot(path=str(ROOT/'tests/vr01ac_native_context_nonoverlap_1920x1080.png'),
           animations='disabled')
+        # VR01BU: keyboard focus must also pin a safe native command
+        # despite a synthetic >36px auto-camera slot displacement.
+        # Only the visual cache is perturbed, never Phase21 engine state.
+        page.mouse.move(5,540)
+        page.locator('#mrr-quick-attack').focus()
+        focused_command=page.evaluate("""() => {
+          const ctx=document.querySelector('#mrr-integrated-context');
+          const button=document.querySelector('#mrr-quick-attack');
+          const scene=MRRIntegrated.scene;
+          const slot=scene.projectSlot(scene.state.selectedKey);
+          if(!ctx||ctx.hidden||!slot||!ctx.dataset.vrLayoutKey||
+             document.activeElement!==button)return null;
+          const before=ctx.getBoundingClientRect(),oldX=ctx.dataset.vrSlotX;
+          const oldY=ctx.dataset.vrSlotY;
+          ctx.dataset.vrSlotX=String(slot.x-80);
+          try{scene.sync();}
+          finally{ctx.dataset.vrSlotX=oldX;ctx.dataset.vrSlotY=oldY;}
+          const after=ctx.getBoundingClientRect();
+          return {focus:document.activeElement===button,
+            underPointer:ctx.matches(':hover'),
+            deltaX:after.left-before.left,deltaY:after.top-before.top};
+        }""")
+        assert focused_command and focused_command['focus'] and (
+          not focused_command['underPointer'] and
+          abs(focused_command['deltaX'])<3 and
+          abs(focused_command['deltaY'])<3),(
+            'VR01BU focused native quick command unexpectedly jumped',
+            focused_command)
+        assert snap()==baseline,'VR01BU focused native command altered Phase21'
     # VR01AD: stress the actual native toolbar using 22 additional
     # public-DOM-only clones. Do not alter G, effects, original cards or
     # any native legal/attack class. Compare the toolbar against every
