@@ -247,6 +247,25 @@ try:
         assert box['x']+box['width']<=w and box['y']+box['height']<=h
       assert snap()==baseline,(w,h,'VR rendering changed gameplay')
       page.screenshot(path=str(ROOT/f'tests/vr01_after_{w}x{h}.png'),animations='disabled')
+      # VR01BL: move keyboard focus left/right between genuine mirrored
+      # hand buttons. Boundary arrows must not wrap or click Phase21 cards.
+      nav=page.locator('#vr-hand .vr-card')
+      assert nav.count()>=2,('VR01BL requires >=2 public player cards',w,h)
+      nav.first.focus()
+      page.keyboard.press('ArrowRight')
+      assert page.evaluate("""() => document.activeElement===
+        document.querySelectorAll('#vr-hand .vr-card')[1]"""),(
+          'VR01BL right arrow did not focus next hand card',w,h)
+      page.keyboard.press('ArrowLeft')
+      assert page.evaluate("""() => document.activeElement===
+        document.querySelectorAll('#vr-hand .vr-card')[0]"""),(
+          'VR01BL left arrow did not focus previous hand card',w,h)
+      page.keyboard.press('ArrowLeft')
+      assert page.evaluate("""() => document.activeElement===
+        document.querySelectorAll('#vr-hand .vr-card')[0]"""),(
+          'VR01BL left boundary wrapped unexpectedly',w,h)
+      assert snap()==baseline,('VR01BL arrow focus changed Phase21',w,h)
+      page.evaluate('document.activeElement?.blur()')
       print('VR01',w,h,'hand',page.locator('#vr-hand .vr-card').count(),
         'enemy backs',page.locator('#vr-enemy-fan .vr-back').count(),flush=True)
     page.set_viewport_size({'width':1920,'height':1080})
