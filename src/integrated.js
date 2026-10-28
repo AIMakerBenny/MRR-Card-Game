@@ -247,13 +247,14 @@ window.MRRIntegratedUIInit=function(loadThree){
                   otherFaces.every(face=>area(heldBox,face)<4)&&
                   publicMarks.every(mark=>area(heldBox,mark)<4)&&
                   (!hud||area(heldBox,hud)<4);
-                const stable=context.dataset.vrLayoutKey===layoutKey &&
+                // VR01BV: even small camera shifts can put a public card
+                // beneath the previously cached command. Retain only safe
+                // positions; hovered or focused native actions stay steady
+                // during longer camera motion when still clear of cards.
+                const stable=heldSafe&&context.dataset.vrLayoutKey===layoutKey &&
                   Number.isFinite(lastSlotX)&&Number.isFinite(lastSlotY)&&
                   (Math.hypot(pos.x-lastSlotX,pos.y-lastSlotY)<36||
-                    // VR01BU: keyboard focus on a native command deserves
-                    // the same safe, steady click target as pointer hover.
-                    ((context.matches(':hover')||
-                      context.matches(':focus-within'))&&heldSafe));
+                    context.matches(':hover')||context.matches(':focus-within'));
                 if(!stable){
                 const scored=candidates.map(c=>{
                   const x=clamp(c.x,12,maxX),y=clamp(c.y,topBound,bottomBound);
