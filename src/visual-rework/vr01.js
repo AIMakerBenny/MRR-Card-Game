@@ -302,6 +302,18 @@ function updateHand(){
     if(handLayoutDirty)reflowHand(fan);
     return;
   }
+  // VR01BN: a genuine native hand reorder rebuilds mirror buttons because
+  // every click delegate is indexed. Preserve keyboard focus only when
+  // the prior public card ID has ONE unambiguous match in the new hand.
+  // Never carry focus across private handoff or targeting.
+  const priorFocus=fan.contains(document.activeElement)?
+    document.activeElement.closest('.vr-card'):null;
+  const priorId=priorFocus?
+    previousHand[Number(priorFocus.dataset.index)]?.publicId:'';
+  const restoreIndex=priorId&&q('#overlay')?.classList.contains('hidden')&&
+    !ui.classList.contains('vr-placing')&&
+    hand.filter(d=>d.publicId===priorId).length===1?
+    hand.findIndex(d=>d.publicId===priorId):-1;
   handSignature=signature;handArtSources=artSources;
   fan.replaceChildren();
   const n=hand.length;
@@ -355,6 +367,7 @@ function updateHand(){
   }
   fan.dataset.count=String(n);
   reflowHand(fan);
+  if(restoreIndex>=0)fan.children[restoreIndex]?.focus({preventScroll:true});
 }
 // Native Phase21 .hand-slot.active is authoritative. Keep this in refresh,
 // outside the hand content signature, so selecting/cancelling never leaves
