@@ -265,6 +265,18 @@ try:
         document.querySelectorAll('#vr-hand .vr-card')[0]"""),(
           'VR01BL left boundary wrapped unexpectedly',w,h)
       assert snap()==baseline,('VR01BL arrow focus changed Phase21',w,h)
+      # VR01BM: Home/End move focus to the hand boundaries without
+      # simulating a native card click, including on narrow PC screens.
+      page.keyboard.press('End')
+      assert page.evaluate("""() => {
+        const cards=[...document.querySelectorAll('#vr-hand .vr-card')];
+        return document.activeElement===cards[cards.length-1];
+      }"""),('VR01BM End did not focus last card',w,h)
+      page.keyboard.press('Home')
+      assert page.evaluate("""() => document.activeElement===
+        document.querySelector('#vr-hand .vr-card')"""),(
+          'VR01BM Home did not focus first card',w,h)
+      assert snap()==baseline,('VR01BM Home/End changed Phase21',w,h)
       page.evaluate('document.activeElement?.blur()')
       print('VR01',w,h,'hand',page.locator('#vr-hand .vr-card').count(),
         'enemy backs',page.locator('#vr-enemy-fan .vr-back').count(),flush=True)
@@ -1582,6 +1594,19 @@ try:
             });
         }""",timeout=14000)
         assert snap()==prior,'VR01AI paused hand cues changed Phase21 state'
+        # VR01BM: navigation shortcuts must not leave an active
+        # Phase21 placement declaration or move focus within the folded fan.
+        page.evaluate("""() => document.querySelector('#vr-hand .vr-card')?.focus()""")
+        focused_before=page.evaluate("""() => document.activeElement===
+          document.querySelector('#vr-hand .vr-card')""")
+        assert focused_before,'VR01BM placement focus fixture unavailable'
+        page.keyboard.press('End')
+        page.keyboard.press('ArrowRight')
+        assert page.evaluate("""() => document.activeElement===
+          document.querySelector('#vr-hand .vr-card')"""),(
+            'VR01BM navigation moved focus during native placement')
+        assert snap()==prior,'VR01BM paused arrows changed Phase21 state'
+        page.evaluate('document.activeElement?.blur()')
         page.screenshot(path=str(ROOT/'tests/vr01ai_hand_hotkeys_paused_1920x1080.png'),
           animations='disabled')
         page.screenshot(path=str(ROOT/'tests/vr01aa_native_place_guides_1920x1080.png'),
