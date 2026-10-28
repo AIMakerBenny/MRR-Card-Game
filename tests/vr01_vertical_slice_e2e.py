@@ -313,6 +313,41 @@ try:
           'VR01BR native targeting guard missed immediate keydown',
           w,h,immediate_guard)
       assert snap()==baseline,('VR01BR immediate targeting guard altered Phase21',w,h)
+      # VR01BS: the original Phase21 hand can redraw before the VR mirror.
+      # Probe extra/missing native DOM slots synchronously, before its
+      # MutationObserver refresh runs. Do not alter native engine data.
+      count_guard=page.evaluate("""() => {
+        const mirror=[...document.querySelectorAll('#vr-hand .vr-card')];
+        const native=[...document.querySelectorAll('#hand .hand-slot')];
+        if(mirror.length<3||native.length<3)return null;
+        const focused=mirror[1],results=[];
+        focused.focus();
+        if(document.activeElement!==focused)return null;
+        const check=mode=>{
+          for(const key of ['ArrowLeft','ArrowRight','Home','End']){
+            focused.dispatchEvent(new KeyboardEvent('keydown',
+              {key,bubbles:true,cancelable:true}));
+            results.push({mode,key,stayed:document.activeElement===focused});
+          }
+        };
+        const extra=native[0].cloneNode(true);
+        native[0].after(extra);
+        try{check('extra-native');}
+        finally{extra.remove();}
+        const tail=native[native.length-1],parent=tail.parentElement,
+          next=tail.nextSibling;
+        tail.remove();
+        try{check('missing-native');}
+        finally{parent.insertBefore(tail,next);}
+        return {results,focused:document.activeElement===focused,
+          countsMatch:document.querySelectorAll('#hand .hand-slot').length===
+            mirror.length};
+      }""")
+      assert count_guard and count_guard['focused'] and (
+        count_guard['countsMatch']) and len(count_guard['results'])==8 and all(
+          case['stayed'] for case in count_guard['results']),(
+          'VR01BS navigation used stale native hand count',w,h,count_guard)
+      assert snap()==baseline,('VR01BS temporary native count changed Phase21',w,h)
       # VR01BP: keyboard focus takes priority over a stale mouse-raised
       # card. Exactly one card should occupy expanded hand height.
       page.evaluate("""() => document.querySelector('#vr-hand .vr-card')
