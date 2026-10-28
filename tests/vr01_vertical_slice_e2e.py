@@ -428,6 +428,47 @@ try:
       delete window.__vr01bgMirror;
     }""")
     assert snap()==baseline,'VR01BG restored name affected native game'
+    # VR01BH: changing the PUBLIC native identity at the same hand index
+    # must rebuild the mirrored button, even if its visible name matches.
+    # This simulates a hand-card replacement without touching Phase21 G.
+    identity=page.evaluate("""index => {
+      const source=[...document.querySelectorAll('#hand .hand-slot')][index]
+        ?.querySelector('.card-ui');
+      const old=source?.getAttribute('data-mrr-public-card-id');
+      const mirror=document.querySelector('#vr-hand .vr-card[data-index="'+index+'"]');
+      if(!source||!old||!mirror)return null;
+      window.__vr01bhSource=source;
+      window.__vr01bhId=old;
+      window.__vr01bhOldMirror=mirror;
+      mirror.focus();mirror.classList.add('raised');
+      source.setAttribute('data-mrr-public-card-id',old+'-qa-replacement');
+      return {index,old};
+    }""",art['index'])
+    assert identity,'VR01BH public hand identity fixture unavailable'
+    page.wait_for_function("""index=>{
+      const old=window.__vr01bhOldMirror;
+      const current=document.querySelector('#vr-hand .vr-card[data-index="'+index+'"]');
+      return !!(old&&!old.isConnected&&current&&current!==old &&
+        document.activeElement!==old);
+    }""",arg=identity['index'],timeout=15000)
+    assert snap()==baseline,'VR01BH public identity change touched native game'
+    page.evaluate("""() => {
+      window.__vr01bhSource.setAttribute(
+        'data-mrr-public-card-id',window.__vr01bhId);
+    }""")
+    page.wait_for_function("""index => {
+      const source=window.__vr01bhSource;
+      const mirror=document.querySelector('#vr-hand .vr-card[data-index="'+index+'"]');
+      return source?.getAttribute('data-mrr-public-card-id')===window.__vr01bhId &&
+        !!mirror && mirror!==window.__vr01bhOldMirror &&
+        mirror.getAttribute('aria-label')?.endsWith(' 손패 선택');
+    }""",arg=identity['index'],timeout=15000)
+    page.evaluate("""() => {
+      delete window.__vr01bhSource;
+      delete window.__vr01bhId;
+      delete window.__vr01bhOldMirror;
+    }""")
+    assert snap()==baseline,'VR01BH restored native identity affected game'
     # VR01AN: a viewport resize is NOT a change to the player's cards.
     # Reflow the original mirrored buttons (not replaceChildren), keeping
     # focused/raised nodes and real Phase21 engine state unchanged.
