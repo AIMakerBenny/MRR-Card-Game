@@ -142,7 +142,14 @@ window.MRRIntegratedUIInit=function(loadThree){
             info.legalCount?'  ·  배치 가능 '+info.legalCount:'';
           badge.textContent='전장 '+info.publicCardCount+'장'+suffix;
           // Only show actions already supplied by the original inspector.
-          const valid=!!info.selectedKey && !!view?.hasCard(info.selectedKey);
+          // VR01BY: native Phase21 targeting and private turn-pass have
+          // priority over any selected-card quick actions. Those buttons
+          // must not linger while the player is choosing a legal target.
+          const passPrivate=!document.querySelector('#overlay.hidden');
+          const targetPending=!!(info.legalCount||info.attackTargetCount||
+            document.querySelector('#arena .slot.legal, #arena .slot.attack-target'));
+          const valid=!!info.selectedKey && !!view?.hasCard(info.selectedKey)&&
+            !passPrivate&&!targetPending;
           quickAttack.hidden=!valid||attack.disabled;
           quickMove.hidden=!valid||move.disabled;
           quickCancel.hidden=!valid||cancel.disabled;
