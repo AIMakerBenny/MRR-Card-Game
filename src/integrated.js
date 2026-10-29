@@ -162,6 +162,14 @@ window.MRRIntegratedUIInit=function(loadThree){
             delete context.dataset.vrSlotX;
             delete context.dataset.vrSlotY;
           }
+          // VR01BZ: a withdrawn native action group must leave keyboard
+          // navigation and accessibility immediately, including before
+          // the browser finishes the Phase21 target/pass transition.
+          if(!show&&context.contains(document.activeElement))
+            document.activeElement.blur();
+          context.inert=!show;
+          if(show)context.removeAttribute('aria-hidden');
+          else context.setAttribute('aria-hidden','true');
           context.hidden=!show;
           if(show){
             // Phase70: use the fixed native slot, not the animated card mesh.
