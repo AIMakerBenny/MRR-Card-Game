@@ -1047,6 +1047,41 @@ try:
           return ctx&&!ctx.hidden&&!!ctx.dataset.vrLayoutKey;
         }""",timeout=12000)
         assert snap()==baseline,'VR01BX native command cache reset changed Phase21'
+        # VR01BY: the public native target markers or private Phase21 pass
+        # must temporarily suppress all selected-card quick commands.
+        # These are DOM-only fixtures, not engine actions or fake targets.
+        action_gate=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene;
+          const context=document.querySelector('#mrr-integrated-context');
+          const slot=[...document.querySelectorAll('#arena .slot')]
+            .find(e=>!e.classList.contains('legal')&&
+              !e.classList.contains('attack-target'));
+          const overlay=document.querySelector('#overlay');
+          if(!context||context.hidden||!context.dataset.vrLayoutKey||
+            !slot||!overlay||!overlay.classList.contains('hidden'))return null;
+          const checks=[];
+          for(const mode of ['legal','attack-target']){
+            slot.classList.add(mode);
+            try{
+              scene.sync();
+              checks.push({mode,hidden:context.hidden,
+                cacheGone:!context.dataset.vrLayoutKey});
+            }finally{slot.classList.remove(mode);scene.sync();}
+          }
+          overlay.classList.remove('hidden');
+          try{
+            scene.sync();
+            checks.push({mode:'private',hidden:context.hidden,
+              cacheGone:!context.dataset.vrLayoutKey});
+          }finally{overlay.classList.add('hidden');scene.sync();}
+          return {checks,restored:!context.hidden&&!!context.dataset.vrLayoutKey};
+        }""")
+        assert action_gate and action_gate['restored'] and (
+          len(action_gate['checks'])==3) and all(
+            item['hidden'] and item['cacheGone']
+            for item in action_gate['checks']),(
+          'VR01BY native targeting/private quick-action gate failed',action_gate)
+        assert snap()==baseline,'VR01BY action gate altered Phase21'
         # VR01BX: viewport reflow must retain the SAME focused native
         # command and keep its actual clickable rectangle inside stage.
         page.locator('#mrr-quick-attack').focus()
