@@ -1082,6 +1082,38 @@ try:
             for item in action_gate['checks']),(
           'VR01BY native targeting/private quick-action gate failed',action_gate)
         assert snap()==baseline,'VR01BY action gate altered Phase21'
+        # VR01BZ: a focused native quick button must relinquish focus,
+        # keyboard access and AT exposure when Phase21 target selection
+        # temporarily withdraws the action group.
+        focus_gate=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene;
+          const ctx=document.querySelector('#mrr-integrated-context');
+          const button=document.querySelector('#mrr-quick-attack');
+          const slot=[...document.querySelectorAll('#arena .slot')]
+            .find(e=>!e.classList.contains('legal')&&
+              !e.classList.contains('attack-target'));
+          if(!ctx||ctx.hidden||!button||button.hidden||!slot)return null;
+          button.focus();
+          if(document.activeElement!==button)return null;
+          let blocked;
+          slot.classList.add('legal');
+          try{
+            scene.sync();
+            button.focus();
+            blocked={hidden:ctx.hidden,inert:ctx.inert,
+              ariaHidden:ctx.getAttribute('aria-hidden'),
+              focusCleared:document.activeElement!==button};
+          }finally{slot.classList.remove('legal');scene.sync();}
+          return {blocked,restored:!ctx.hidden&&!ctx.inert&&
+            !ctx.hasAttribute('aria-hidden')};
+        }""")
+        assert focus_gate and focus_gate['restored'] and (
+          focus_gate['blocked']['hidden'] and
+          focus_gate['blocked']['inert'] and
+          focus_gate['blocked']['ariaHidden']=='true' and
+          focus_gate['blocked']['focusCleared']),(
+          'VR01BZ withdrawn quick action leaked keyboard/AT access',focus_gate)
+        assert snap()==baseline,'VR01BZ quick action privacy altered Phase21'
         # VR01BX: viewport reflow must retain the SAME focused native
         # command and keep its actual clickable rectangle inside stage.
         page.locator('#mrr-quick-attack').focus()
