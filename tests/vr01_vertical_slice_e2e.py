@@ -2196,6 +2196,44 @@ try:
         },('VR01DC missing public card ID left dead native action visible',
           missing_public_id)
         assert snap()==baseline,'VR01DC public identity fixture changed Phase21'
+        # VR01DD: if the Three.js camera cannot project an otherwise
+        # valid native selected card, the previous on-screen quick group
+        # must withdraw until the real seat projection is restored.
+        unprojectable_quick=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene;
+          const ctx=document.querySelector('#mrr-integrated-context');
+          const key=scene?.state?.selectedKey;
+          if(!scene||!key||!ctx||ctx.hidden||!ctx.dataset.vrSelectedCardId)
+            return null;
+          const original=scene.projectSlot;
+          let hidden,restored;
+          try{
+            scene.projectSlot=function(seat,...args){
+              if(seat===key)return null;
+              return original.call(this,seat,...args);
+            };
+            scene.sync();
+            hidden={groupHidden:ctx.hidden,groupInert:ctx.inert,
+              ariaHidden:ctx.getAttribute('aria-hidden')==='true',
+              identityCleared:!ctx.hasAttribute('data-vr-selected-card-id'),
+              layoutCleared:!ctx.hasAttribute('data-vr-layout-key')};
+          }finally{
+            scene.projectSlot=original;
+            scene.sync();
+            restored={groupVisible:!ctx.hidden,
+              groupActive:!ctx.inert,
+              hasIdentity:!!ctx.dataset.vrSelectedCardId};
+          }
+          return {hidden,restored};
+        }""")
+        assert unprojectable_quick=={
+          'hidden':{'groupHidden':True,'groupInert':True,
+            'ariaHidden':True,'identityCleared':True,'layoutCleared':True},
+          'restored':{'groupVisible':True,'groupActive':True,
+            'hasIdentity':True}
+        },('VR01DD missing seat projection left stale native command',
+          unprojectable_quick)
+        assert snap()==baseline,'VR01DD missing projection altered Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
