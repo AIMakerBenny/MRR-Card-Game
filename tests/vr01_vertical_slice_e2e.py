@@ -1969,6 +1969,50 @@ try:
           'before':[1,1],'stale':[1,1],'after':[2,2],'restored':True
         },('VR01CX stale top action reached a replaced native card',top_identity_gate)
         assert snap()==baseline,'VR01CX top card identity guard changed Phase21'
+        # VR01CY: even before a user clicks, ambiguous native selected
+        # slots should disable both top commands. The original cancel
+        # command remains the Phase21 escape hatch when it exists.
+        top_selection_display=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene,key=scene.state.selectedKey;
+          const slots=[...document.querySelectorAll('#arena .slot')];
+          const selected=slots.find(s=>s.dataset.slot===key&&
+            s.classList.contains('selected-slot'));
+          const extra=slots.find(s=>s!==selected&&!s.classList.contains('selected-slot'));
+          const attack=document.querySelector('#mrr-integrated-attack'),
+            move=document.querySelector('#mrr-integrated-move');
+          const a=document.querySelector('#inspectBody button[data-actor="attack"]'),
+            m=document.querySelector('#inspectBody button[data-actor="move"]');
+          if(!selected||!extra||!attack||!move||!a||!m)return null;
+          const originalA=a.disabled,originalM=m.disabled;
+          const status=()=>({attack:attack.disabled,move:move.disabled,
+            attackCache:attack.hasAttribute('data-vr-top-selected-card-id'),
+            moveCache:move.hasAttribute('data-vr-top-selected-card-id')});
+          let states;
+          try{
+            a.disabled=false;m.disabled=false;scene.sync();
+            const ready=status();
+            extra.classList.add('selected-slot');
+            try{scene.sync();var double=status();}
+            finally{extra.classList.remove('selected-slot');scene.sync();}
+            selected.classList.remove('selected-slot');
+            try{scene.sync();var none=status();}
+            finally{selected.classList.add('selected-slot');scene.sync();}
+            states={ready,double,none,restored:status()};
+          }finally{a.disabled=originalA;m.disabled=originalM;scene.sync();}
+          return states;
+        }""")
+        assert top_selection_display=={
+          'ready':{'attack':False,'move':False,
+            'attackCache':True,'moveCache':True},
+          'double':{'attack':True,'move':True,
+            'attackCache':False,'moveCache':False},
+          'none':{'attack':True,'move':True,
+            'attackCache':False,'moveCache':False},
+          'restored':{'attack':False,'move':False,
+            'attackCache':True,'moveCache':True}
+        },('VR01CY top commands stayed enabled in ambiguous selection',
+          top_selection_display)
+        assert snap()==baseline,'VR01CY top toolbar selection changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
