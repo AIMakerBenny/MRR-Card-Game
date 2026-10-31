@@ -92,6 +92,32 @@ try:
     page.screenshot(path=str(ROOT/'tests/phase49_confirmed_native_hit_signal_beam.png'))
     page.wait_for_function('MRRBattlefield.state.scene.liveStrikeCount===0',timeout=7000)
     page.wait_for_function('MRRBattlefield.state.scene.impactLightIntensity===0',timeout=7000)
+    # VR01CB: both the GPU hit effect and its confirmed beam must be
+    # disposed, but the single confirmed native strike remains recorded.
+    page.wait_for_function('MRRBattlefield.state.scene.liveFxCount===0',timeout=9000)
+    settled=page.evaluate('MRRBattlefield.state.scene')
+    assert settled['liveStrikeCount']==0 and settled['confirmedStrikes']==1 and (
+      settled['nativeCombatEvents'][-1]['confirmedStrike'] is True),(
+        'VR01CB confirmed beam cleanup or history mismatch',settled)
+    # A second native visual hit, WITHOUT another staged attack, must
+    # never generate a speculative 3D beam or another confirmed strike.
+    page.wait_for_function("""key => {
+      const slot=document.querySelector('#arena [data-slot="'+key+'"]');
+      return slot&&!slot.classList.contains('fx-hit');
+    }""",arg=target,timeout=9000)
+    hit_count=settled['fxReceived']['hit']
+    page.evaluate('''key => {
+      const [o,row,c]=key.split(':');visual('hit',Number(o),row,Number(c));
+    }''',target)
+    page.wait_for_function('prior=>MRRBattlefield.state.scene.fxReceived.hit>prior',
+      arg=hit_count,timeout=9000)
+    replay=page.evaluate('MRRBattlefield.state.scene')
+    assert replay['confirmedStrikes']==1 and replay['liveStrikeCount']==0 and (
+      replay['nativeCombatEvents'][-1]['type']=='hit' and
+      replay['nativeCombatEvents'][-1]['confirmedStrike'] is False),(
+        'VR01CB unstaged hit incorrectly spawned a confirmed beam',replay)
+    page.wait_for_function('MRRBattlefield.state.scene.liveFxCount===0',timeout=9000)
+    page.wait_for_function('MRRBattlefield.state.scene.impactLightIntensity===0',timeout=9000)
     assert before==page.evaluate('''() => {let s=gameSnapshot();delete s.storedAt;return JSON.stringify(s)}''')
     page.set_viewport_size({'width':390,'height':844})
     page.wait_for_timeout(300)
