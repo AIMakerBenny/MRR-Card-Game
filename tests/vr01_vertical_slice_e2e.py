@@ -1114,6 +1114,47 @@ try:
           focus_gate['blocked']['focusCleared']),(
           'VR01BZ withdrawn quick action leaked keyboard/AT access',focus_gate)
         assert snap()==baseline,'VR01BZ quick action privacy altered Phase21'
+        # VR01CC: a click already queued before the VR adapter's next
+        # refresh must not reach original Phase21 during target/pass states.
+        # Stub ONLY the native button's click entry point and always restore.
+        immediate_click=page.evaluate("""() => {
+          const ctx=document.querySelector('#mrr-integrated-context');
+          const quick=document.querySelector('#mrr-quick-attack');
+          const native=document.querySelector('#inspectBody button[data-actor="attack"]');
+          const overlay=document.querySelector('#overlay');
+          const slot=[...document.querySelectorAll('#arena .slot')]
+            .find(n=>!n.classList.contains('legal')&&!n.classList.contains('attack-target'));
+          if(!ctx||ctx.hidden||!quick||quick.hidden||!native||
+             native.disabled||!overlay?.classList.contains('hidden')||!slot)return null;
+          const own=Object.prototype.hasOwnProperty.call(native,'click');
+          const old=native.click,counts=[];
+          let delegated=0;
+          native.click=()=>{delegated++;};
+          const fire=()=>quick.dispatchEvent(new MouseEvent('click',
+            {bubbles:true,cancelable:true}));
+          try{
+            fire();counts.push({mode:'selected',delegated});
+            for(const mode of ['legal','attack-target']){
+              slot.classList.add(mode);
+              try{fire();counts.push({mode,delegated});}
+              finally{slot.classList.remove(mode);}
+            }
+            overlay.classList.remove('hidden');
+            try{fire();counts.push({mode:'private',delegated});}
+            finally{overlay.classList.add('hidden');}
+          }finally{
+            if(own)native.click=old;else delete native.click;
+          }
+          return {counts,restored:!ctx.hidden&&overlay.classList.contains('hidden')};
+        }""")
+        assert immediate_click and immediate_click['restored'] and (
+          immediate_click['counts']==[
+            {'mode':'selected','delegated':1},
+            {'mode':'legal','delegated':1},
+            {'mode':'attack-target','delegated':1},
+            {'mode':'private','delegated':1}
+          ]),('VR01CC queued quick click crossed native target gate',immediate_click)
+        assert snap()==baseline,'VR01CC click gate changed Phase21 state'
         # VR01BX: viewport reflow must retain the SAME focused native
         # command and keep its actual clickable rectangle inside stage.
         page.locator('#mrr-quick-attack').focus()
