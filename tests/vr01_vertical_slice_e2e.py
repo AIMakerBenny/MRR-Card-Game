@@ -1607,6 +1607,45 @@ try:
           'expanded':'false','bottomReset':True,'count':0,'restored':True
         },('VR01CP empty native hand left expanded presentation',empty_hand)
         assert snap()==baseline,'VR01CP empty hand presentation changed Phase21'
+        # VR01CQ: a keyboard-focused native hand tab must surrender focus
+        # when either the original attack targeting or private turn-pass
+        # makes the tab inaccessible. It must recover without native clicks.
+        hand_focus_gate=page.evaluate("""() => {
+          const tab=document.querySelector('#mrr-integrated-hand-tab');
+          const overlay=document.querySelector('#overlay');
+          const slot=[...document.querySelectorAll('#arena .slot')]
+            .find(n=>!n.classList.contains('legal')&&
+              !n.classList.contains('attack-target'));
+          const scene=MRRIntegrated.scene;
+          if(!tab||tab.disabled||tab.hidden||!overlay||
+            !overlay.classList.contains('hidden')||!slot)return null;
+          const states=[];
+          const run=(label,mutate,undo)=>{
+            tab.focus();
+            const initiallyFocused=document.activeElement===tab;
+            mutate();
+            try{
+              scene.sync();
+              states.push({label,initiallyFocused,
+                inaccessible:tab.hidden||tab.disabled,
+                focusCleared:document.activeElement!==tab});
+            }finally{undo();scene.sync();}
+          };
+          run('target',()=>slot.classList.add('attack-target'),
+            ()=>slot.classList.remove('attack-target'));
+          run('private',()=>overlay.classList.remove('hidden'),
+            ()=>overlay.classList.add('hidden'));
+          return {states,restored:!tab.hidden&&!tab.disabled};
+        }""")
+        assert hand_focus_gate=={
+          'states':[
+            {'label':'target','initiallyFocused':True,
+             'inaccessible':True,'focusCleared':True},
+            {'label':'private','initiallyFocused':True,
+             'inaccessible':True,'focusCleared':True}
+          ],'restored':True
+        },('VR01CQ unavailable hand control retained keyboard focus',hand_focus_gate)
+        assert snap()==baseline,'VR01CQ native hand focus changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
