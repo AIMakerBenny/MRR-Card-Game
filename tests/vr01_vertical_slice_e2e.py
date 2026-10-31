@@ -970,6 +970,40 @@ try:
           'VR01CZ safe public occupancy change dislodged hovered action',
           safe_occupancy_hover)
         assert snap()==baseline,'VR01CZ public occupancy fixture altered Phase21'
+        # VR01DA: a replaced PUBLIC card within the SAME native seat
+        # must get a fresh quick-action layout identity, even while the
+        # safe command is hovered. Restore the original DOM ID exactly.
+        swapped_layout=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene,ctx=document.querySelector('#mrr-integrated-context');
+          const seat=scene?.state?.selectedKey;
+          const slot=[...document.querySelectorAll('#arena .slot.selected-slot')]
+            .find(s=>s.dataset.slot===seat);
+          const card=slot?.querySelector('.board-card .card-ui');
+          if(!ctx||ctx.hidden||!ctx.matches(':hover')||!card)return null;
+          const id=card.getAttribute('data-mrr-public-card-id');
+          const first=ctx.dataset.vrLayoutKey;
+          if(!id||!first)return null;
+          let second='',restored='';
+          try{
+            card.setAttribute('data-mrr-public-card-id',id+'-qa-da');
+            scene.sync();
+            second=ctx.dataset.vrLayoutKey||'';
+          }finally{
+            card.setAttribute('data-mrr-public-card-id',id);
+            scene.sync();
+            restored=ctx.dataset.vrLayoutKey||'';
+          }
+          return {changed:second!==first,
+            replacementTagged:second.endsWith('|'+id+'-qa-da'),
+            originalTagged:first.endsWith('|'+id),
+            restored:restored===first,
+            nativeRestored:card.getAttribute('data-mrr-public-card-id')===id};
+        }""")
+        assert swapped_layout=={
+          'changed':True,'replacementTagged':True,
+          'originalTagged':True,'restored':True,'nativeRestored':True
+        },('VR01DA same-seat public card inherited stale layout',swapped_layout)
+        assert snap()==baseline,'VR01DA public card identity fixture changed Phase21'
         page.screenshot(path=str(ROOT/'tests/vr01ac_native_context_nonoverlap_1920x1080.png'),
           animations='disabled')
         # VR01BU: keyboard focus must also pin a safe native command
