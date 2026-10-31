@@ -1619,23 +1619,41 @@ try:
           const scene=MRRIntegrated.scene;
           if(!tab||tab.disabled||tab.hidden||!overlay||
             !overlay.classList.contains('hidden')||!slot)return null;
+          // VR01CR: the full VR01 shell intentionally visually hides
+          // this older native-integrated hand tab. For this isolated
+          // focus-release test only, make the REAL tab keyboard-focusable
+          // without changing the game's persistent CSS or any Phase21 state.
+          const oldDisplay=tab.style.getPropertyValue('display');
+          const oldDisplayPriority=tab.style.getPropertyPriority('display');
+          const oldVisibility=tab.style.getPropertyValue('visibility');
+          const oldVisibilityPriority=tab.style.getPropertyPriority('visibility');
           const states=[];
-          const run=(label,mutate,undo)=>{
-            tab.focus();
-            const initiallyFocused=document.activeElement===tab;
-            mutate();
-            try{
-              scene.sync();
-              states.push({label,initiallyFocused,
-                inaccessible:tab.hidden||tab.disabled,
-                focusCleared:document.activeElement!==tab});
-            }finally{undo();scene.sync();}
-          };
-          run('target',()=>slot.classList.add('attack-target'),
-            ()=>slot.classList.remove('attack-target'));
-          run('private',()=>overlay.classList.remove('hidden'),
-            ()=>overlay.classList.add('hidden'));
-          return {states,restored:!tab.hidden&&!tab.disabled};
+          try{
+            tab.style.setProperty('display','block','important');
+            tab.style.setProperty('visibility','visible','important');
+            const run=(label,mutate,undo)=>{
+              tab.focus();
+              const initiallyFocused=document.activeElement===tab;
+              mutate();
+              try{
+                scene.sync();
+                states.push({label,initiallyFocused,
+                  inaccessible:tab.hidden||tab.disabled,
+                  focusCleared:document.activeElement!==tab});
+              }finally{undo();scene.sync();}
+            };
+            run('target',()=>slot.classList.add('attack-target'),
+              ()=>slot.classList.remove('attack-target'));
+            run('private',()=>overlay.classList.remove('hidden'),
+              ()=>overlay.classList.add('hidden'));
+            return {states,restored:!tab.hidden&&!tab.disabled};
+          }finally{
+            if(oldDisplay)tab.style.setProperty('display',oldDisplay,oldDisplayPriority);
+            else tab.style.removeProperty('display');
+            if(oldVisibility)tab.style.setProperty('visibility',
+              oldVisibility,oldVisibilityPriority);
+            else tab.style.removeProperty('visibility');
+          }
         }""")
         assert hand_focus_gate=={
           'states':[
