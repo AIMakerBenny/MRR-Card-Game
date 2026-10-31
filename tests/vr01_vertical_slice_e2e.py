@@ -1985,6 +1985,10 @@ try:
           }));
           let result;
           try{
+            // Normalize presentation-only starting state for this test;
+            // retain and restore any original open panel afterwards.
+            classes.forEach(c=>root.classList.remove(c));
+            scene.sync();
             buttons.forEach(fire);
             scene.sync();
             const opened=state();
