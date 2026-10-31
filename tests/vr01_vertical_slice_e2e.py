@@ -1962,6 +1962,68 @@ try:
           'expanded':'false','noReopen':True,'reset':True,'restored':True
         },('VR01CU hidden game screen exposed original native hand',hidden_game_hand)
         assert snap()==baseline,'VR01CU hidden original screen changed Phase21'
+        # VR01DL: presentation-only native inspector and supply panels
+        # cannot reopen through stale queued clicks during private handoff
+        # or a hidden game screen. Neither real Phase21 panel is mutated.
+        guarded_panels=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene,
+            root=document.querySelector('#gameScreen'),
+            overlay=document.querySelector('#overlay');
+          const buttons=[
+            document.querySelector('#mrr-integrated-inspector'),
+            document.querySelector('#mrr-integrated-rail')];
+          const classes=['mrr-integrated-inspector-open',
+            'mrr-integrated-rail-open'];
+          if(!scene||!root||!overlay?.classList.contains('hidden')||
+            buttons.some(b=>!b||b.disabled||b.hidden))return null;
+          const prior=classes.map(c=>root.classList.contains(c));
+          const fire=b=>b.dispatchEvent(new MouseEvent('click',
+            {bubbles:true,cancelable:true}));
+          const state=()=>buttons.map((b,i)=>({
+            open:root.classList.contains(classes[i]),
+            disabled:b.disabled,pressed:b.getAttribute('aria-pressed')
+          }));
+          let result;
+          try{
+            buttons.forEach(fire);
+            scene.sync();
+            const opened=state();
+            overlay.classList.remove('hidden');
+            try{
+              scene.sync();
+              const privatePass=state();
+              buttons.forEach(fire);
+              result={opened,privatePass,privateBlocked:state()};
+            }finally{overlay.classList.add('hidden');scene.sync();}
+            buttons.forEach(fire);
+            scene.sync();
+            result.reopened=state();
+            root.classList.add('hidden');
+            try{
+              scene.sync();
+              const hidden=state();
+              buttons.forEach(fire);
+              result.hidden=hidden;result.hiddenBlocked=state();
+            }finally{root.classList.remove('hidden');scene.sync();}
+            result.restored=state();
+          }finally{
+            root.classList.remove('hidden');
+            overlay.classList.add('hidden');
+            classes.forEach((c,i)=>root.classList.toggle(c,prior[i]));
+            scene.sync();
+          }
+          return result;
+        }""")
+        assert guarded_panels=={
+          'opened':[{'open':True,'disabled':False,'pressed':'true'}]*2,
+          'privatePass':[{'open':False,'disabled':True,'pressed':'false'}]*2,
+          'privateBlocked':[{'open':False,'disabled':True,'pressed':'false'}]*2,
+          'reopened':[{'open':True,'disabled':False,'pressed':'true'}]*2,
+          'hidden':[{'open':False,'disabled':True,'pressed':'false'}]*2,
+          'hiddenBlocked':[{'open':False,'disabled':True,'pressed':'false'}]*2,
+          'restored':[{'open':False,'disabled':False,'pressed':'false'}]*2
+        },('VR01DL private or hidden game reopened native panels',guarded_panels)
+        assert snap()==baseline,'VR01DL panel guards changed original Phase21'
         # VR01CV: the top integrated attack/move actions must not
         # advertise another command during native Phase21 targeting.
         # The genuine cancel command must remain usable in targeting,
