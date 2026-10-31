@@ -1310,6 +1310,32 @@ try:
             {'mode':'none','hidden':True,'cache':False}
           ]),('VR01CH ambiguous selection still displayed native commands',display_gate)
         assert snap()==baseline,'VR01CH visual selection gate changed Phase21'
+        # VR01CI: a disabled original cancel action must NOT leave a
+        # clickable-looking VR quick cancel command on the selected card.
+        # Toggle only the native DOM disabled flag and never dispatch it.
+        cancel_gate=page.evaluate("""() => {
+          const native=document.querySelector('#inspectBody button[data-cancel-action]');
+          const quick=document.querySelector('#mrr-quick-cancel');
+          const ctx=document.querySelector('#mrr-integrated-context');
+          const scene=MRRIntegrated.scene;
+          if(!native||!quick||!ctx||ctx.hidden)return null;
+          const original=native.disabled;
+          let enabled,disabled;
+          try{
+            native.disabled=false;scene.sync();
+            enabled={native:native.disabled,quick:quick.hidden,
+              integrated:document.querySelector('#mrr-integrated-cancel')?.disabled};
+            native.disabled=true;scene.sync();
+            disabled={native:native.disabled,quick:quick.hidden,
+              integrated:document.querySelector('#mrr-integrated-cancel')?.disabled};
+          }finally{native.disabled=original;scene.sync();}
+          return {enabled,disabled,restored:native.disabled===original};
+        }""")
+        assert cancel_gate and cancel_gate['restored'] and (
+          cancel_gate['enabled']=={'native':False,'quick':False,'integrated':False}
+          and cancel_gate['disabled']=={'native':True,'quick':True,'integrated':True}
+        ),('VR01CI did not mirror native cancel disabled state',cancel_gate)
+        assert snap()==baseline,'VR01CI cancel-state reflection changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
