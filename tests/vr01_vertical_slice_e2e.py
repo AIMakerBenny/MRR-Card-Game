@@ -1279,6 +1279,47 @@ try:
           'VR01CF ambiguous native selection delegated a quick command',
           ambiguous_selection)
         assert snap()==baseline,'VR01CF ambiguous selection changed Phase21'
+        # VR01CG: a VR-bound quick command must not turn into an unguarded
+        # generic-integrated click during close, even before the original
+        # stage is removed. No genuine native action executes in this test.
+        closing_click=page.evaluate("""() => {
+          const root=document.getElementById('gameScreen');
+          const quick=document.getElementById('mrr-quick-attack');
+          const native=document.querySelector('#inspectBody button[data-actor="attack"]');
+          const ctx=document.getElementById('mrr-integrated-context');
+          if(!root||!document.body.classList.contains('mrr-vr-active')||
+             !root.classList.contains('mrr-integrated-playing')||
+             !quick||quick.hidden||!ctx||ctx.hidden||
+             !native||native.disabled)return null;
+          const own=Object.prototype.hasOwnProperty.call(native,'click'),
+            previous=native.click;
+          let delegated=0;
+          native.click=()=>{delegated++;};
+          const fire=()=>quick.dispatchEvent(new MouseEvent('click',
+            {bubbles:true,cancelable:true}));
+          const result=[];
+          try{
+            fire();result.push({phase:'open',delegated});
+            document.body.classList.remove('mrr-vr-active');
+            try{fire();result.push({phase:'vr-closing',delegated});}
+            finally{document.body.classList.add('mrr-vr-active');}
+            root.classList.remove('mrr-integrated-playing');
+            try{fire();result.push({phase:'stage-closing',delegated});}
+            finally{root.classList.add('mrr-integrated-playing');}
+            fire();result.push({phase:'reopened',delegated});
+          }finally{
+            if(own)native.click=previous;
+            else delete native.click;
+          }
+          return result;
+        }""")
+        assert closing_click==[
+          {'phase':'open','delegated':1},
+          {'phase':'vr-closing','delegated':1},
+          {'phase':'stage-closing','delegated':1},
+          {'phase':'reopened','delegated':2}
+        ],('VR01CG closing VR quick command delegated to Phase21',closing_click)
+        assert snap()==baseline,'VR01CG close-transition guard changed Phase21'
         # VR01BX: viewport reflow must retain the SAME focused native
         # command and keep its actual clickable rectangle inside stage.
         page.locator('#mrr-quick-attack').focus()
