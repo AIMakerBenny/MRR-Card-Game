@@ -1018,15 +1018,25 @@ try:
           const slot=scene.projectSlot(scene.state.selectedKey);
           if(!ctx||ctx.hidden||!slot||!ctx.dataset.vrLayoutKey||
              document.activeElement!==button)return null;
-          const before=ctx.getBoundingClientRect(),oldX=ctx.dataset.vrSlotX;
-          const oldY=ctx.dataset.vrSlotY;
-          ctx.dataset.vrSlotX=String(slot.x-80);
-          try{scene.sync();}
-          finally{ctx.dataset.vrSlotX=oldX;ctx.dataset.vrSlotY=oldY;}
-          const after=ctx.getBoundingClientRect();
-          return {focus:document.activeElement===button,
-            underPointer:ctx.matches(':hover'),
-            deltaX:after.left-before.left,deltaY:after.top-before.top};
+          // VR01DJ: this isolated cache-displacement QA must compare
+          // the SAME camera frame. Otherwise ongoing auto-camera easing
+          // can justifiably re-seat an unsafe command by a few pixels.
+          // Pause only the 3D render loop, never the native Phase21 game.
+          scene.stop();
+          try{
+            scene.sync();
+            const before=ctx.getBoundingClientRect();
+            const oldX=ctx.dataset.vrSlotX,oldY=ctx.dataset.vrSlotY;
+            const settledSlot=scene.projectSlot(scene.state.selectedKey);
+            if(!settledSlot)return null;
+            ctx.dataset.vrSlotX=String(settledSlot.x-80);
+            try{scene.sync();}
+            finally{ctx.dataset.vrSlotX=oldX;ctx.dataset.vrSlotY=oldY;}
+            const after=ctx.getBoundingClientRect();
+            return {focus:document.activeElement===button,
+              underPointer:ctx.matches(':hover'),
+              deltaX:after.left-before.left,deltaY:after.top-before.top};
+          }finally{scene.start();}
         }""")
         assert focused_command and focused_command['focus'] and (
           not focused_command['underPointer'] and
