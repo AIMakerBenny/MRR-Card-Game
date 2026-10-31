@@ -116,6 +116,15 @@ window.MRRIntegratedUIInit=function(loadThree){
       const commandFor=(id,label,selector)=>{
         const b=control(id,label);
         b.addEventListener('click',()=>{
+          // VR01DK: both the generic integrated view and the VR01-bound
+          // view must reject detached, inert, hidden or stale controls.
+          // An old DOM reference cannot execute a Phase21 native action
+          // after close, during private pass or while a command is gone.
+          if(!view||!stage?.isConnected||!context.isConnected||!b.isConnected||
+            context.inert||context.hidden||b.hidden||b.disabled||
+            root.classList.contains('hidden')||
+            !root.classList.contains('mrr-integrated-playing')||
+            !document.querySelector('#overlay.hidden'))return;
           // VR01CC: genuine native targeting/private handoff can begin
           // before the next scene refresh hides this VR quick-action group.
           // Recheck original DOM at click time; never delegate a stale
