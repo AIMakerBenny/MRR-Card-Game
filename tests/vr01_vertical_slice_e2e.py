@@ -2024,6 +2024,55 @@ try:
           'restored':[{'open':False,'disabled':False,'pressed':'false'}]*2
         },('VR01DL private or hidden game reopened native panels',guarded_panels)
         assert snap()==baseline,'VR01DL panel guards changed original Phase21'
+        # VR01DM: hand-tab text must change on the SAME click that opens
+        # the real original hand, while disabled and hidden synthetic clicks
+        # cannot toggle presentation without a native scene refresh.
+        hand_label_gate=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene,root=document.querySelector('#gameScreen'),
+            tab=document.querySelector('#mrr-integrated-hand-tab');
+          const count=root?.querySelectorAll('#hand .hand-slot').length;
+          if(!scene||!root||!tab||tab.hidden||tab.disabled||!count)return null;
+          const previouslyOpen=root.classList.contains('mrr-integrated-hand-open');
+          const originalHidden=tab.hidden,originalDisabled=tab.disabled;
+          const fire=()=>tab.dispatchEvent(new MouseEvent('click',
+            {bubbles:true,cancelable:true}));
+          const state=()=>({open:root.classList.contains('mrr-integrated-hand-open'),
+            expanded:tab.getAttribute('aria-expanded'),label:tab.textContent});
+          let result;
+          try{
+            if(previouslyOpen)tab.click();
+            tab.click();const opened=state();
+            tab.click();const folded=state();
+            tab.disabled=true;
+            try{fire();var disabled=state();}
+            finally{tab.disabled=originalDisabled;}
+            tab.hidden=true;
+            try{fire();var hidden=state();}
+            finally{tab.hidden=originalHidden;}
+            tab.click();const reopened=state();
+            result={opened,folded,disabled,hidden,reopened,count};
+          }finally{
+            tab.hidden=originalHidden;tab.disabled=originalDisabled;
+            const current=root.classList.contains('mrr-integrated-hand-open');
+            if(previouslyOpen!==current)tab.click();
+            scene.sync();
+          }
+          return result;
+        }""")
+        assert hand_label_gate and hand_label_gate=={
+          'opened':{'open':True,'expanded':'true',
+            'label':'손패 접기 · '+str(hand_label_gate['count'])+'장'},
+          'folded':{'open':False,'expanded':'false',
+            'label':'손패 펼치기 · '+str(hand_label_gate['count'])+'장'},
+          'disabled':{'open':False,'expanded':'false',
+            'label':'손패 펼치기 · '+str(hand_label_gate['count'])+'장'},
+          'hidden':{'open':False,'expanded':'false',
+            'label':'손패 펼치기 · '+str(hand_label_gate['count'])+'장'},
+          'reopened':{'open':True,'expanded':'true',
+            'label':'손패 접기 · '+str(hand_label_gate['count'])+'장'},
+          'count':hand_label_gate['count']
+        },('VR01DM stale hand-tab label or disabled click',hand_label_gate)
+        assert snap()==baseline,'VR01DM native hand label altered Phase21'
         # VR01CV: the top integrated attack/move actions must not
         # advertise another command during native Phase21 targeting.
         # The genuine cancel command must remain usable in targeting,
