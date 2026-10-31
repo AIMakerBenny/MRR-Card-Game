@@ -1279,6 +1279,37 @@ try:
           'VR01CF ambiguous native selection delegated a quick command',
           ambiguous_selection)
         assert snap()==baseline,'VR01CF ambiguous selection changed Phase21'
+        # VR01CH: quick commands must be VISUALLY unavailable while the
+        # original public selection is ambiguous, even before any click.
+        # A native scene sync is invoked after each display-only fixture.
+        display_gate=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene,ctx=document.querySelector('#mrr-integrated-context');
+          const selectedKey=scene.state.selectedKey;
+          const selected=[...document.querySelectorAll('#arena .slot.selected-slot')]
+            .find(slot=>slot.dataset.slot===selectedKey);
+          const extra=[...document.querySelectorAll('#arena .slot')]
+            .find(slot=>slot!==selected&&!slot.classList.contains('selected-slot'));
+          if(!selected||!extra||!ctx||ctx.hidden)return null;
+          const results=[];
+          extra.classList.add('selected-slot');
+          try{scene.sync();
+            results.push({mode:'double',hidden:ctx.hidden,
+              cache:ctx.hasAttribute('data-vr-selected-card-id')});
+          }finally{extra.classList.remove('selected-slot');scene.sync();}
+          selected.classList.remove('selected-slot');
+          try{scene.sync();
+            results.push({mode:'none',hidden:ctx.hidden,
+              cache:ctx.hasAttribute('data-vr-selected-card-id')});
+          }finally{selected.classList.add('selected-slot');scene.sync();}
+          return {results,restored:!ctx.hidden&&
+            !!ctx.dataset.vrSelectedCardId};
+        }""")
+        assert display_gate and display_gate['restored'] and (
+          display_gate['results']==[
+            {'mode':'double','hidden':True,'cache':False},
+            {'mode':'none','hidden':True,'cache':False}
+          ]),('VR01CH ambiguous selection still displayed native commands',display_gate)
+        assert snap()==baseline,'VR01CH visual selection gate changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
