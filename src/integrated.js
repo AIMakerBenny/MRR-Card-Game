@@ -96,7 +96,17 @@ window.MRRIntegratedUIInit=function(loadThree){
       context.hidden=true;context.setAttribute('aria-label','선택 카드 명령');
       const commandFor=(id,label,selector)=>{
         const b=control(id,label);
-        b.addEventListener('click',()=>nativeButton(selector));
+        b.addEventListener('click',()=>{
+          // VR01CC: genuine native targeting/private handoff can begin
+          // before the next scene refresh hides this VR quick-action group.
+          // Recheck original DOM at click time; never delegate a stale
+          // action into a Phase21 placement or attack target selection.
+          if(document.body.classList.contains('mrr-vr-active')&&
+            (!document.querySelector('#overlay.hidden')||
+             document.querySelector('#arena .slot.legal, #arena .slot.attack-target')))
+            return;
+          nativeButton(selector);
+        });
         context.appendChild(b);return b;
       };
       const quickAttack=commandFor('mrr-quick-attack','⚔ 공격','#inspectBody button[data-actor="attack"]');
