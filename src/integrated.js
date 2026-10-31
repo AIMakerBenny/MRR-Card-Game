@@ -94,6 +94,10 @@ window.MRRIntegratedUIInit=function(loadThree){
       // delegate to the existing original-game action buttons.
       const context=document.createElement('div');context.id='mrr-integrated-context';
       context.hidden=true;context.setAttribute('aria-label','선택 카드 명령');
+      // VR01CG: remember whether this integrated view was opened by VR01.
+      // Once VR01 begins closing, a queued quick click must not fall back
+      // to the unguarded generic-integrated click path.
+      const vrBoundCommands=document.body.classList.contains('mrr-vr-active');
       const commandFor=(id,label,selector)=>{
         const b=control(id,label);
         b.addEventListener('click',()=>{
@@ -101,7 +105,10 @@ window.MRRIntegratedUIInit=function(loadThree){
           // before the next scene refresh hides this VR quick-action group.
           // Recheck original DOM at click time; never delegate a stale
           // action into a Phase21 placement or attack target selection.
-          if(document.body.classList.contains('mrr-vr-active')){
+          if(vrBoundCommands){
+            if(!document.body.classList.contains('mrr-vr-active')||
+              !root.classList.contains('mrr-integrated-playing')||
+              !stage?.isConnected||!view)return;
             if(!document.querySelector('#overlay.hidden')||
               document.querySelector('#arena .slot.legal, #arena .slot.attack-target'))
               return;
