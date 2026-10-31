@@ -67,6 +67,9 @@ window.MRRIntegratedUIInit=function(loadThree){
       setHandReveal=(requestOpen)=>{
         const open=!!requestOpen&&innerWidth>=1024&&innerHeight>=700
           &&!!root.querySelector('#hand .hand-slot')
+          // VR01CO: the original private turn-pass overlay cannot reveal
+          // the previous player's hand even between native DOM refreshes.
+          &&!!document.querySelector('#overlay.hidden')
           // VR01CN: a genuine Phase21 attack target is as exclusive as
           // a legal placement; never reopen the native hand over it.
           &&!root.querySelector('#arena .slot.legal, #arena .slot.attack-target');
@@ -171,11 +174,15 @@ window.MRRIntegratedUIInit=function(loadThree){
           // either public Phase21 placement or attack targeting begins.
           const targetActive=!!(info.legalCount||info.attackTargetCount||
             root.querySelector('#arena .slot.legal, #arena .slot.attack-target'));
-          if(targetActive&&root.classList.contains('mrr-integrated-hand-open'))
+          // VR01CO: suppress the native hand tab during the actual
+          // private pass, not just while a legal target is marked.
+          const privateHandPass=!document.querySelector('#overlay.hidden');
+          if((targetActive||privateHandPass)&&
+             root.classList.contains('mrr-integrated-hand-open'))
             setHandReveal?.(false);
           const count=document.querySelectorAll('#hand .hand-slot').length;
-          handTab.hidden=!count;
-          handTab.disabled=targetActive;
+          handTab.hidden=privateHandPass||!count;
+          handTab.disabled=targetActive||privateHandPass;
           handTab.textContent=(root.classList.contains('mrr-integrated-hand-open')?'손패 접기':'손패 펼치기')+(count?' · '+count+'장':'');
           const nativeAttack=document.querySelector('#inspectBody button[data-actor="attack"]');
           const nativeMove=document.querySelector('#inspectBody button[data-actor="move"]');
