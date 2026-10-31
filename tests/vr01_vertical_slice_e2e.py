@@ -1742,6 +1742,47 @@ try:
           'expanded':'true','closed':True
         },('VR01CT stale detached hand tab changed native layout',stale_tab)
         assert snap()==baseline,'VR01CT detached hand tab changed Phase21'
+        # VR01CU: hiding the original game screen must retract its raised
+        # hand, disable the old hand-tab and restore those controls when
+        # the same game screen is visible again. Never alter the game G.
+        hidden_game_hand=page.evaluate("""() => {
+          const root=document.querySelector('#gameScreen'),
+            tab=document.querySelector('#mrr-integrated-hand-tab'),
+            wrap=root?.querySelector('.hand-wrap'),scene=MRRIntegrated.scene;
+          if(!root||root.classList.contains('hidden')||!tab||tab.disabled||
+             tab.hidden||!wrap)return null;
+          const originallyOpen=root.classList.contains('mrr-integrated-hand-open');
+          if(originallyOpen)tab.click();
+          let result;
+          try{
+            tab.click();
+            const opened=root.classList.contains('mrr-integrated-hand-open');
+            root.classList.add('hidden');
+            try{
+              scene.sync();
+              const folded=!root.classList.contains('mrr-integrated-hand-open'),
+                disabled=tab.disabled,hidden=tab.hidden,
+                expanded=tab.getAttribute('aria-expanded');
+              tab.click();
+              result={opened,folded,disabled,hidden,expanded,
+                noReopen:!root.classList.contains('mrr-integrated-hand-open'),
+                reset:!wrap.style.getPropertyValue('bottom')};
+            }finally{root.classList.remove('hidden');scene.sync();}
+            result.restored=!tab.hidden&&!tab.disabled;
+          }finally{
+            root.classList.remove('hidden');
+            scene.sync();
+            if(root.classList.contains('mrr-integrated-hand-open'))tab.click();
+            if(originallyOpen&&!root.classList.contains('mrr-integrated-hand-open')&&
+              !tab.disabled&&!tab.hidden)tab.click();
+          }
+          return result;
+        }""")
+        assert hidden_game_hand=={
+          'opened':True,'folded':True,'disabled':True,'hidden':True,
+          'expanded':'false','noReopen':True,'reset':True,'restored':True
+        },('VR01CU hidden game screen exposed original native hand',hidden_game_hand)
+        assert snap()==baseline,'VR01CU hidden original screen changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
