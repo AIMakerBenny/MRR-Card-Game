@@ -2335,6 +2335,72 @@ try:
         },('VR01DD missing seat projection left stale native command',
           unprojectable_quick)
         assert snap()==baseline,'VR01DD missing projection altered Phase21'
+        # VR01DH: no quick command or A/M accessibility shortcut may stay
+        # enabled after the selected public seat projection disappears.
+        # The test changes only display metadata and scene projection.
+        unprojectable_buttons=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene,key=scene?.state?.selectedKey,
+            context=document.querySelector('#mrr-integrated-context');
+          const quick=[
+            document.querySelector('#mrr-quick-attack'),
+            document.querySelector('#mrr-quick-move'),
+            document.querySelector('#mrr-quick-cancel')];
+          if(!scene||!key||!context||context.hidden||
+             quick.some(button=>!button))return null;
+          const before=quick.map(button=>({
+            hidden:button.hidden,disabled:button.disabled
+          }));
+          const original=scene.projectSlot;
+          const saved=quick.map(button=>({
+            aria:button.getAttribute('aria-keyshortcuts'),
+            data:button.getAttribute('data-vr-shortcut'),
+            title:button.getAttribute('title')
+          }));
+          let hidden,restored;
+          quick.slice(0,2).forEach(button=>{
+            button.setAttribute('aria-keyshortcuts','A');
+            button.dataset.vrShortcut='A';
+            button.title='QA shortcut';
+          });
+          try{
+            scene.projectSlot=function(seat,...args){
+              return seat===key?null:original.call(this,seat,...args);
+            };
+            scene.sync();
+            hidden={contextHidden:context.hidden,commands:quick.map(button=>({
+              hidden:button.hidden,disabled:button.disabled,
+              ariaGone:!button.hasAttribute('aria-keyshortcuts'),
+              dataGone:!button.hasAttribute('data-vr-shortcut'),
+              titleGone:!button.hasAttribute('title')
+            }))};
+          }finally{
+            scene.projectSlot=original;scene.sync();
+            restored={contextVisible:!context.hidden,
+              states:quick.map(button=>({
+                hidden:button.hidden,disabled:button.disabled
+              }))};
+            quick.forEach((button,i)=>{
+              for(const [attr,value] of [
+                ['aria-keyshortcuts',saved[i].aria],
+                ['data-vr-shortcut',saved[i].data],
+                ['title',saved[i].title]
+              ])if(value===null)button.removeAttribute(attr);
+                else button.setAttribute(attr,value);
+            });
+          }
+          return {before,hidden,restored};
+        }""")
+        assert unprojectable_buttons and (
+          unprojectable_buttons['hidden']['contextHidden'] and
+          all(item['hidden'] and item['disabled'] and
+              item['ariaGone'] and item['dataGone'] and item['titleGone']
+              for item in unprojectable_buttons['hidden']['commands']) and
+          unprojectable_buttons['restored']['contextVisible'] and
+          unprojectable_buttons['restored']['states']==
+            unprojectable_buttons['before']
+        ),('VR01DH missing projection left quick actions enabled',
+          unprojectable_buttons)
+        assert snap()==baseline,'VR01DH quick command availability changed Phase21'
         # VR01DE: an old quick button may still be visibly enabled in
         # the instant BEFORE a native scene refresh. Its click must check
         # the CURRENT real projection and stage geometry without executing
