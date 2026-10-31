@@ -162,9 +162,30 @@ window.MRRIntegratedUIInit=function(loadThree){
       inspect.addEventListener('click',()=>root.classList.toggle('mrr-integrated-inspector-open'));
       rail.addEventListener('click',()=>root.classList.toggle('mrr-integrated-rail-open'));
       exit.addEventListener('click',close);
-      attack.addEventListener('click',()=>nativeButton('#inspectBody button[data-actor="attack"]'));
-      move.addEventListener('click',()=>nativeButton('#inspectBody button[data-actor="move"]'));
-      cancel.addEventListener('click',()=>nativeButton('#inspectBody button[data-cancel-action]'));
+      // VR01CW: re-check the REAL original game state on each toolbar
+      // click. Synthetic/queued DOM clicks must not bypass stale disabled
+      // attributes while native targeting, private pass or close begins.
+      const topAction=(control,selector,isCancel=false)=>{
+        control.addEventListener('click',()=>{
+          if(!view||!stage?.isConnected||!control.isConnected||
+            control.disabled||root.classList.contains('hidden')||
+            !root.classList.contains('mrr-integrated-playing')||
+            !document.querySelector('#overlay.hidden'))return;
+          if(!isCancel){
+            if(root.querySelector('#arena .slot.legal, #arena .slot.attack-target'))return;
+            const selected=view.state?.selectedKey;
+            const selectedSlots=[...root.querySelectorAll('#arena .slot.selected-slot')];
+            if(!selected||!view.hasCard(selected)||selectedSlots.length!==1||
+              selectedSlots[0].dataset.slot!==selected||
+              !selectedSlots[0].querySelector('.board-card .card-ui'))return;
+          }
+          nativeButton(selector);
+        });
+      };
+      topAction(attack,'#inspectBody button[data-actor="attack"]');
+      topAction(move,'#inspectBody button[data-actor="move"]');
+      // Keep a genuine Phase21 cancel possible while targeting a card.
+      topAction(cancel,'#inspectBody button[data-cancel-action]',true);
       stage.append(vignette,heading,badge,help,command,context);
       // Keep hand control outside stage's z-index stacking context: the
       // preserved native #handPreview is z97 and must not block fold/unfold.
