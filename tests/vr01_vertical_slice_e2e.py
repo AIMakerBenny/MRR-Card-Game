@@ -1238,6 +1238,47 @@ try:
           'cached':True,'nativeRestored':True
         },('VR01CE stale public card identity received a native click',identity_click)
         assert snap()==baseline,'VR01CE public identity gate changed Phase21'
+        # VR01CF: during a native DOM selection transition two public
+        # slots might both carry selected-slot before the VR refresh.
+        # With an otherwise unchanged card, stale quick commands must
+        # not delegate while selection is ambiguous.
+        ambiguous_selection=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene;
+          const selected=scene.state.selectedKey;
+          const second=[...document.querySelectorAll('#arena .slot')]
+            .find(slot=>slot.dataset.slot!==selected&&
+              !slot.classList.contains('selected-slot'));
+          const quick=document.querySelector('#mrr-quick-attack');
+          const native=document.querySelector('#inspectBody button[data-actor="attack"]');
+          const ctx=document.querySelector('#mrr-integrated-context');
+          if(!second||!quick||quick.hidden||!native||native.disabled||
+            !ctx||ctx.hidden)return null;
+          const own=Object.prototype.hasOwnProperty.call(native,'click'),
+            previous=native.click;
+          let delegated=0;
+          native.click=()=>{delegated++;};
+          const fire=()=>quick.dispatchEvent(new MouseEvent('click',
+            {bubbles:true,cancelable:true}));
+          let result;
+          try{
+            fire();
+            const before=delegated;
+            second.classList.add('selected-slot');
+            try{fire();}
+            finally{second.classList.remove('selected-slot');}
+            const during=delegated;
+            fire();
+            result={before,during,after:delegated};
+          }finally{
+            if(own)native.click=previous;
+            else delete native.click;
+          }
+          return result;
+        }""")
+        assert ambiguous_selection=={'before':1,'during':1,'after':2},(
+          'VR01CF ambiguous native selection delegated a quick command',
+          ambiguous_selection)
+        assert snap()==baseline,'VR01CF ambiguous selection changed Phase21'
         # VR01BX: viewport reflow must retain the SAME focused native
         # command and keep its actual clickable rectangle inside stage.
         page.locator('#mrr-quick-attack').focus()
