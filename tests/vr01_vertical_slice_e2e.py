@@ -910,10 +910,66 @@ try:
         assert page.locator('#mrr-integrated-context').evaluate(
           "node=>node.matches(':hover')"),(
           'VR01BT expected native quick command to receive actual mouse hover')
-        page.wait_for_timeout(850)
+        # VR01CZ: entering hover can coincide with a legitimate collision
+        # re-seat while the auto-camera is still moving. Measure stability
+        # after the live pointer has settled on the SAME native button,
+        # rather than compare against its pre-hover camera frame.
+        page.wait_for_timeout(300)
+        hovered_start=page.locator('#mrr-integrated-context').bounding_box()
+        assert hovered_start and page.locator('#mrr-integrated-context').evaluate(
+          "node=>node.matches(':hover')"),(
+          'VR01CZ quick command lost pointer during hover entry',before,hovered_start)
+        page.wait_for_timeout(550)
         after_hover=page.locator('#mrr-integrated-context').bounding_box()
-        assert after_hover and abs(after_hover['x']-before['x'])<3 and (
-          abs(after_hover['y']-before['y'])<3),('VR01AC jumpy quick command',before,after_hover)
+        assert after_hover and abs(after_hover['x']-hovered_start['x'])<3 and (
+          abs(after_hover['y']-hovered_start['y'])<3),(
+          'VR01CZ jumpy settled quick command',hovered_start,after_hover)
+        # VR01CZ: distant PUBLIC card occupancy may change mid-hover
+        # without invalidating the selected native command's current seat.
+        # Real collision checks still require re-seating if the new card
+        # actually overlaps the button.
+        safe_occupancy_hover=page.evaluate("""() => {
+          const ctx=document.querySelector('#mrr-integrated-context'),
+            scene=MRRIntegrated.scene,key=scene?.state?.selectedKey;
+          const slotNodes=[...document.querySelectorAll('#arena .slot[data-slot]')];
+          const template=slotNodes.find(s=>s.querySelector('.board-card'))
+            ?.querySelector('.board-card');
+          if(!ctx||ctx.hidden||!ctx.matches(':hover')||!template||!key)return null;
+          const before=ctx.getBoundingClientRect();
+          const empty=slotNodes.filter(s=>!s.querySelector('.board-card'))
+            .map(s=>({slot:s,point:scene.projectSlot(s.dataset.slot)}))
+            .filter(e=>e.point&&Number.isFinite(e.point.x))
+            .map(e=>({...e,distance:Math.hypot(
+              e.point.x-(before.left+before.width/2),
+              e.point.y-(before.top+before.height/2))}))
+            .filter(e=>e.distance>300)
+            .sort((a,b)=>b.distance-a.distance);
+          if(!empty.length)return null;
+          const target=empty[0].slot,copy=template.cloneNode(true);
+          copy.dataset.vrCzOccupancyFixture='true';
+          let result;
+          try{
+            target.append(copy);scene.sync();
+            const after=ctx.getBoundingClientRect();
+            const face=scene.projectCardBounds(target.dataset.slot);
+            const area=(a,b)=>Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left))*
+              Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top));
+            result={movedX:after.left-before.left,movedY:after.top-before.top,
+              stillHovered:ctx.matches(':hover'),occupancyChanged:
+                !!target.querySelector('[data-vr-cz-occupancy-fixture]'),
+              overlap:face?area(after,face):0};
+          }finally{copy.remove();scene.sync();}
+          return result;
+        }""")
+        assert safe_occupancy_hover and (
+          safe_occupancy_hover['stillHovered'] and
+          safe_occupancy_hover['occupancyChanged'] and
+          safe_occupancy_hover['overlap']<4 and
+          abs(safe_occupancy_hover['movedX'])<3 and
+          abs(safe_occupancy_hover['movedY'])<3),(
+          'VR01CZ safe public occupancy change dislodged hovered action',
+          safe_occupancy_hover)
+        assert snap()==baseline,'VR01CZ public occupancy fixture altered Phase21'
         page.screenshot(path=str(ROOT/'tests/vr01ac_native_context_nonoverlap_1920x1080.png'),
           animations='disabled')
         # VR01BU: keyboard focus must also pin a safe native command
