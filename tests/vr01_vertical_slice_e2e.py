@@ -1783,6 +1783,61 @@ try:
           'expanded':'false','noReopen':True,'reset':True,'restored':True
         },('VR01CU hidden game screen exposed original native hand',hidden_game_hand)
         assert snap()==baseline,'VR01CU hidden original screen changed Phase21'
+        # VR01CV: the top integrated attack/move actions must not
+        # advertise another command during native Phase21 targeting.
+        # The genuine cancel command must remain usable in targeting,
+        # but all three must be unavailable during private turn pass.
+        top_action_visibility=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene,
+            overlay=document.querySelector('#overlay'),
+            inspector=document.querySelector('#inspectBody');
+          const attack=document.querySelector('#mrr-integrated-attack'),
+            move=document.querySelector('#mrr-integrated-move'),
+            cancel=document.querySelector('#mrr-integrated-cancel');
+          const nativeAttack=inspector?.querySelector('button[data-actor="attack"]'),
+            nativeMove=inspector?.querySelector('button[data-actor="move"]');
+          const slot=[...document.querySelectorAll('#arena .slot')]
+            .find(n=>!n.classList.contains('legal')&&!n.classList.contains('attack-target'));
+          if(!overlay?.classList.contains('hidden')||!nativeAttack||!nativeMove||
+            !attack||!move||!cancel||!slot)return null;
+          let nativeCancel=inspector.querySelector('button[data-cancel-action]');
+          const synthetic=!nativeCancel;
+          if(synthetic){
+            nativeCancel=document.createElement('button');
+            nativeCancel.type='button';
+            nativeCancel.dataset.cancelAction='qa-cv';
+            inspector.append(nativeCancel);
+          }
+          const olds=[nativeAttack.disabled,nativeMove.disabled,nativeCancel.disabled];
+          const state=()=>({attack:attack.disabled,move:move.disabled,
+            cancel:cancel.disabled});
+          let states;
+          try{
+            nativeAttack.disabled=false;nativeMove.disabled=false;
+            nativeCancel.disabled=false;
+            scene.sync();
+            const ready=state();
+            slot.classList.add('attack-target');
+            try{scene.sync();var targeting=state();}
+            finally{slot.classList.remove('attack-target');scene.sync();}
+            overlay.classList.remove('hidden');
+            try{scene.sync();var privatePass=state();}
+            finally{overlay.classList.add('hidden');scene.sync();}
+            states={ready,targeting,privatePass};
+          }finally{
+            nativeAttack.disabled=olds[0];nativeMove.disabled=olds[1];
+            nativeCancel.disabled=olds[2];
+            if(synthetic)nativeCancel.remove();
+            scene.sync();
+          }
+          return states;
+        }""")
+        assert top_action_visibility=={
+          'ready':{'attack':False,'move':False,'cancel':False},
+          'targeting':{'attack':True,'move':True,'cancel':False},
+          'privatePass':{'attack':True,'move':True,'cancel':True}
+        },('VR01CV top integrated commands ignored native targeting',top_action_visibility)
+        assert snap()==baseline,'VR01CV toolbar state changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
