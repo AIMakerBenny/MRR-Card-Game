@@ -2103,6 +2103,49 @@ try:
         },('VR01CY top commands stayed enabled in ambiguous selection',
           top_selection_display)
         assert snap()==baseline,'VR01CY top toolbar selection changed Phase21'
+        # VR01DB: the native game-screen may hide BEFORE the next scene
+        # refresh. A stale quick click must reject it immediately; once
+        # refreshed, both the action and its card ID cache must withdraw.
+        quick_screen_gate=page.evaluate("""() => {
+          const root=document.querySelector('#gameScreen'),
+            ctx=document.querySelector('#mrr-integrated-context'),
+            quick=document.querySelector('#mrr-quick-attack'),
+            native=document.querySelector('#inspectBody button[data-actor="attack"]'),
+            scene=MRRIntegrated.scene;
+          if(!root||!ctx||ctx.hidden||!quick||quick.hidden||
+             !native||native.disabled||root.classList.contains('hidden'))return null;
+          const own=Object.prototype.hasOwnProperty.call(native,'click'),
+            previous=native.click;
+          let delegated=0,result;
+          native.click=()=>{delegated++;};
+          const fire=()=>quick.dispatchEvent(new MouseEvent('click',
+            {bubbles:true,cancelable:true}));
+          try{
+            fire();
+            const ready=delegated;
+            root.classList.add('hidden');
+            try{
+              fire();const beforeSync=delegated;
+              scene.sync();
+              const hidden={ctx:ctx.hidden,quick:quick.hidden,
+                cached:ctx.hasAttribute('data-vr-selected-card-id')};
+              fire();
+              result={ready,beforeSync,afterSync:delegated,hidden};
+            }finally{root.classList.remove('hidden');scene.sync();}
+            fire();result.restored=delegated;
+            result.visible=!ctx.hidden&&!quick.hidden;
+          }finally{
+            root.classList.remove('hidden');scene.sync();
+            if(own)native.click=previous;else delete native.click;
+          }
+          return result;
+        }""")
+        assert quick_screen_gate=={
+          'ready':1,'beforeSync':1,'afterSync':1,
+          'hidden':{'ctx':True,'quick':True,'cached':False},
+          'restored':2,'visible':True
+        },('VR01DB stale quick button acted on hidden game',quick_screen_gate)
+        assert snap()==baseline,'VR01DB native hidden-screen fixture changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
