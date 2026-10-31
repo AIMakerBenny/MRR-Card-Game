@@ -101,10 +101,20 @@ window.MRRIntegratedUIInit=function(loadThree){
           // before the next scene refresh hides this VR quick-action group.
           // Recheck original DOM at click time; never delegate a stale
           // action into a Phase21 placement or attack target selection.
-          if(document.body.classList.contains('mrr-vr-active')&&
-            (!document.querySelector('#overlay.hidden')||
-             document.querySelector('#arena .slot.legal, #arena .slot.attack-target')))
-            return;
+          if(document.body.classList.contains('mrr-vr-active')){
+            if(!document.querySelector('#overlay.hidden')||
+              document.querySelector('#arena .slot.legal, #arena .slot.attack-target'))
+              return;
+            // VR01CD: an original Phase21 deselection can occur before
+            // this 3D action group is visually withdrawn. Only delegate
+            // when the SAME publicly selected native card still exists.
+            const selected=view?.state?.selectedKey;
+            const liveSelection=selected&&view?.hasCard(selected)&&
+              [...document.querySelectorAll('#arena .slot.selected-slot')]
+                .some(slot=>slot.dataset.slot===selected&&
+                  !!slot.querySelector('.board-card .card-ui'));
+            if(!liveSelection||context.hidden||b.hidden||b.disabled)return;
+          }
           nativeButton(selector);
         });
         context.appendChild(b);return b;
