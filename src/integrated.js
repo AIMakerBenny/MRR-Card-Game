@@ -192,6 +192,14 @@ window.MRRIntegratedUIInit=function(loadThree){
             const liveId=selectedSlots[0].querySelector('.board-card .card-ui')
               ?.getAttribute('data-mrr-public-card-id')||'';
             if(!liveId||liveId!==control.dataset.vrTopSelectedCardId)return;
+            // VR01DF: a selected public card can lose its screen projection
+            // between refresh and click. Do not pass an old top action to
+            // Phase21 when its 3D target can no longer be located.
+            const projection=view.projectSlot?.(selected);
+            const bounds=stage.getBoundingClientRect();
+            if(!projection||!Number.isFinite(projection.x)||
+              !Number.isFinite(projection.y)||
+              bounds.width<=0||bounds.height<=0)return;
           }
           nativeButton(selector);
         });
