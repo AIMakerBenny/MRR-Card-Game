@@ -1838,6 +1838,87 @@ try:
           'privatePass':{'attack':True,'move':True,'cancel':True}
         },('VR01CV top integrated commands ignored native targeting',top_action_visibility)
         assert snap()==baseline,'VR01CV toolbar state changed Phase21'
+        # VR01CW: dispatch queued synthetic clicks against the REAL
+        # integrated toolbar during native targeting and private handoff.
+        # Stub only native button click methods; no Phase21 rule action
+        # or game state is executed during this one synchronous test.
+        top_click_gate=page.evaluate("""() => {
+          const root=document.querySelector('#gameScreen'),
+            scene=MRRIntegrated.scene,overlay=document.querySelector('#overlay'),
+            inspector=document.querySelector('#inspectBody');
+          const top={
+            attack:document.querySelector('#mrr-integrated-attack'),
+            move:document.querySelector('#mrr-integrated-move'),
+            cancel:document.querySelector('#mrr-integrated-cancel')};
+          const native={
+            attack:inspector?.querySelector('button[data-actor="attack"]'),
+            move:inspector?.querySelector('button[data-actor="move"]'),
+            cancel:inspector?.querySelector('button[data-cancel-action]')};
+          const slot=[...document.querySelectorAll('#arena .slot')]
+            .find(n=>!n.classList.contains('legal')&&!n.classList.contains('attack-target'));
+          if(!root||!scene||!inspector||!overlay?.classList.contains('hidden')||
+            !top.attack||!top.move||!top.cancel||
+            !native.attack||!native.move||!slot)return null;
+          const synthetic=!native.cancel;
+          if(synthetic){
+            native.cancel=document.createElement('button');
+            native.cancel.type='button';native.cancel.dataset.cancelAction='qa-cw';
+            inspector.append(native.cancel);
+          }
+          const keys=['attack','move','cancel'],old={},counts={attack:0,move:0,cancel:0};
+          const fire=key=>top[key].dispatchEvent(
+            new MouseEvent('click',{bubbles:true,cancelable:true}));
+          const all=()=>keys.forEach(fire);
+          const snapshot=()=>({...counts});
+          let result;
+          for(const key of keys){
+            const el=native[key];
+            old[key]={own:Object.prototype.hasOwnProperty.call(el,'click'),
+              click:el.click,disabled:el.disabled};
+            el.disabled=false;
+            el.click=()=>{counts[key]++;};
+          }
+          try{
+            scene.sync();
+            all();const ready=snapshot();
+            slot.classList.add('attack-target');
+            try{scene.sync();all();var targeting=snapshot();}
+            finally{slot.classList.remove('attack-target');scene.sync();}
+            overlay.classList.remove('hidden');
+            try{scene.sync();all();var privatePass=snapshot();}
+            finally{overlay.classList.add('hidden');scene.sync();}
+            root.classList.add('hidden');
+            try{scene.sync();all();var hiddenScreen=snapshot();}
+            finally{root.classList.remove('hidden');scene.sync();}
+            const parent=top.attack.parentNode,next=top.attack.nextSibling;
+            top.attack.remove();
+            try{fire('attack');var detached=snapshot();}
+            finally{parent.insertBefore(top.attack,next);}
+            scene.sync();all();const restored=snapshot();
+            result={ready,targeting,privatePass,hiddenScreen,detached,restored};
+          }finally{
+            root.classList.remove('hidden');overlay.classList.add('hidden');
+            slot.classList.remove('attack-target');
+            for(const key of keys){
+              const el=native[key],previous=old[key];
+              if(previous.own)el.click=previous.click;
+              else delete el.click;
+              el.disabled=previous.disabled;
+            }
+            if(synthetic)native.cancel.remove();
+            scene.sync();
+          }
+          return result;
+        }""")
+        assert top_click_gate=={
+          'ready':{'attack':1,'move':1,'cancel':1},
+          'targeting':{'attack':1,'move':1,'cancel':2},
+          'privatePass':{'attack':1,'move':1,'cancel':2},
+          'hiddenScreen':{'attack':1,'move':1,'cancel':2},
+          'detached':{'attack':1,'move':1,'cancel':2},
+          'restored':{'attack':2,'move':2,'cancel':3}
+        },('VR01CW stale integrated toolbar click invoked a native action',top_click_gate)
+        assert snap()==baseline,'VR01CW toolbar click guard changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
