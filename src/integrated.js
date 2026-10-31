@@ -109,9 +109,13 @@ window.MRRIntegratedUIInit=function(loadThree){
             // this 3D action group is visually withdrawn. Only delegate
             // when the SAME publicly selected native card still exists.
             const selected=view?.state?.selectedKey;
-            const selectedSlot=[...document.querySelectorAll('#arena .slot.selected-slot')]
-              .find(slot=>slot.dataset.slot===selected);
-            const liveCard=selectedSlot?.querySelector('.board-card .card-ui');
+            // VR01CF: transient double selection must not execute a
+            // command against the previous selected card, even if its
+            // public slot and card ID have not changed yet.
+            const selectedSlots=[...document.querySelectorAll('#arena .slot.selected-slot')];
+            if(selectedSlots.length!==1||
+              selectedSlots[0].dataset.slot!==selected)return;
+            const liveCard=selectedSlots[0].querySelector('.board-card .card-ui');
             const liveId=liveCard?.getAttribute('data-mrr-public-card-id')||'';
             // VR01CE: the original game may replace a card in the SAME
             // public slot before a VR frame updates the quick commands.
