@@ -181,6 +181,11 @@ window.MRRIntegratedUIInit=function(loadThree){
              root.classList.contains('mrr-integrated-hand-open'))
             setHandReveal?.(false);
           const count=document.querySelectorAll('#hand .hand-slot').length;
+          // VR01CP: the last real Phase21 hand card can disappear while
+          // its native hand fan is expanded. Release the presentation
+          // overrides immediately rather than leave an empty raised panel.
+          if(!count&&root.classList.contains('mrr-integrated-hand-open'))
+            setHandReveal?.(false);
           handTab.hidden=privateHandPass||!count;
           handTab.disabled=targetActive||privateHandPass;
           handTab.textContent=(root.classList.contains('mrr-integrated-hand-open')?'손패 접기':'손패 펼치기')+(count?' · '+count+'장':'');
