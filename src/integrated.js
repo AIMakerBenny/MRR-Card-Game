@@ -176,8 +176,13 @@ window.MRRIntegratedUIInit=function(loadThree){
             const selected=view.state?.selectedKey;
             const selectedSlots=[...root.querySelectorAll('#arena .slot.selected-slot')];
             if(!selected||!view.hasCard(selected)||selectedSlots.length!==1||
-              selectedSlots[0].dataset.slot!==selected||
-              !selectedSlots[0].querySelector('.board-card .card-ui'))return;
+              selectedSlots[0].dataset.slot!==selected)return;
+            // VR01CX: same public seat can be repainted with another card
+            // before a scene frame refreshes this toolbar. Never invoke
+            // a native action for an identity that was not on the button.
+            const liveId=selectedSlots[0].querySelector('.board-card .card-ui')
+              ?.getAttribute('data-mrr-public-card-id')||'';
+            if(!liveId||liveId!==control.dataset.vrTopSelectedCardId)return;
           }
           nativeButton(selector);
         });
@@ -233,6 +238,17 @@ window.MRRIntegratedUIInit=function(loadThree){
           handTab.textContent=(root.classList.contains('mrr-integrated-hand-open')?'손패 접기':'손패 펼치기')+(count?' · '+count+'장':'');
           const nativeAttack=document.querySelector('#inspectBody button[data-actor="attack"]');
           const nativeMove=document.querySelector('#inspectBody button[data-actor="move"]');
+          // VR01CX: capture the same already-public card identity for both
+          // generic integrated actions during each native scene refresh.
+          const topSelectedSlots=[...root.querySelectorAll('#arena .slot.selected-slot')];
+          const topSelectionId=topSelectedSlots.length===1&&
+            topSelectedSlots[0].dataset.slot===info.selectedKey?
+            topSelectedSlots[0].querySelector('.board-card .card-ui')
+              ?.getAttribute('data-mrr-public-card-id')||'':'';
+          for(const control of [attack,move]){
+            if(topSelectionId)control.dataset.vrTopSelectedCardId=topSelectionId;
+            else delete control.dataset.vrTopSelectedCardId;
+          }
           // VR01CV: a Phase21 target-selection step belongs to the
           // original engine. Attack and move cannot start a second action
           // while a target is pending. Preserve native cancel so the user
