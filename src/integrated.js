@@ -109,11 +109,16 @@ window.MRRIntegratedUIInit=function(loadThree){
             // this 3D action group is visually withdrawn. Only delegate
             // when the SAME publicly selected native card still exists.
             const selected=view?.state?.selectedKey;
-            const liveSelection=selected&&view?.hasCard(selected)&&
-              [...document.querySelectorAll('#arena .slot.selected-slot')]
-                .some(slot=>slot.dataset.slot===selected&&
-                  !!slot.querySelector('.board-card .card-ui'));
-            if(!liveSelection||context.hidden||b.hidden||b.disabled)return;
+            const selectedSlot=[...document.querySelectorAll('#arena .slot.selected-slot')]
+              .find(slot=>slot.dataset.slot===selected);
+            const liveCard=selectedSlot?.querySelector('.board-card .card-ui');
+            const liveId=liveCard?.getAttribute('data-mrr-public-card-id')||'';
+            // VR01CE: the original game may replace a card in the SAME
+            // public slot before a VR frame updates the quick commands.
+            // A stale click must never act on that replacement's identity.
+            if(!selected||!view?.hasCard(selected)||!liveId||
+              liveId!==context.dataset.vrSelectedCardId||
+              context.hidden||b.hidden||b.disabled)return;
           }
           nativeButton(selector);
         });
@@ -174,6 +179,16 @@ window.MRRIntegratedUIInit=function(loadThree){
           quickMove.hidden=!valid||move.disabled;
           quickCancel.hidden=!valid||cancel.disabled;
           const show=valid&&(!quickAttack.hidden||!quickMove.hidden||!quickCancel.hidden);
+          // VR01CE: capture only the selected card's already PUBLIC Phase21
+          // ID when drawing actions. No native game state or private card
+          // content is read. Click-time identity must still match this ID.
+          const publicSelection=show?
+            [...document.querySelectorAll('#arena .slot.selected-slot')]
+              .find(slot=>slot.dataset.slot===info.selectedKey)
+              ?.querySelector('.board-card .card-ui')
+              ?.getAttribute('data-mrr-public-card-id')||'':'';
+          if(publicSelection)context.dataset.vrSelectedCardId=publicSelection;
+          else delete context.dataset.vrSelectedCardId;
           // VR01BX: a context that genuinely disappears must not retain
           // the previous selected card's cached seat. The next real native
           // command gets a fresh collision-aware placement after reopening.
