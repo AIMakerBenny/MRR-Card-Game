@@ -2234,6 +2234,56 @@ try:
         },('VR01DD missing seat projection left stale native command',
           unprojectable_quick)
         assert snap()==baseline,'VR01DD missing projection altered Phase21'
+        # VR01DE: an old quick button may still be visibly enabled in
+        # the instant BEFORE a native scene refresh. Its click must check
+        # the CURRENT real projection and stage geometry without executing
+        # any Phase21 rule action during the mocked transition.
+        stale_projection_click=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene,ctx=document.querySelector('#mrr-integrated-context'),
+            quick=document.querySelector('#mrr-quick-attack'),
+            stage=document.querySelector('#mrr-integrated-stage'),
+            native=document.querySelector('#inspectBody button[data-actor="attack"]');
+          const selected=scene?.state?.selectedKey;
+          if(!scene||!selected||!ctx||ctx.hidden||!quick||
+            quick.hidden||quick.disabled||!stage||!native||native.disabled)return null;
+          const oldProjection=scene.projectSlot,oldBounds=stage.getBoundingClientRect;
+          const ownClick=Object.prototype.hasOwnProperty.call(native,'click'),
+            previousClick=native.click;
+          let delegated=0;
+          const fire=()=>quick.dispatchEvent(new MouseEvent('click',
+            {bubbles:true,cancelable:true}));
+          let result;
+          native.click=()=>{delegated++;};
+          try{
+            fire();const initial=delegated;
+            scene.projectSlot=function(seat,...args){
+              if(seat===selected)return null;
+              return oldProjection.call(this,seat,...args);
+            };
+            try{fire();var missingSeat=delegated;}
+            finally{scene.projectSlot=oldProjection;}
+            const validBounds=stage.getBoundingClientRect();
+            stage.getBoundingClientRect=function(){
+              return {...validBounds,width:0,height:0};
+            };
+            try{fire();var zeroStage=delegated;}
+            finally{stage.getBoundingClientRect=oldBounds;}
+            fire();
+            result={initial,missingSeat,zeroStage,restored:delegated,
+              stillVisible:!ctx.hidden};
+          }finally{
+            scene.projectSlot=oldProjection;stage.getBoundingClientRect=oldBounds;
+            if(ownClick)native.click=previousClick;else delete native.click;
+            scene.sync();
+          }
+          return result;
+        }""")
+        assert stale_projection_click=={
+          'initial':1,'missingSeat':1,'zeroStage':1,
+          'restored':2,'stillVisible':True
+        },('VR01DE stale native quick click ignored invalid projection',
+          stale_projection_click)
+        assert snap()==baseline,'VR01DE projection click gate altered Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
