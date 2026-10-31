@@ -1336,6 +1336,40 @@ try:
           and cancel_gate['disabled']=={'native':True,'quick':True,'integrated':True}
         ),('VR01CI did not mirror native cancel disabled state',cancel_gate)
         assert snap()==baseline,'VR01CI cancel-state reflection changed Phase21'
+        # VR01CJ: every real quick command must mirror the original
+        # inspector's disabled state, not merely its CSS visibility.
+        quick_availability=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene;
+          const types=[
+            ['attack','#inspectBody button[data-actor="attack"]','#mrr-quick-attack'],
+            ['move','#inspectBody button[data-actor="move"]','#mrr-quick-move'],
+            ['cancel','#inspectBody button[data-cancel-action]','#mrr-quick-cancel']];
+          const results=[];
+          for(const [kind,nativeSelector,quickSelector] of types){
+            const native=document.querySelector(nativeSelector);
+            const quick=document.querySelector(quickSelector);
+            const context=document.querySelector('#mrr-integrated-context');
+            if(!native||!quick||!context)return null;
+            const original=native.disabled;
+            try{
+              for(const flag of [false,true]){
+                native.disabled=flag;
+                scene.sync();
+                results.push({kind,flag,hidden:quick.hidden,disabled:quick.disabled,
+                  contextHidden:context.hidden});
+              }
+            }finally{native.disabled=original;scene.sync();}
+          }
+          return results;
+        }""")
+        assert quick_availability and len(quick_availability)==6 and all(
+          item['hidden']==item['flag'] and
+          item['disabled']==item['flag'] and
+          not item['contextHidden']
+          for item in quick_availability),(
+          'VR01CJ mirrored quick disabled states differ from native inspector',
+          quick_availability)
+        assert snap()==baseline,'VR01CJ native command availability changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
