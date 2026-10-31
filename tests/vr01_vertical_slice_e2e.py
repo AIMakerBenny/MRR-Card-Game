@@ -1664,6 +1664,48 @@ try:
           ],'restored':True
         },('VR01CQ unavailable hand control retained keyboard focus',hand_focus_gate)
         assert snap()==baseline,'VR01CQ native hand focus changed Phase21'
+        # VR01CS: the native hand fan is limited to desktop-size viewports.
+        # Simulate ONLY browser viewport metrics for this short presentation
+        # gate, then restore both property descriptors before next QA.
+        narrow_hand_gate=page.evaluate("""() => {
+          const root=document.querySelector('#gameScreen'),
+            tab=document.querySelector('#mrr-integrated-hand-tab'),
+            scene=MRRIntegrated.scene;
+          if(!root||!tab||tab.disabled||tab.hidden)return null;
+          const width=Object.getOwnPropertyDescriptor(window,'innerWidth'),
+            height=Object.getOwnPropertyDescriptor(window,'innerHeight');
+          if(!width?.configurable||!height?.configurable)return null;
+          const originallyOpen=root.classList.contains('mrr-integrated-hand-open');
+          if(originallyOpen)tab.click();
+          let result;
+          try{
+            tab.click();
+            const opened=root.classList.contains('mrr-integrated-hand-open');
+            Object.defineProperty(window,'innerWidth',{configurable:true,value:900});
+            Object.defineProperty(window,'innerHeight',{configurable:true,value:650});
+            scene.sync();
+            const folded=!root.classList.contains('mrr-integrated-hand-open');
+            const hidden=tab.hidden,disabled=tab.disabled,
+              expanded=tab.getAttribute('aria-expanded');
+            tab.click();
+            result={opened,folded,hidden,disabled,expanded,
+              refusedReopen:!root.classList.contains('mrr-integrated-hand-open')};
+          }finally{
+            Object.defineProperty(window,'innerWidth',width);
+            Object.defineProperty(window,'innerHeight',height);
+            scene.sync();
+            if(root.classList.contains('mrr-integrated-hand-open'))tab.click();
+            if(originallyOpen&&!root.classList.contains('mrr-integrated-hand-open')&&
+              !tab.disabled&&!tab.hidden)tab.click();
+          }
+          result.restored=!tab.hidden&&!tab.disabled;
+          return result;
+        }""")
+        assert narrow_hand_gate=={
+          'opened':True,'folded':True,'hidden':True,'disabled':True,
+          'expanded':'false','refusedReopen':True,'restored':True
+        },('VR01CS narrow viewport left unusable native hand tab',narrow_hand_gate)
+        assert snap()==baseline,'VR01CS viewport gate changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
