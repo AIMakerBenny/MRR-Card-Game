@@ -1706,6 +1706,42 @@ try:
           'expanded':'false','refusedReopen':True,'restored':True
         },('VR01CS narrow viewport left unusable native hand tab',narrow_hand_gate)
         assert snap()==baseline,'VR01CS viewport gate changed Phase21'
+        # VR01CT: an old hand tab reference can retain a click listener
+        # after the integrated view removes it. A detached click must
+        # neither throw nor change the live original hand layout.
+        stale_tab=page.evaluate("""() => {
+          const root=document.querySelector('#gameScreen'),
+            tab=document.querySelector('#mrr-integrated-hand-tab');
+          if(!root||!tab||tab.hidden||tab.disabled)return null;
+          const parent=tab.parentNode,next=tab.nextSibling;
+          const originallyOpen=root.classList.contains('mrr-integrated-hand-open');
+          if(originallyOpen)tab.click();
+          let result;
+          try{
+            tab.click();
+            const opened=root.classList.contains('mrr-integrated-hand-open');
+            tab.remove();
+            try{
+              tab.click();
+              result={opened,detached:!tab.isConnected,
+                stillOpen:root.classList.contains('mrr-integrated-hand-open'),
+                expanded:tab.getAttribute('aria-expanded')};
+            }finally{parent.insertBefore(tab,next);}
+            tab.click();
+            result.closed=!root.classList.contains('mrr-integrated-hand-open');
+          }finally{
+            if(!tab.isConnected)parent.insertBefore(tab,next);
+            if(root.classList.contains('mrr-integrated-hand-open'))tab.click();
+            if(originallyOpen&&!root.classList.contains('mrr-integrated-hand-open')&&
+              !tab.disabled&&!tab.hidden)tab.click();
+          }
+          return result;
+        }""")
+        assert stale_tab=={
+          'opened':True,'detached':True,'stillOpen':True,
+          'expanded':'true','closed':True
+        },('VR01CT stale detached hand tab changed native layout',stale_tab)
+        assert snap()==baseline,'VR01CT detached hand tab changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
