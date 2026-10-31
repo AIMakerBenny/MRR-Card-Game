@@ -1194,6 +1194,50 @@ try:
           'before':1,'during':1,'after':2,'stillSelected':True
         },('VR01CD stale selected-card click was delegated',deselection_click)
         assert snap()==baseline,'VR01CD native selection guard changed Phase21'
+        # VR01CE: the public card in the selected slot can change between
+        # native DOM repaint and the next integrated VR adapter refresh.
+        # A previously rendered quick command may only reach the SAME
+        # publicly identified card. Test the race in one synchronous task.
+        identity_click=page.evaluate("""() => {
+          const selected=MRRIntegrated.state.scene.selectedKey;
+          const slot=[...document.querySelectorAll('#arena .slot.selected-slot')]
+            .find(e=>e.dataset.slot===selected);
+          const card=slot?.querySelector('.board-card .card-ui');
+          const ctx=document.querySelector('#mrr-integrated-context');
+          const quick=document.querySelector('#mrr-quick-attack');
+          const native=document.querySelector('#inspectBody button[data-actor="attack"]');
+          if(!card||!ctx||ctx.hidden||!quick||quick.hidden||
+             !native||native.disabled)return null;
+          const id=card.getAttribute('data-mrr-public-card-id');
+          if(!id||ctx.dataset.vrSelectedCardId!==id)return null;
+          const own=Object.prototype.hasOwnProperty.call(native,'click');
+          const old=native.click;
+          let delegated=0;
+          const fire=()=>quick.dispatchEvent(new MouseEvent('click',
+            {bubbles:true,cancelable:true}));
+          native.click=()=>{delegated++;};
+          let result;
+          try{
+            fire();
+            const initial=delegated;
+            card.setAttribute('data-mrr-public-card-id',id+'-qa-replaced');
+            try{fire();}
+            finally{card.setAttribute('data-mrr-public-card-id',id);}
+            const stale=delegated;
+            fire();
+            result={initial,stale,restored:delegated,
+              cached:ctx.dataset.vrSelectedCardId===id,
+              nativeRestored:card.getAttribute('data-mrr-public-card-id')===id};
+          }finally{
+            if(own)native.click=old;else delete native.click;
+          }
+          return result;
+        }""")
+        assert identity_click=={
+          'initial':1,'stale':1,'restored':2,
+          'cached':True,'nativeRestored':True
+        },('VR01CE stale public card identity received a native click',identity_click)
+        assert snap()==baseline,'VR01CE public identity gate changed Phase21'
         # VR01BX: viewport reflow must retain the SAME focused native
         # command and keep its actual clickable rectangle inside stage.
         page.locator('#mrr-quick-attack').focus()
