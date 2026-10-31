@@ -284,9 +284,15 @@ window.MRRIntegratedUIInit=function(loadThree){
           // are visible. Do not advertise commands during a double-select
           // DOM transition or when the scene's key is already stale.
           const selectedSlots=[...document.querySelectorAll('#arena .slot.selected-slot')];
-          const nativeSelected=selectedSlots.length===1&&
-            selectedSlots[0].dataset.slot===info.selectedKey&&
-            !!selectedSlots[0].querySelector('.board-card .card-ui');
+          // VR01DC: do not advertise an action for a card whose PUBLIC
+          // identity has temporarily vanished during native DOM repaint.
+          // Click-time VR01CE already rejects this identity-less state.
+          const selectedNativeCard=selectedSlots.length===1&&
+            selectedSlots[0].dataset.slot===info.selectedKey?
+            selectedSlots[0].querySelector('.board-card .card-ui'):null;
+          const selectedPublicId=selectedNativeCard
+            ?.getAttribute('data-mrr-public-card-id')||'';
+          const nativeSelected=!!selectedNativeCard&&!!selectedPublicId;
           // VR01DB: the original screen can be hidden before its
           // native refresh withdraws these quick commands. Hide the
           // controls and reject queued clicks throughout that transition.
@@ -318,11 +324,7 @@ window.MRRIntegratedUIInit=function(loadThree){
           // VR01CE: capture only the selected card's already PUBLIC Phase21
           // ID when drawing actions. No native game state or private card
           // content is read. Click-time identity must still match this ID.
-          const publicSelection=show?
-            [...document.querySelectorAll('#arena .slot.selected-slot')]
-              .find(slot=>slot.dataset.slot===info.selectedKey)
-              ?.querySelector('.board-card .card-ui')
-              ?.getAttribute('data-mrr-public-card-id')||'':'';
+          const publicSelection=show?selectedPublicId:'';
           if(publicSelection)context.dataset.vrSelectedCardId=publicSelection;
           else delete context.dataset.vrSelectedCardId;
           // VR01BX: a context that genuinely disappears must not retain
