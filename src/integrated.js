@@ -351,7 +351,11 @@ window.MRRIntegratedUIInit=function(loadThree){
             // Slot projection follows camera/resizes without following hover scale.
             const pos=view.projectSlot(info.selectedKey);
             const rect=stage.getBoundingClientRect();
-            if(pos&&rect.width>0&&rect.height>0){
+            // VR01DD: camera/renderer transitions can briefly leave a
+            // selected public seat without finite screen coordinates.
+            // A command must never remain clickable at its OLD location.
+            if(pos&&Number.isFinite(pos.x)&&Number.isFinite(pos.y)&&
+              rect.width>0&&rect.height>0){
               // Measure the real contextual command group, not a guessed 230px.
               // Selection near an edge, smaller laptop windows and translated
               // canvas positions must never push a clickable action off-screen.
@@ -494,7 +498,19 @@ window.MRRIntegratedUIInit=function(loadThree){
                 context.style.left=Math.max(12,Math.min(maxX,pos.x-rect.left+48))+'px';
                 context.style.top=Math.max(topBound,Math.min(bottomBound,pos.y-rect.top-48))+'px';
               }
-            }else context.hidden=true;
+            }else{
+              // VR01DD: withdraw unusable projection commands immediately.
+              // The existing native Phase21 inspector remains untouched.
+              if(context.contains(document.activeElement))
+                document.activeElement.blur();
+              context.hidden=true;
+              context.inert=true;
+              context.setAttribute('aria-hidden','true');
+              delete context.dataset.vrSelectedCardId;
+              delete context.dataset.vrLayoutKey;
+              delete context.dataset.vrSlotX;
+              delete context.dataset.vrSlotY;
+            }
           }
         }finally{updating=false;}
       }
