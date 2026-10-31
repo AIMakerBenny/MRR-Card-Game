@@ -90,9 +90,29 @@ try:
             assert snap()==baseline,(w,h,'Viewport changed original game state')
             print('PHASE72 ZONE',w,h,'WebGL scene/hand/engine unchanged',flush=True)
         page.set_viewport_size({'width':1920,'height':1080})
-        page.locator('#hand .hand-slot').nth(affordable['i']).evaluate('e=>e.click()')
-        target=page.locator('#arena .slot.legal').first.get_attribute('data-slot')
-        assert target
+        # VR01AQ: the seed was probed before restarting the match and
+        # switching through three PC viewports. Re-read the CURRENT public
+        # native hand here; a previously cached numeric index is not proof
+        # that the same card is still at that position. Only Phase21
+        # .slot.legal authorizes a placement, not the printed mana cost.
+        selection=page.evaluate("""() => {
+            const hand=[...document.querySelectorAll('#hand .hand-slot')];
+            const attempts=[];
+            for(let i=0;i<hand.length;i++){
+                const node=hand[i],face=node.querySelector('.card-ui');
+                const cardKind=face?.className||'';
+                const cost=Number(face?.querySelector('.cost-bubble')?.textContent||99);
+                if(!/type-(몬스터|시설|영웅유닛)/.test(cardKind)||cost>2)continue;
+                node.click();
+                const legal=[...document.querySelectorAll('#arena .slot.legal')];
+                attempts.push({i,cost,legal:legal.length});
+                if(legal.length)return {target:legal[0].dataset.slot,index:i,attempts};
+            }
+            return {target:null,attempts,count:hand.length};
+        }""")
+        assert selection['target'],('Phase72 no CURRENT native legal hand card',selection)
+        target=selection['target']
+        assert snap()==baseline,'Probing a native hand selection changed resources'
         page.wait_for_function("""key=>MRRIntegrated.state.scene
             .pcLegalPulseScales[key]>1""",arg=target,timeout=9000)
         native_selected=snap()

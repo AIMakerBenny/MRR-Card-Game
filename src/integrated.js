@@ -66,8 +66,17 @@ window.MRRIntegratedUIInit=function(loadThree){
       // Neither card markup nor the Phase21 game engine is ever changed.
       setHandReveal=(requestOpen)=>{
         const open=!!requestOpen&&innerWidth>=1024&&innerHeight>=700
+          // VR01CU: the native game screen may be hidden on a phase or
+          // scene transition before the integrated view is disposed.
+          // Never reveal a hand while the original screen is unavailable.
+          &&!root.classList.contains('hidden')
           &&!!root.querySelector('#hand .hand-slot')
-          &&!root.querySelector('#arena .slot.legal');
+          // VR01CO: the original private turn-pass overlay cannot reveal
+          // the previous player's hand even between native DOM refreshes.
+          &&!!document.querySelector('#overlay.hidden')
+          // VR01CN: a genuine Phase21 attack target is as exclusive as
+          // a legal placement; never reopen the native hand over it.
+          &&!root.querySelector('#arena .slot.legal, #arena .slot.attack-target');
         root.classList.toggle('mrr-integrated-hand-open',open);
         handTab.setAttribute('aria-expanded',String(open));
         if(open){
@@ -80,7 +89,13 @@ window.MRRIntegratedUIInit=function(loadThree){
           handTab.style.removeProperty('bottom');
         }
       };
-      handTab.addEventListener('click',()=>setHandReveal(!root.classList.contains('mrr-integrated-hand-open')));
+      // VR01CT: queued or scripted clicks on the old hand tab must be
+      // harmless after close() clears setHandReveal and removes the stage.
+      handTab.addEventListener('click',()=>{
+        if(!setHandReveal||!view||!stage?.isConnected||!handTab.isConnected||
+          root.classList.contains('hidden'))return;
+        setHandReveal(!root.classList.contains('mrr-integrated-hand-open'));
+      });
       // A real native hand-card click immediately returns the hand below the
       // battlefield *before* original HTML delegates placement. No animation
       // or extra click is allowed to intercept a projected legal slot.
@@ -94,9 +109,58 @@ window.MRRIntegratedUIInit=function(loadThree){
       // delegate to the existing original-game action buttons.
       const context=document.createElement('div');context.id='mrr-integrated-context';
       context.hidden=true;context.setAttribute('aria-label','선택 카드 명령');
+      // VR01CG: remember whether this integrated view was opened by VR01.
+      // Once VR01 begins closing, a queued quick click must not fall back
+      // to the unguarded generic-integrated click path.
+      const vrBoundCommands=document.body.classList.contains('mrr-vr-active');
       const commandFor=(id,label,selector)=>{
         const b=control(id,label);
-        b.addEventListener('click',()=>nativeButton(selector));
+        b.addEventListener('click',()=>{
+          // VR01CC: genuine native targeting/private handoff can begin
+          // before the next scene refresh hides this VR quick-action group.
+          // Recheck original DOM at click time; never delegate a stale
+          // action into a Phase21 placement or attack target selection.
+          if(vrBoundCommands){
+            if(!document.body.classList.contains('mrr-vr-active')||
+              !root.classList.contains('mrr-integrated-playing')||
+              root.classList.contains('hidden')||
+              !stage?.isConnected||!view)return;
+            // VR01CM: browser event queues and scripted events may retain
+            // old button references after the 3D UI withdraws a command.
+            // A detached/inert action is not an executable Phase21 command.
+            if(!context.isConnected||!b.isConnected||context.inert)return;
+            if(!document.querySelector('#overlay.hidden')||
+              document.querySelector('#arena .slot.legal, #arena .slot.attack-target'))
+              return;
+            // VR01CD: an original Phase21 deselection can occur before
+            // this 3D action group is visually withdrawn. Only delegate
+            // when the SAME publicly selected native card still exists.
+            const selected=view?.state?.selectedKey;
+            // VR01DE: renderer projection or stage geometry can become
+            // unavailable between two native refreshes. Reject the old
+            // quick click synchronously, before any Phase21 delegation.
+            const seatProjection=selected?view.projectSlot?.(selected):null;
+            const stageBounds=stage.getBoundingClientRect();
+            if(!seatProjection||!Number.isFinite(seatProjection.x)||
+              !Number.isFinite(seatProjection.y)||
+              stageBounds.width<=0||stageBounds.height<=0)return;
+            // VR01CF: transient double selection must not execute a
+            // command against the previous selected card, even if its
+            // public slot and card ID have not changed yet.
+            const selectedSlots=[...document.querySelectorAll('#arena .slot.selected-slot')];
+            if(selectedSlots.length!==1||
+              selectedSlots[0].dataset.slot!==selected)return;
+            const liveCard=selectedSlots[0].querySelector('.board-card .card-ui');
+            const liveId=liveCard?.getAttribute('data-mrr-public-card-id')||'';
+            // VR01CE: the original game may replace a card in the SAME
+            // public slot before a VR frame updates the quick commands.
+            // A stale click must never act on that replacement's identity.
+            if(!selected||!view?.hasCard(selected)||!liveId||
+              liveId!==context.dataset.vrSelectedCardId||
+              context.hidden||b.hidden||b.disabled)return;
+          }
+          nativeButton(selector);
+        });
         context.appendChild(b);return b;
       };
       const quickAttack=commandFor('mrr-quick-attack','⚔ 공격','#inspectBody button[data-actor="attack"]');
@@ -107,9 +171,43 @@ window.MRRIntegratedUIInit=function(loadThree){
       inspect.addEventListener('click',()=>root.classList.toggle('mrr-integrated-inspector-open'));
       rail.addEventListener('click',()=>root.classList.toggle('mrr-integrated-rail-open'));
       exit.addEventListener('click',close);
-      attack.addEventListener('click',()=>nativeButton('#inspectBody button[data-actor="attack"]'));
-      move.addEventListener('click',()=>nativeButton('#inspectBody button[data-actor="move"]'));
-      cancel.addEventListener('click',()=>nativeButton('#inspectBody button[data-cancel-action]'));
+      // VR01CW: re-check the REAL original game state on each toolbar
+      // click. Synthetic/queued DOM clicks must not bypass stale disabled
+      // attributes while native targeting, private pass or close begins.
+      const topAction=(control,selector,isCancel=false)=>{
+        control.addEventListener('click',()=>{
+          if(!view||!stage?.isConnected||!control.isConnected||
+            control.disabled||root.classList.contains('hidden')||
+            !root.classList.contains('mrr-integrated-playing')||
+            !document.querySelector('#overlay.hidden'))return;
+          if(!isCancel){
+            if(root.querySelector('#arena .slot.legal, #arena .slot.attack-target'))return;
+            const selected=view.state?.selectedKey;
+            const selectedSlots=[...root.querySelectorAll('#arena .slot.selected-slot')];
+            if(!selected||!view.hasCard(selected)||selectedSlots.length!==1||
+              selectedSlots[0].dataset.slot!==selected)return;
+            // VR01CX: same public seat can be repainted with another card
+            // before a scene frame refreshes this toolbar. Never invoke
+            // a native action for an identity that was not on the button.
+            const liveId=selectedSlots[0].querySelector('.board-card .card-ui')
+              ?.getAttribute('data-mrr-public-card-id')||'';
+            if(!liveId||liveId!==control.dataset.vrTopSelectedCardId)return;
+            // VR01DF: a selected public card can lose its screen projection
+            // between refresh and click. Do not pass an old top action to
+            // Phase21 when its 3D target can no longer be located.
+            const projection=view.projectSlot?.(selected);
+            const bounds=stage.getBoundingClientRect();
+            if(!projection||!Number.isFinite(projection.x)||
+              !Number.isFinite(projection.y)||
+              bounds.width<=0||bounds.height<=0)return;
+          }
+          nativeButton(selector);
+        });
+      };
+      topAction(attack,'#inspectBody button[data-actor="attack"]');
+      topAction(move,'#inspectBody button[data-actor="move"]');
+      // Keep a genuine Phase21 cancel possible while targeting a card.
+      topAction(cancel,'#inspectBody button[data-cancel-action]',true);
       stage.append(vignette,heading,badge,help,command,context);
       // Keep hand control outside stage's z-index stacking context: the
       // preserved native #handPreview is z97 and must not block fold/unfold.
@@ -125,28 +223,157 @@ window.MRRIntegratedUIInit=function(loadThree){
           const selection=!!info.selectedKey;
           // Legal placements retain first priority over the readable hand:
           // do not cover a target when the original engine awaits a slot.
-          if(info.legalCount&&root.classList.contains('mrr-integrated-hand-open'))
+          // VR01CN: close an already exposed native hand as soon as
+          // either public Phase21 placement or attack targeting begins.
+          const targetActive=!!(info.legalCount||info.attackTargetCount||
+            root.querySelector('#arena .slot.legal, #arena .slot.attack-target'));
+          // VR01CO: suppress the native hand tab during the actual
+          // private pass, not just while a legal target is marked.
+          const privateHandPass=!document.querySelector('#overlay.hidden');
+          // VR01CS: on a smaller PC window, the actual hand fan cannot
+          // expand. Match the control's availability to the same explicit
+          // viewport gate already used by setHandReveal.
+          const handViewportReady=innerWidth>=1024&&innerHeight>=700;
+          const gameScreenUnavailable=root.classList.contains('hidden');
+          if((targetActive||privateHandPass||!handViewportReady||
+              gameScreenUnavailable)&&root.classList.contains('mrr-integrated-hand-open'))
             setHandReveal?.(false);
           const count=document.querySelectorAll('#hand .hand-slot').length;
-          handTab.hidden=!count;
-          handTab.disabled=!!info.legalCount;
+          // VR01CP: the last real Phase21 hand card can disappear while
+          // its native hand fan is expanded. Release the presentation
+          // overrides immediately rather than leave an empty raised panel.
+          if(!count&&root.classList.contains('mrr-integrated-hand-open'))
+            setHandReveal?.(false);
+          handTab.hidden=privateHandPass||!count||!handViewportReady||gameScreenUnavailable;
+          handTab.disabled=targetActive||privateHandPass||!handViewportReady||
+            gameScreenUnavailable;
+          // VR01CQ: do not strand keyboard focus on an inaccessible native
+          // hand control after target selection, privacy handoff or a
+          // fully consumed hand. Other visible Phase21 controls remain live.
+          if((handTab.hidden||handTab.disabled)&&document.activeElement===handTab)
+            handTab.blur();
           handTab.textContent=(root.classList.contains('mrr-integrated-hand-open')?'손패 접기':'손패 펼치기')+(count?' · '+count+'장':'');
           const nativeAttack=document.querySelector('#inspectBody button[data-actor="attack"]');
           const nativeMove=document.querySelector('#inspectBody button[data-actor="move"]');
-          attack.disabled=!selection||!nativeAttack||nativeAttack.disabled;
-          move.disabled=!selection||!nativeMove||nativeMove.disabled;
-          cancel.disabled=!document.querySelector('#inspectBody button[data-cancel-action]');
+          // VR01CX: capture the same already-public card identity for both
+          // generic integrated actions during each native scene refresh.
+          const topSelectedSlots=[...root.querySelectorAll('#arena .slot.selected-slot')];
+          const topSelectionId=topSelectedSlots.length===1&&
+            topSelectedSlots[0].dataset.slot===info.selectedKey?
+            topSelectedSlots[0].querySelector('.board-card .card-ui')
+              ?.getAttribute('data-mrr-public-card-id')||'':'';
+          for(const control of [attack,move]){
+            if(topSelectionId)control.dataset.vrTopSelectedCardId=topSelectionId;
+            else delete control.dataset.vrTopSelectedCardId;
+          }
+          // VR01CV: a Phase21 target-selection step belongs to the
+          // original engine. Attack and move cannot start a second action
+          // while a target is pending. Preserve native cancel so the user
+          // can still exit that pending action.
+          const actionBlocked=targetActive||privateHandPass||gameScreenUnavailable;
+          // VR01CY: a stale scene key or two selected native slots must
+          // not make the top actions appear enabled. Match the same
+          // single public card identity already required on click.
+          // VR01DG: match the VR01DF click-time projection guard at
+          // display time, so unavailable actions are not advertised while
+          // the original camera or 3D stage is unprojectable.
+          const topProjection=topSelectionId?view?.projectSlot?.(info.selectedKey):null;
+          const topStageBounds=stage.getBoundingClientRect();
+          const topProjectionReady=!!topProjection&&
+            Number.isFinite(topProjection.x)&&Number.isFinite(topProjection.y)&&
+            topStageBounds.width>0&&topStageBounds.height>0;
+          // VR01DI: do not retain a selected-card identity on top controls
+          // when the renderer cannot present that public seat. A future
+          // valid scene sync will repopulate the ID from original Phase21.
+          if(!topProjectionReady){
+            delete attack.dataset.vrTopSelectedCardId;
+            delete move.dataset.vrTopSelectedCardId;
+          }
+          attack.disabled=!selection||!topSelectionId||!topProjectionReady||
+            !nativeAttack||nativeAttack.disabled||actionBlocked;
+          move.disabled=!selection||!topSelectionId||!topProjectionReady||
+            !nativeMove||nativeMove.disabled||actionBlocked;
+          // VR01CI: keep the original cancel action available during
+          // target selection, but not during a private turn handoff.
+          const nativeCancel=document.querySelector('#inspectBody button[data-cancel-action]');
+          cancel.disabled=!nativeCancel||nativeCancel.disabled||
+            privateHandPass||gameScreenUnavailable;
           inspect.setAttribute('aria-pressed',String(root.classList.contains('mrr-integrated-inspector-open')));
           rail.setAttribute('aria-pressed',String(root.classList.contains('mrr-integrated-rail-open')));
           const suffix=info.attackTargetCount?'  ·  공격 대상 '+info.attackTargetCount:
             info.legalCount?'  ·  배치 가능 '+info.legalCount:'';
           badge.textContent='전장 '+info.publicCardCount+'장'+suffix;
           // Only show actions already supplied by the original inspector.
-          const valid=!!info.selectedKey && !!view?.hasCard(info.selectedKey);
-          quickAttack.hidden=!valid||attack.disabled;
-          quickMove.hidden=!valid||move.disabled;
-          quickCancel.hidden=!valid||cancel.disabled;
+          // VR01BY: native Phase21 targeting and private turn-pass have
+          // priority over any selected-card quick actions. Those buttons
+          // must not linger while the player is choosing a legal target.
+          const passPrivate=!document.querySelector('#overlay.hidden');
+          const targetPending=!!(info.legalCount||info.attackTargetCount||
+            document.querySelector('#arena .slot.legal, #arena .slot.attack-target'));
+          // VR01CH: match the click-time single-native-selection gate
+          // already enforced by VR01CF when deciding which quick actions
+          // are visible. Do not advertise commands during a double-select
+          // DOM transition or when the scene's key is already stale.
+          const selectedSlots=[...document.querySelectorAll('#arena .slot.selected-slot')];
+          // VR01DC: do not advertise an action for a card whose PUBLIC
+          // identity has temporarily vanished during native DOM repaint.
+          // Click-time VR01CE already rejects this identity-less state.
+          const selectedNativeCard=selectedSlots.length===1&&
+            selectedSlots[0].dataset.slot===info.selectedKey?
+            selectedSlots[0].querySelector('.board-card .card-ui'):null;
+          const selectedPublicId=selectedNativeCard
+            ?.getAttribute('data-mrr-public-card-id')||'';
+          const nativeSelected=!!selectedNativeCard&&!!selectedPublicId;
+          // VR01DB: the original screen can be hidden before its
+          // native refresh withdraws these quick commands. Hide the
+          // controls and reject queued clicks throughout that transition.
+          const valid=!!info.selectedKey && !!view?.hasCard(info.selectedKey)&&
+            nativeSelected&&!passPrivate&&!targetPending&&!gameScreenUnavailable;
+          // VR01CJ: the three mirrored quick controls must carry the
+          // same native availability in both their visual and keyboard
+          // states. An unavailable command cannot remain an enabled button.
+          for(const [quick,available] of [
+            [quickAttack,valid&&!attack.disabled],
+            [quickMove,valid&&!move.disabled],
+            [quickCancel,valid&&!cancel.disabled]
+          ]){
+            quick.hidden=!available;
+            quick.disabled=!available;
+            if(!available){
+              // VR01CK: when only ONE native command becomes unavailable,
+              // its focused shortcut must immediately relinquish focus
+              // and stale keyboard cues. Other valid buttons stay active.
+              if(document.activeElement===quick)quick.blur();
+              if(quick===quickAttack||quick===quickMove){
+                quick.removeAttribute('aria-keyshortcuts');
+                delete quick.dataset.vrShortcut;
+                quick.removeAttribute('title');
+              }
+            }
+          }
           const show=valid&&(!quickAttack.hidden||!quickMove.hidden||!quickCancel.hidden);
+          // VR01CE: capture only the selected card's already PUBLIC Phase21
+          // ID when drawing actions. No native game state or private card
+          // content is read. Click-time identity must still match this ID.
+          const publicSelection=show?selectedPublicId:'';
+          if(publicSelection)context.dataset.vrSelectedCardId=publicSelection;
+          else delete context.dataset.vrSelectedCardId;
+          // VR01BX: a context that genuinely disappears must not retain
+          // the previous selected card's cached seat. The next real native
+          // command gets a fresh collision-aware placement after reopening.
+          if(!show){
+            delete context.dataset.vrLayoutKey;
+            delete context.dataset.vrSlotX;
+            delete context.dataset.vrSlotY;
+          }
+          // VR01BZ: a withdrawn native action group must leave keyboard
+          // navigation and accessibility immediately, including before
+          // the browser finishes the Phase21 target/pass transition.
+          if(!show&&context.contains(document.activeElement))
+            document.activeElement.blur();
+          context.inert=!show;
+          if(show)context.removeAttribute('aria-hidden');
+          else context.setAttribute('aria-hidden','true');
           context.hidden=!show;
           if(show){
             // Phase70: use the fixed native slot, not the animated card mesh.
@@ -155,7 +382,11 @@ window.MRRIntegratedUIInit=function(loadThree){
             // Slot projection follows camera/resizes without following hover scale.
             const pos=view.projectSlot(info.selectedKey);
             const rect=stage.getBoundingClientRect();
-            if(pos&&rect.width>0&&rect.height>0){
+            // VR01DD: camera/renderer transitions can briefly leave a
+            // selected public seat without finite screen coordinates.
+            // A command must never remain clickable at its OLD location.
+            if(pos&&Number.isFinite(pos.x)&&Number.isFinite(pos.y)&&
+              rect.width>0&&rect.height>0){
               // Measure the real contextual command group, not a guessed 230px.
               // Selection near an edge, smaller laptop windows and translated
               // canvas positions must never push a clickable action off-screen.
@@ -164,9 +395,166 @@ window.MRRIntegratedUIInit=function(loadThree){
               const maxX=Math.max(12,rect.width-width-12);
               const topBound=82+height/2;
               const bottomBound=Math.max(topBound,rect.height-118-height/2);
-              context.style.left=Math.max(12,Math.min(maxX,pos.x-rect.left+48))+'px';
-              context.style.top=Math.max(topBound,Math.min(bottomBound,pos.y-rect.top-48))+'px';
-            }else context.hidden=true;
+              // VR01AC: choose a measured, card-face-aware placement for
+              // the actual native action buttons. The old fixed +48 offset
+              // could cover the selected card on edge seats / laptops.
+              // The original integrated view retains its historic position.
+              const face=document.body.classList.contains('mrr-vr-active')?
+                view.projectCardBounds?.(info.selectedKey):null;
+              if(face&&Number.isFinite(face.left)&&Number.isFinite(face.right)&&
+                Number.isFinite(face.top)&&Number.isFinite(face.bottom)){
+                const local={left:face.left-rect.left,right:face.right-rect.left,
+                  top:face.top-rect.top,bottom:face.bottom-rect.top};
+                const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+                const area=(a,b)=>Math.max(0,Math.min(a.right,b.right)-
+                  Math.max(a.left,b.left))*Math.max(0,Math.min(a.bottom,b.bottom)-
+                  Math.max(a.top,b.top));
+                const pad=8,shield={left:local.left-pad,right:local.right+pad,
+                  top:local.top-pad,bottom:local.bottom+pad};
+                const center=(local.top+local.bottom)/2;
+                const mx=(local.left+local.right-width)/2;
+                const candidates=[
+                  {x:local.right+12,y:center,priority:0},
+                  {x:local.left-width-12,y:center,priority:4},
+                  {x:mx,y:local.top-height/2-12,priority:8},
+                  {x:mx,y:local.bottom+height/2+12,priority:12},
+                  // A congested battlefield needs reserved spaces above,
+                  // below or to the sides of the card grid, not an overlay
+                  // across neighboring real card faces.
+                  {x:mx,y:Math.max(topBound,105+height/2),priority:18},
+                  {x:pos.x-rect.left-width/2,y:bottomBound,priority:20},
+                  {x:12,y:center,priority:23},
+                  {x:maxX,y:center,priority:24},
+                  {x:12,y:Math.max(topBound,105+height/2),priority:26},
+                  {x:maxX,y:Math.max(topBound,105+height/2),priority:27},
+                  {x:12,y:bottomBound,priority:29},
+                  {x:maxX,y:bottomBound,priority:30}
+                ];
+                const sideActions=document.querySelector('#mrr-integrated-actions');
+                const rightHUD=sideActions?.getBoundingClientRect();
+                const hud=rightHUD?{left:rightHUD.left-rect.left-5,
+                  right:rightHUD.right-rect.left+5,
+                  top:rightHUD.top-rect.top-5,
+                  bottom:rightHUD.bottom-rect.top+5}:null;
+                // VR01AD: changing public card occupancy invalidates a cached
+                // position. Dense games must not leave a button floating over
+                // newly summoned cards. Read PUBLIC native slots only.
+                const otherSlots=[...document.querySelectorAll('#arena .slot[data-slot]')]
+                  .filter(slot=>slot.dataset.slot!==info.selectedKey&&
+                    slot.querySelector('.board-card .card-ui'));
+                const occupancy=otherSlots.map(slot=>slot.dataset.slot).sort().join(',');
+                const otherFaces=otherSlots.map(slot=>{
+                  const f=view.projectCardBounds?.(slot.dataset.slot);
+                  return f?{left:f.left-rect.left-4,right:f.right-rect.left+4,
+                    top:f.top-rect.top-4,bottom:f.bottom-rect.top+4}:null;
+                }).filter(Boolean);
+                const publicMarks=[...document.querySelectorAll(
+                  '#vr-public-plaques .vr-public-action:not([hidden]),'+
+                  '#vr-public-plaques .vr-public-combat:not([hidden])')].map(node=>{
+                    const b=node.getBoundingClientRect();
+                    return {left:b.left-rect.left,right:b.right-rect.left,
+                      top:b.top-rect.top,bottom:b.bottom-rect.top};
+                  });
+                // VR01DA: a replaced PUBLIC card in the same selected
+                // seat must not inherit the old card's command layout cache.
+                // No native game state or private hand information is read.
+                const layoutKey=[info.selectedKey,Math.round(rect.width),
+                  Math.round(rect.height),width,height,occupancy,
+                  context.dataset.vrSelectedCardId||''].join('|');
+                const lastSlotX=Number(context.dataset.vrSlotX);
+                const lastSlotY=Number(context.dataset.vrSlotY);
+                // Once the button has a safe seat, keep that physical
+                // position while the Three.js card lifts, settles or
+                // the auto-camera eases. Only a changed viewport/action
+                // layout or a substantial slot displacement may re-seat.
+                // VR01BT: do not move a real clickable command out from
+                // under the user's mouse while auto-camera easing runs.
+                // Hold only while the current position still clears the
+                // selected card, other public faces, HUD and stage edges.
+                const commandRect=context.getBoundingClientRect();
+                const heldBox={left:commandRect.left-rect.left,
+                  right:commandRect.right-rect.left,
+                  top:commandRect.top-rect.top,
+                  bottom:commandRect.bottom-rect.top};
+                const heldSafe=heldBox.left>=12&&heldBox.right<=rect.width-12&&
+                  heldBox.top>=82&&heldBox.bottom<=rect.height-118&&
+                  area(heldBox,shield)<4&&
+                  otherFaces.every(face=>area(heldBox,face)<4)&&
+                  publicMarks.every(mark=>area(heldBox,mark)<4)&&
+                  (!hud||area(heldBox,hud)<4);
+                // VR01BV: even small camera shifts can put a public card
+                // beneath the previously cached command. Retain only safe
+                // positions; hovered or focused native actions stay steady
+                // during longer camera motion when still clear of cards.
+                // VR01CZ: occupancy can change while a real command is
+                // already under the pointer. If its current seat is STILL
+                // collision-free, do not move it merely because a distant
+                // public card altered the occupancy portion of layoutKey.
+                // A changed card, viewport or action geometry still forces
+                // a new placement; VR01BV/BW collision checks take priority.
+                const pointerLocked=context.matches(':hover')||
+                  context.matches(':focus-within');
+                const previousKey=context.dataset.vrLayoutKey||'';
+                const previousParts=previousKey.split('|');
+                const currentParts=layoutKey.split('|');
+                const sameGeometry=previousParts.slice(0,5).join('|')===
+                  currentParts.slice(0,5).join('|')&&
+                  previousParts[previousParts.length-1]===
+                    currentParts[currentParts.length-1];
+                const stable=heldSafe&&Number.isFinite(lastSlotX)&&
+                  Number.isFinite(lastSlotY)&&
+                  ((previousKey===layoutKey&&
+                    (Math.hypot(pos.x-lastSlotX,pos.y-lastSlotY)<36||pointerLocked))||
+                    (pointerLocked&&sameGeometry));
+                if(!stable){
+                const scored=candidates.map(c=>{
+                  const x=clamp(c.x,12,maxX),y=clamp(c.y,topBound,bottomBound);
+                  const box={left:x,top:y-height/2,right:x+width,bottom:y+height/2};
+                  const neighbors=otherFaces.reduce((sum,f)=>sum+area(box,f),0);
+                  const badges=publicMarks.reduce((sum,f)=>sum+area(box,f),0);
+                  return {x,y,score:area(box,shield)*220+
+                    neighbors*90+badges*20+
+                    (hud?area(box,hud)*32:0)+
+                    Math.abs(c.x-x)*2+Math.abs(c.y-y)*2+
+                    Math.hypot((x+width/2)-(local.left+local.right)/2,
+                      y-center)*.03+c.priority};
+                }).sort((a,b)=>a.score-b.score);
+                context.style.left=Math.round(scored[0].x)+'px';
+                context.style.top=Math.round(scored[0].y)+'px';
+                context.dataset.vrLayoutKey=layoutKey;
+                context.dataset.vrSlotX=String(pos.x);
+                context.dataset.vrSlotY=String(pos.y);
+                }
+              }else{
+                context.style.left=Math.max(12,Math.min(maxX,pos.x-rect.left+48))+'px';
+                context.style.top=Math.max(topBound,Math.min(bottomBound,pos.y-rect.top-48))+'px';
+              }
+            }else{
+              // VR01DD: withdraw unusable projection commands immediately.
+              // The existing native Phase21 inspector remains untouched.
+              if(context.contains(document.activeElement))
+                document.activeElement.blur();
+              // VR01DH: a hidden parent alone leaves its quick children
+              // apparently enabled to the VR01 keyboard cue adapter.
+              // Withdraw each command and its stale shortcut until the
+              // selected public seat becomes projectable again.
+              for(const quick of [quickAttack,quickMove,quickCancel]){
+                quick.hidden=true;
+                quick.disabled=true;
+                if(quick===quickAttack||quick===quickMove){
+                  quick.removeAttribute('aria-keyshortcuts');
+                  delete quick.dataset.vrShortcut;
+                  quick.removeAttribute('title');
+                }
+              }
+              context.hidden=true;
+              context.inert=true;
+              context.setAttribute('aria-hidden','true');
+              delete context.dataset.vrSelectedCardId;
+              delete context.dataset.vrLayoutKey;
+              delete context.dataset.vrSlotX;
+              delete context.dataset.vrSlotY;
+            }
           }
         }finally{updating=false;}
       }
