@@ -1919,6 +1919,56 @@ try:
           'restored':{'attack':2,'move':2,'cancel':3}
         },('VR01CW stale integrated toolbar click invoked a native action',top_click_gate)
         assert snap()==baseline,'VR01CW toolbar click guard changed Phase21'
+        # VR01CX: a selected native slot can be repainted with a
+        # different PUBLIC card before the integrated top toolbar syncs.
+        # Its previous attack/move clicks must never act on the replacement.
+        top_identity_gate=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene,key=scene.state.selectedKey;
+          const slot=[...document.querySelectorAll('#arena .slot.selected-slot')]
+            .find(s=>s.dataset.slot===key),card=slot?.querySelector('.board-card .card-ui');
+          const data=[
+            [document.querySelector('#mrr-integrated-attack'),
+             document.querySelector('#inspectBody button[data-actor="attack"]')],
+            [document.querySelector('#mrr-integrated-move'),
+             document.querySelector('#inspectBody button[data-actor="move"]')]];
+          if(!card||data.some(([b,n])=>!b||!n))return null;
+          const originalId=card.getAttribute('data-mrr-public-card-id');
+          if(!originalId)return null;
+          const original=data.map(([,n])=>({
+            n,disabled:n.disabled,click:n.click,
+            own:Object.prototype.hasOwnProperty.call(n,'click')}));
+          const counts=[0,0],snapshot=()=>[...counts];
+          try{
+            original.forEach((o,i)=>{o.n.disabled=false;o.n.click=()=>{counts[i]++;};});
+            scene.sync();
+            if(data.some(([b])=>b.disabled||
+              b.dataset.vrTopSelectedCardId!==originalId))return null;
+            data.forEach(([b],i)=>b.dispatchEvent(new MouseEvent('click',
+              {bubbles:true,cancelable:true})));
+            const before=snapshot();
+            card.setAttribute('data-mrr-public-card-id',originalId+'-qa-cx');
+            try{
+              data.forEach(([b])=>b.dispatchEvent(new MouseEvent('click',
+                {bubbles:true,cancelable:true})));
+            }finally{card.setAttribute('data-mrr-public-card-id',originalId);}
+            const stale=snapshot();
+            data.forEach(([b])=>b.dispatchEvent(new MouseEvent('click',
+              {bubbles:true,cancelable:true})));
+            return {before,stale,after:snapshot(),restored:
+              card.getAttribute('data-mrr-public-card-id')===originalId};
+          }finally{
+            card.setAttribute('data-mrr-public-card-id',originalId);
+            original.forEach(o=>{
+              o.n.disabled=o.disabled;
+              if(o.own)o.n.click=o.click;else delete o.n.click;
+            });
+            scene.sync();
+          }
+        }""")
+        assert top_identity_gate=={
+          'before':[1,1],'stale':[1,1],'after':[2,2],'restored':True
+        },('VR01CX stale top action reached a replaced native card',top_identity_gate)
+        assert snap()==baseline,'VR01CX top card identity guard changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
