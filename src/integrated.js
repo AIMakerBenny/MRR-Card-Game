@@ -109,6 +109,10 @@ window.MRRIntegratedUIInit=function(loadThree){
             if(!document.body.classList.contains('mrr-vr-active')||
               !root.classList.contains('mrr-integrated-playing')||
               !stage?.isConnected||!view)return;
+            // VR01CM: browser event queues and scripted events may retain
+            // old button references after the 3D UI withdraws a command.
+            // A detached/inert action is not an executable Phase21 command.
+            if(!context.isConnected||!b.isConnected||context.inert)return;
             if(!document.querySelector('#overlay.hidden')||
               document.querySelector('#arena .slot.legal, #arena .slot.attack-target'))
               return;
