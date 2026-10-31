@@ -67,7 +67,9 @@ window.MRRIntegratedUIInit=function(loadThree){
       setHandReveal=(requestOpen)=>{
         const open=!!requestOpen&&innerWidth>=1024&&innerHeight>=700
           &&!!root.querySelector('#hand .hand-slot')
-          &&!root.querySelector('#arena .slot.legal');
+          // VR01CN: a genuine Phase21 attack target is as exclusive as
+          // a legal placement; never reopen the native hand over it.
+          &&!root.querySelector('#arena .slot.legal, #arena .slot.attack-target');
         root.classList.toggle('mrr-integrated-hand-open',open);
         handTab.setAttribute('aria-expanded',String(open));
         if(open){
@@ -165,11 +167,15 @@ window.MRRIntegratedUIInit=function(loadThree){
           const selection=!!info.selectedKey;
           // Legal placements retain first priority over the readable hand:
           // do not cover a target when the original engine awaits a slot.
-          if(info.legalCount&&root.classList.contains('mrr-integrated-hand-open'))
+          // VR01CN: close an already exposed native hand as soon as
+          // either public Phase21 placement or attack targeting begins.
+          const targetActive=!!(info.legalCount||info.attackTargetCount||
+            root.querySelector('#arena .slot.legal, #arena .slot.attack-target'));
+          if(targetActive&&root.classList.contains('mrr-integrated-hand-open'))
             setHandReveal?.(false);
           const count=document.querySelectorAll('#hand .hand-slot').length;
           handTab.hidden=!count;
-          handTab.disabled=!!info.legalCount;
+          handTab.disabled=targetActive;
           handTab.textContent=(root.classList.contains('mrr-integrated-hand-open')?'손패 접기':'손패 펼치기')+(count?' · '+count+'장':'');
           const nativeAttack=document.querySelector('#inspectBody button[data-actor="attack"]');
           const nativeMove=document.querySelector('#inspectBody button[data-actor="move"]');
