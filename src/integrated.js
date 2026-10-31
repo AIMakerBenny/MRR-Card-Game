@@ -85,7 +85,13 @@ window.MRRIntegratedUIInit=function(loadThree){
           handTab.style.removeProperty('bottom');
         }
       };
-      handTab.addEventListener('click',()=>setHandReveal(!root.classList.contains('mrr-integrated-hand-open')));
+      // VR01CT: queued or scripted clicks on the old hand tab must be
+      // harmless after close() clears setHandReveal and removes the stage.
+      handTab.addEventListener('click',()=>{
+        if(!setHandReveal||!view||!stage?.isConnected||!handTab.isConnected||
+          root.classList.contains('hidden'))return;
+        setHandReveal(!root.classList.contains('mrr-integrated-hand-open'));
+      });
       // A real native hand-card click immediately returns the hand below the
       // battlefield *before* original HTML delegates placement. No animation
       // or extra click is allowed to intercept a projected legal slot.
