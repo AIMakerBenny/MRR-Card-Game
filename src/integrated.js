@@ -66,6 +66,10 @@ window.MRRIntegratedUIInit=function(loadThree){
       // Neither card markup nor the Phase21 game engine is ever changed.
       setHandReveal=(requestOpen)=>{
         const open=!!requestOpen&&innerWidth>=1024&&innerHeight>=700
+          // VR01CU: the native game screen may be hidden on a phase or
+          // scene transition before the integrated view is disposed.
+          // Never reveal a hand while the original screen is unavailable.
+          &&!root.classList.contains('hidden')
           &&!!root.querySelector('#hand .hand-slot')
           // VR01CO: the original private turn-pass overlay cannot reveal
           // the previous player's hand even between native DOM refreshes.
@@ -187,8 +191,9 @@ window.MRRIntegratedUIInit=function(loadThree){
           // expand. Match the control's availability to the same explicit
           // viewport gate already used by setHandReveal.
           const handViewportReady=innerWidth>=1024&&innerHeight>=700;
-          if((targetActive||privateHandPass||!handViewportReady)&&
-             root.classList.contains('mrr-integrated-hand-open'))
+          const gameScreenUnavailable=root.classList.contains('hidden');
+          if((targetActive||privateHandPass||!handViewportReady||
+              gameScreenUnavailable)&&root.classList.contains('mrr-integrated-hand-open'))
             setHandReveal?.(false);
           const count=document.querySelectorAll('#hand .hand-slot').length;
           // VR01CP: the last real Phase21 hand card can disappear while
@@ -196,8 +201,9 @@ window.MRRIntegratedUIInit=function(loadThree){
           // overrides immediately rather than leave an empty raised panel.
           if(!count&&root.classList.contains('mrr-integrated-hand-open'))
             setHandReveal?.(false);
-          handTab.hidden=privateHandPass||!count||!handViewportReady;
-          handTab.disabled=targetActive||privateHandPass||!handViewportReady;
+          handTab.hidden=privateHandPass||!count||!handViewportReady||gameScreenUnavailable;
+          handTab.disabled=targetActive||privateHandPass||!handViewportReady||
+            gameScreenUnavailable;
           // VR01CQ: do not strand keyboard focus on an inaccessible native
           // hand control after target selection, privacy handoff or a
           // fully consumed hand. Other visible Phase21 controls remain live.
