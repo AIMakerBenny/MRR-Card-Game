@@ -123,6 +123,7 @@ window.MRRIntegratedUIInit=function(loadThree){
           if(vrBoundCommands){
             if(!document.body.classList.contains('mrr-vr-active')||
               !root.classList.contains('mrr-integrated-playing')||
+              root.classList.contains('hidden')||
               !stage?.isConnected||!view)return;
             // VR01CM: browser event queues and scripted events may retain
             // old button references after the 3D UI withdraws a command.
@@ -286,8 +287,11 @@ window.MRRIntegratedUIInit=function(loadThree){
           const nativeSelected=selectedSlots.length===1&&
             selectedSlots[0].dataset.slot===info.selectedKey&&
             !!selectedSlots[0].querySelector('.board-card .card-ui');
+          // VR01DB: the original screen can be hidden before its
+          // native refresh withdraws these quick commands. Hide the
+          // controls and reject queued clicks throughout that transition.
           const valid=!!info.selectedKey && !!view?.hasCard(info.selectedKey)&&
-            nativeSelected&&!passPrivate&&!targetPending;
+            nativeSelected&&!passPrivate&&!targetPending&&!gameScreenUnavailable;
           // VR01CJ: the three mirrored quick controls must carry the
           // same native availability in both their visual and keyboard
           // states. An unavailable command cannot remain an enabled button.
