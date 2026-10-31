@@ -441,10 +441,22 @@ window.MRRIntegratedUIInit=function(loadThree){
                 // beneath the previously cached command. Retain only safe
                 // positions; hovered or focused native actions stay steady
                 // during longer camera motion when still clear of cards.
-                const stable=heldSafe&&context.dataset.vrLayoutKey===layoutKey &&
-                  Number.isFinite(lastSlotX)&&Number.isFinite(lastSlotY)&&
-                  (Math.hypot(pos.x-lastSlotX,pos.y-lastSlotY)<36||
-                    context.matches(':hover')||context.matches(':focus-within'));
+                // VR01CZ: occupancy can change while a real command is
+                // already under the pointer. If its current seat is STILL
+                // collision-free, do not move it merely because a distant
+                // public card altered the occupancy portion of layoutKey.
+                // A changed card, viewport or action geometry still forces
+                // a new placement; VR01BV/BW collision checks take priority.
+                const pointerLocked=context.matches(':hover')||
+                  context.matches(':focus-within');
+                const previousKey=context.dataset.vrLayoutKey||'';
+                const sameGeometry=previousKey.split('|').slice(0,5).join('|')===
+                  layoutKey.split('|').slice(0,5).join('|');
+                const stable=heldSafe&&Number.isFinite(lastSlotX)&&
+                  Number.isFinite(lastSlotY)&&
+                  ((previousKey===layoutKey&&
+                    (Math.hypot(pos.x-lastSlotX,pos.y-lastSlotY)<36||pointerLocked))||
+                    (pointerLocked&&sameGeometry));
                 if(!stable){
                 const scored=candidates.map(c=>{
                   const x=clamp(c.x,12,maxX),y=clamp(c.y,topBound,bottomBound);
