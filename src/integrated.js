@@ -212,13 +212,18 @@ window.MRRIntegratedUIInit=function(loadThree){
           handTab.textContent=(root.classList.contains('mrr-integrated-hand-open')?'손패 접기':'손패 펼치기')+(count?' · '+count+'장':'');
           const nativeAttack=document.querySelector('#inspectBody button[data-actor="attack"]');
           const nativeMove=document.querySelector('#inspectBody button[data-actor="move"]');
-          attack.disabled=!selection||!nativeAttack||nativeAttack.disabled;
-          move.disabled=!selection||!nativeMove||nativeMove.disabled;
-          // VR01CI: the native cancel element may remain in the DOM
-          // while Phase21 temporarily disables the actual action.
-          // Mirror its enabled state instead of advertising a dead button.
+          // VR01CV: a Phase21 target-selection step belongs to the
+          // original engine. Attack and move cannot start a second action
+          // while a target is pending. Preserve native cancel so the user
+          // can still exit that pending action.
+          const actionBlocked=targetActive||privateHandPass||gameScreenUnavailable;
+          attack.disabled=!selection||!nativeAttack||nativeAttack.disabled||actionBlocked;
+          move.disabled=!selection||!nativeMove||nativeMove.disabled||actionBlocked;
+          // VR01CI: keep the original cancel action available during
+          // target selection, but not during a private turn handoff.
           const nativeCancel=document.querySelector('#inspectBody button[data-cancel-action]');
-          cancel.disabled=!nativeCancel||nativeCancel.disabled;
+          cancel.disabled=!nativeCancel||nativeCancel.disabled||
+            privateHandPass||gameScreenUnavailable;
           inspect.setAttribute('aria-pressed',String(root.classList.contains('mrr-integrated-inspector-open')));
           rail.setAttribute('aria-pressed',String(root.classList.contains('mrr-integrated-rail-open')));
           const suffix=info.attackTargetCount?'  ·  공격 대상 '+info.attackTargetCount:
