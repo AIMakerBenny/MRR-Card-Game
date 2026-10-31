@@ -1439,6 +1439,49 @@ try:
           'titleGone':True,'otherAvailable':True,'contextVisible':True
         },('VR01CK hidden quick action retained stale keyboard focus',focus_cues)
         assert snap()==baseline,'VR01CK focused command changed Phase21'
+        # VR01CM: a stale queued UI event may outlive an inert or detached
+        # quick button. Dispatch without invoking any genuine Phase21
+        # native action; only the fully connected active command can call
+        # through to the original inspector.
+        stale_event=page.evaluate("""() => {
+          const ctx=document.querySelector('#mrr-integrated-context');
+          const quick=document.querySelector('#mrr-quick-attack');
+          const native=document.querySelector('#inspectBody button[data-actor="attack"]');
+          if(!ctx||ctx.hidden||ctx.inert||!quick||quick.hidden||
+             quick.disabled||!native||native.disabled)return null;
+          const owner=quick.parentNode,sibling=quick.nextSibling;
+          const own=Object.prototype.hasOwnProperty.call(native,'click');
+          const prior=native.click,wasInert=ctx.inert;
+          let count=0;
+          native.click=()=>{count++;};
+          const fire=()=>quick.dispatchEvent(new MouseEvent('click',
+            {bubbles:true,cancelable:true}));
+          const observed=[];
+          try{
+            fire();observed.push({state:'active',count});
+            ctx.inert=true;
+            try{fire();observed.push({state:'inert',count});}
+            finally{ctx.inert=wasInert;}
+            quick.remove();
+            try{fire();observed.push({state:'detached',count});}
+            finally{owner.insertBefore(quick,sibling);}
+            fire();observed.push({state:'restored',count});
+          }finally{
+            ctx.inert=wasInert;
+            if(!quick.isConnected)owner.insertBefore(quick,sibling);
+            if(own)native.click=prior;else delete native.click;
+          }
+          return {observed,restored:quick.isConnected&&!ctx.inert};
+        }""")
+        assert stale_event=={
+          'observed':[
+            {'state':'active','count':1},
+            {'state':'inert','count':1},
+            {'state':'detached','count':1},
+            {'state':'restored','count':2}
+          ],'restored':True
+        },('VR01CM stale quick-button click delegated native action',stale_event)
+        assert snap()==baseline,'VR01CM transient button state changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
