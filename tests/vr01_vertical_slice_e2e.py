@@ -1155,6 +1155,45 @@ try:
             {'mode':'private','delegated':1}
           ]),('VR01CC queued quick click crossed native target gate',immediate_click)
         assert snap()==baseline,'VR01CC click gate changed Phase21 state'
+        # VR01CD: the native selected-slot can disappear before the VR
+        # adapter refreshes. A queued quick click must not delegate to
+        # the previously selected real card; restoring selection must.
+        deselection_click=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene;
+          const selected=scene.state.selectedKey;
+          const slot=[...document.querySelectorAll('#arena .slot.selected-slot')]
+            .find(e=>e.dataset.slot===selected);
+          const ctx=document.querySelector('#mrr-integrated-context');
+          const quick=document.querySelector('#mrr-quick-attack');
+          const native=document.querySelector('#inspectBody button[data-actor="attack"]');
+          if(!slot||!ctx||ctx.hidden||!quick||quick.hidden||
+             !native||native.disabled)return null;
+          const own=Object.prototype.hasOwnProperty.call(native,'click'),
+            old=native.click;
+          let delegated=0;
+          const fire=()=>quick.dispatchEvent(new MouseEvent('click',
+            {bubbles:true,cancelable:true}));
+          native.click=()=>{delegated++;};
+          let result;
+          try{
+            fire();
+            const before=delegated;
+            slot.classList.remove('selected-slot');
+            try{fire();}
+            finally{slot.classList.add('selected-slot');}
+            const during=delegated;
+            fire();
+            result={before,during,after:delegated,
+              stillSelected:slot.classList.contains('selected-slot')};
+          }finally{
+            if(own)native.click=old;else delete native.click;
+          }
+          return result;
+        }""")
+        assert deselection_click and deselection_click=={
+          'before':1,'during':1,'after':2,'stillSelected':True
+        },('VR01CD stale selected-card click was delegated',deselection_click)
+        assert snap()==baseline,'VR01CD native selection guard changed Phase21'
         # VR01BX: viewport reflow must retain the SAME focused native
         # command and keep its actual clickable rectangle inside stage.
         page.locator('#mrr-quick-attack').focus()
