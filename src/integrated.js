@@ -177,7 +177,11 @@ window.MRRIntegratedUIInit=function(loadThree){
           // VR01CO: suppress the native hand tab during the actual
           // private pass, not just while a legal target is marked.
           const privateHandPass=!document.querySelector('#overlay.hidden');
-          if((targetActive||privateHandPass)&&
+          // VR01CS: on a smaller PC window, the actual hand fan cannot
+          // expand. Match the control's availability to the same explicit
+          // viewport gate already used by setHandReveal.
+          const handViewportReady=innerWidth>=1024&&innerHeight>=700;
+          if((targetActive||privateHandPass||!handViewportReady)&&
              root.classList.contains('mrr-integrated-hand-open'))
             setHandReveal?.(false);
           const count=document.querySelectorAll('#hand .hand-slot').length;
@@ -186,8 +190,8 @@ window.MRRIntegratedUIInit=function(loadThree){
           // overrides immediately rather than leave an empty raised panel.
           if(!count&&root.classList.contains('mrr-integrated-hand-open'))
             setHandReveal?.(false);
-          handTab.hidden=privateHandPass||!count;
-          handTab.disabled=targetActive||privateHandPass;
+          handTab.hidden=privateHandPass||!count||!handViewportReady;
+          handTab.disabled=targetActive||privateHandPass||!handViewportReady;
           // VR01CQ: do not strand keyboard focus on an inaccessible native
           // hand control after target selection, privacy handoff or a
           // fully consumed hand. Other visible Phase21 controls remain live.
