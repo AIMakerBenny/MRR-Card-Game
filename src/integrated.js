@@ -188,6 +188,11 @@ window.MRRIntegratedUIInit=function(loadThree){
             setHandReveal?.(false);
           handTab.hidden=privateHandPass||!count;
           handTab.disabled=targetActive||privateHandPass;
+          // VR01CQ: do not strand keyboard focus on an inaccessible native
+          // hand control after target selection, privacy handoff or a
+          // fully consumed hand. Other visible Phase21 controls remain live.
+          if((handTab.hidden||handTab.disabled)&&document.activeElement===handTab)
+            handTab.blur();
           handTab.textContent=(root.classList.contains('mrr-integrated-hand-open')?'손패 접기':'손패 펼치기')+(count?' · '+count+'장':'');
           const nativeAttack=document.querySelector('#inspectBody button[data-actor="attack"]');
           const nativeMove=document.querySelector('#inspectBody button[data-actor="move"]');
