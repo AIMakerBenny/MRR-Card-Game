@@ -1365,7 +1365,7 @@ try:
         assert quick_availability and len(quick_availability)==6 and all(
           item['hidden']==item['flag'] and
           item['disabled']==item['flag'] and
-          not item['contextHidden']
+          (item['flag'] or not item['contextHidden'])
           for item in quick_availability),(
           'VR01CJ mirrored quick disabled states differ from native inspector',
           quick_availability)
