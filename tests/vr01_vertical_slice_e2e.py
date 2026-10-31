@@ -1564,6 +1564,49 @@ try:
           'expanded':'false','refusedReopen':True,'restored':True
         },('VR01CO private turn-pass leaked the native hand tab',private_hand_gate)
         assert snap()==baseline,'VR01CO private native hand guard changed Phase21'
+        # VR01CP: spending the last original hand card must clear the
+        # raised hand presentation and its inline offsets on the same
+        # scene refresh. The fixture removes only public DOM temporarily.
+        empty_hand=page.evaluate("""() => {
+          const root=document.querySelector('#gameScreen');
+          const hand=document.querySelector('#hand');
+          const tab=document.querySelector('#mrr-integrated-hand-tab');
+          const wrap=root?.querySelector('.hand-wrap');
+          const scene=MRRIntegrated.scene;
+          const cards=[...hand?.querySelectorAll('.hand-slot')||[]];
+          if(!root||!hand||!tab||!wrap||tab.disabled||tab.hidden||
+            !cards.length)return null;
+          const wasOpen=root.classList.contains('mrr-integrated-hand-open');
+          if(wasOpen)tab.click();
+          let result;
+          const positions=cards.map(node=>({node,parent:node.parentNode,
+            next:node.nextSibling}));
+          try{
+            tab.click();
+            const opened=root.classList.contains('mrr-integrated-hand-open');
+            for(const node of cards)node.remove();
+            scene.sync();
+            result={opened,folded:!root.classList.contains('mrr-integrated-hand-open'),
+              tabHidden:tab.hidden,expanded:tab.getAttribute('aria-expanded'),
+              bottomReset:!wrap.style.getPropertyValue('bottom'),
+              count:document.querySelectorAll('#hand .hand-slot').length};
+          }finally{
+            for(const entry of positions.reverse())
+              entry.parent.insertBefore(entry.node,entry.next);
+            scene.sync();
+            if(root.classList.contains('mrr-integrated-hand-open'))tab.click();
+            if(wasOpen&&!root.classList.contains('mrr-integrated-hand-open')&&
+               !tab.disabled&&!tab.hidden)tab.click();
+          }
+          result.restored=!tab.hidden&&
+            document.querySelectorAll('#hand .hand-slot').length===cards.length;
+          return result;
+        }""")
+        assert empty_hand=={
+          'opened':True,'folded':True,'tabHidden':True,
+          'expanded':'false','bottomReset':True,'count':0,'restored':True
+        },('VR01CP empty native hand left expanded presentation',empty_hand)
+        assert snap()==baseline,'VR01CP empty hand presentation changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
