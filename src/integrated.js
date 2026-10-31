@@ -184,8 +184,16 @@ window.MRRIntegratedUIInit=function(loadThree){
           const passPrivate=!document.querySelector('#overlay.hidden');
           const targetPending=!!(info.legalCount||info.attackTargetCount||
             document.querySelector('#arena .slot.legal, #arena .slot.attack-target'));
+          // VR01CH: match the click-time single-native-selection gate
+          // already enforced by VR01CF when deciding which quick actions
+          // are visible. Do not advertise commands during a double-select
+          // DOM transition or when the scene's key is already stale.
+          const selectedSlots=[...document.querySelectorAll('#arena .slot.selected-slot')];
+          const nativeSelected=selectedSlots.length===1&&
+            selectedSlots[0].dataset.slot===info.selectedKey&&
+            !!selectedSlots[0].querySelector('.board-card .card-ui');
           const valid=!!info.selectedKey && !!view?.hasCard(info.selectedKey)&&
-            !passPrivate&&!targetPending;
+            nativeSelected&&!passPrivate&&!targetPending;
           quickAttack.hidden=!valid||attack.disabled;
           quickMove.hidden=!valid||move.disabled;
           quickCancel.hidden=!valid||cancel.disabled;
