@@ -1370,6 +1370,46 @@ try:
           'VR01CJ mirrored quick disabled states differ from native inspector',
           quick_availability)
         assert snap()==baseline,'VR01CJ native command availability changed Phase21'
+        # VR01CK: disable only the native attack while move remains
+        # available; the attack's previous keyboard focus and A shortcut
+        # must vanish synchronously, without hiding the valid move.
+        focus_cues=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene;
+          const attack=document.querySelector('#inspectBody button[data-actor="attack"]');
+          const move=document.querySelector('#inspectBody button[data-actor="move"]');
+          const quick=document.querySelector('#mrr-quick-attack');
+          const other=document.querySelector('#mrr-quick-move');
+          const context=document.querySelector('#mrr-integrated-context');
+          if(!attack||!move||!quick||!other||!context)return null;
+          const oldA=attack.disabled,oldM=move.disabled;
+          let result;
+          try{
+            attack.disabled=false;move.disabled=false;scene.sync();
+            if(quick.hidden||other.hidden||context.hidden)return null;
+            quick.setAttribute('aria-keyshortcuts','A');
+            quick.dataset.vrShortcut='A';
+            quick.title='공격 · A 단축키';
+            quick.focus();
+            if(document.activeElement!==quick)return null;
+            attack.disabled=true;scene.sync();
+            result={attackHidden:quick.hidden,attackDisabled:quick.disabled,
+              focusCleared:document.activeElement!==quick,
+              ariaGone:!quick.hasAttribute('aria-keyshortcuts'),
+              datasetGone:!quick.hasAttribute('data-vr-shortcut'),
+              titleGone:!quick.hasAttribute('title'),
+              otherAvailable:!other.hidden&&!other.disabled,
+              contextVisible:!context.hidden};
+          }finally{
+            attack.disabled=oldA;move.disabled=oldM;scene.sync();
+          }
+          return result;
+        }""")
+        assert focus_cues=={
+          'attackHidden':True,'attackDisabled':True,
+          'focusCleared':True,'ariaGone':True,'datasetGone':True,
+          'titleGone':True,'otherAvailable':True,'contextVisible':True
+        },('VR01CK hidden quick action retained stale keyboard focus',focus_cues)
+        assert snap()==baseline,'VR01CK focused command changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
