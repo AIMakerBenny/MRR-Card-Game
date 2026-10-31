@@ -177,8 +177,23 @@ window.MRRIntegratedUIInit=function(loadThree){
       const quickCancel=commandFor('mrr-quick-cancel','× 취소','#inspectBody button[data-cancel-action]');
       // Two real, native control panels are available on demand. No rule actions
       // or state mutations are reimplemented in this graphics adapter.
-      inspect.addEventListener('click',()=>root.classList.toggle('mrr-integrated-inspector-open'));
-      rail.addEventListener('click',()=>root.classList.toggle('mrr-integrated-rail-open'));
+      // VR01DL: preserve the original inspector/rail presentation, but
+      // never reopen either native panel during a private turn handoff,
+      // hidden game scene or after this integrated stage is disposed.
+      const panelToggle=(control,cssClass)=>{
+        control.setAttribute('aria-pressed','false');
+        control.addEventListener('click',()=>{
+          if(!view||!stage?.isConnected||!control.isConnected||
+            !root.classList.contains('mrr-integrated-playing')||
+            root.classList.contains('hidden')||
+            !document.querySelector('#overlay.hidden')||
+            control.hidden||control.disabled)return;
+          root.classList.toggle(cssClass);
+          control.setAttribute('aria-pressed',String(root.classList.contains(cssClass)));
+        });
+      };
+      panelToggle(inspect,'mrr-integrated-inspector-open');
+      panelToggle(rail,'mrr-integrated-rail-open');
       exit.addEventListener('click',close);
       // VR01CW: re-check the REAL original game state on each toolbar
       // click. Synthetic/queued DOM clicks must not bypass stale disabled
@@ -244,6 +259,17 @@ window.MRRIntegratedUIInit=function(loadThree){
           // viewport gate already used by setHandReveal.
           const handViewportReady=innerWidth>=1024&&innerHeight>=700;
           const gameScreenUnavailable=root.classList.contains('hidden');
+          // VR01DL: private pass and scene exit must withdraw even a
+          // previously opened native information panel without modifying
+          // the original Phase21 inspector or its gameplay state.
+          const panelUnavailable=privateHandPass||gameScreenUnavailable;
+          if(panelUnavailable){
+            root.classList.remove('mrr-integrated-inspector-open','mrr-integrated-rail-open');
+          }
+          for(const control of [inspect,rail]){
+            control.disabled=panelUnavailable;
+            if(panelUnavailable&&document.activeElement===control)control.blur();
+          }
           if((targetActive||privateHandPass||!handViewportReady||
               gameScreenUnavailable)&&root.classList.contains('mrr-integrated-hand-open'))
             setHandReveal?.(false);
