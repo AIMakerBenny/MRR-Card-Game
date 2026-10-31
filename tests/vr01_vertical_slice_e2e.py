@@ -1314,11 +1314,21 @@ try:
         # clickable-looking VR quick cancel command on the selected card.
         # Toggle only the native DOM disabled flag and never dispatch it.
         cancel_gate=page.evaluate("""() => {
-          const native=document.querySelector('#inspectBody button[data-cancel-action]');
+          const inspector=document.querySelector('#inspectBody');
+          let native=inspector?.querySelector('button[data-cancel-action]');
           const quick=document.querySelector('#mrr-quick-cancel');
           const ctx=document.querySelector('#mrr-integrated-context');
           const scene=MRRIntegrated.scene;
-          if(!native||!quick||!ctx||ctx.hidden)return null;
+          if(!inspector||!quick||!ctx||ctx.hidden)return null;
+          // VR01CL: the real inspector often has NO cancel command in
+          // selected-card mode. Supply only a no-handler DOM visibility
+          // fixture for the unavailable native state, never an engine action.
+          const synthetic=!native;
+          if(synthetic){
+            native=document.createElement('button');
+            native.type='button';native.dataset.cancelAction='qa-cl';
+            inspector.append(native);
+          }
           const original=native.disabled;
           let enabled,disabled;
           try{
@@ -1328,8 +1338,14 @@ try:
             native.disabled=true;scene.sync();
             disabled={native:native.disabled,quick:quick.hidden,
               integrated:document.querySelector('#mrr-integrated-cancel')?.disabled};
-          }finally{native.disabled=original;scene.sync();}
-          return {enabled,disabled,restored:native.disabled===original};
+          }finally{
+            native.disabled=original;
+            if(synthetic)native.remove();
+            scene.sync();
+          }
+          return {enabled,disabled,restored:synthetic?
+            !inspector.querySelector('button[data-cancel-action]'):
+            native.disabled===original,synthetic};
         }""")
         assert cancel_gate and cancel_gate['restored'] and (
           cancel_gate['enabled']=={'native':False,'quick':False,'integrated':False}
@@ -1345,11 +1361,20 @@ try:
             ['move','#inspectBody button[data-actor="move"]','#mrr-quick-move'],
             ['cancel','#inspectBody button[data-cancel-action]','#mrr-quick-cancel']];
           const results=[];
+          const inspector=document.querySelector('#inspectBody');
+          if(!inspector)return null;
           for(const [kind,nativeSelector,quickSelector] of types){
-            const native=document.querySelector(nativeSelector);
+            let native=document.querySelector(nativeSelector);
             const quick=document.querySelector(quickSelector);
             const context=document.querySelector('#mrr-integrated-context');
-            if(!native||!quick||!context)return null;
+            if(!quick||!context)return null;
+            const synthetic=!native&&kind==='cancel';
+            if(synthetic){
+              native=document.createElement('button');
+              native.type='button';native.dataset.cancelAction='qa-cl';
+              inspector.append(native);
+            }
+            if(!native)return null;
             const original=native.disabled;
             try{
               for(const flag of [false,true]){
@@ -1358,7 +1383,11 @@ try:
                 results.push({kind,flag,hidden:quick.hidden,disabled:quick.disabled,
                   contextHidden:context.hidden});
               }
-            }finally{native.disabled=original;scene.sync();}
+            }finally{
+              native.disabled=original;
+              if(synthetic)native.remove();
+              scene.sync();
+            }
           }
           return results;
         }""")
