@@ -2146,6 +2146,56 @@ try:
           'restored':2,'visible':True
         },('VR01DB stale quick button acted on hidden game',quick_screen_gate)
         assert snap()==baseline,'VR01DB native hidden-screen fixture changed Phase21'
+        # VR01DC: the selected native card can briefly lose its PUBLIC
+        # identity during original DOM repaint. No dead quick action or
+        # stale cached identity may be offered until that ID returns.
+        missing_public_id=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene,key=scene.state.selectedKey;
+          const ctx=document.querySelector('#mrr-integrated-context');
+          const slot=[...document.querySelectorAll('#arena .slot.selected-slot')]
+            .find(s=>s.dataset.slot===key);
+          const card=slot?.querySelector('.board-card .card-ui');
+          const attack=document.querySelector('#mrr-quick-attack');
+          if(!ctx||ctx.hidden||!attack||attack.hidden||!card)return null;
+          const id=card.getAttribute('data-mrr-public-card-id');
+          if(!id)return null;
+          let missing,restored;
+          try{
+            card.removeAttribute('data-mrr-public-card-id');
+            scene.sync();
+            missing={
+              groupHidden:ctx.hidden,
+              groupInert:ctx.inert,
+              attackHidden:attack.hidden,
+              attackDisabled:attack.disabled,
+              noIdentityCache:!ctx.hasAttribute('data-vr-selected-card-id'),
+              noLayoutCache:!ctx.hasAttribute('data-vr-layout-key')
+            };
+          }finally{
+            card.setAttribute('data-mrr-public-card-id',id);
+            scene.sync();
+            restored={
+              groupVisible:!ctx.hidden,
+              attackVisible:!attack.hidden,
+              identityRebuilt:ctx.dataset.vrSelectedCardId===id,
+              nativeRestored:card.getAttribute('data-mrr-public-card-id')===id
+            };
+          }
+          return {missing,restored};
+        }""")
+        assert missing_public_id=={
+          'missing':{
+            'groupHidden':True,'groupInert':True,
+            'attackHidden':True,'attackDisabled':True,
+            'noIdentityCache':True,'noLayoutCache':True
+          },
+          'restored':{
+            'groupVisible':True,'attackVisible':True,
+            'identityRebuilt':True,'nativeRestored':True
+          }
+        },('VR01DC missing public card ID left dead native action visible',
+          missing_public_id)
+        assert snap()==baseline,'VR01DC public identity fixture changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
