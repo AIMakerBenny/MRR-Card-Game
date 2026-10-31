@@ -1482,6 +1482,48 @@ try:
           ],'restored':True
         },('VR01CM stale quick-button click delegated native action',stale_event)
         assert snap()==baseline,'VR01CM transient button state changed Phase21'
+        # VR01CN: the on-demand original hand may open in idle selection,
+        # but an attack target must immediately fold it and disable the
+        # hand tab. Only synthetic public target classes are changed here.
+        attack_hand_gate=page.evaluate("""() => {
+          const root=document.querySelector('#gameScreen'),
+            tab=document.querySelector('#mrr-integrated-hand-tab'),
+            scene=MRRIntegrated.scene;
+          const slot=[...document.querySelectorAll('#arena .slot')]
+            .find(n=>!n.classList.contains('legal')&&
+              !n.classList.contains('attack-target'));
+          if(!root||!tab||tab.disabled||!slot||
+            !document.querySelector('#hand .hand-slot'))return null;
+          const wasOpen=root.classList.contains('mrr-integrated-hand-open');
+          if(wasOpen)tab.click();
+          let result;
+          try{
+            tab.click();
+            const opened=root.classList.contains('mrr-integrated-hand-open');
+            slot.classList.add('attack-target');
+            try{
+              scene.sync();
+              const folded=!root.classList.contains('mrr-integrated-hand-open'),
+                disabled=tab.disabled,expanded=tab.getAttribute('aria-expanded');
+              tab.click();
+              result={opened,folded,disabled,expanded,
+                refusedReopen:!root.classList.contains('mrr-integrated-hand-open')};
+            }finally{
+              slot.classList.remove('attack-target');scene.sync();
+            }
+            result.reenabled=!tab.disabled;
+          }finally{
+            if(root.classList.contains('mrr-integrated-hand-open'))tab.click();
+            if(wasOpen&&!root.classList.contains('mrr-integrated-hand-open')&&
+               !tab.disabled)tab.click();
+          }
+          return result;
+        }""")
+        assert attack_hand_gate=={
+          'opened':True,'folded':True,'disabled':True,
+          'expanded':'false','refusedReopen':True,'reenabled':True
+        },('VR01CN attack target allowed native hand reopening',attack_hand_gate)
+        assert snap()==baseline,'VR01CN native hand guard altered Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
