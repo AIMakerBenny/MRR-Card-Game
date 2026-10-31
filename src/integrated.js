@@ -274,10 +274,18 @@ window.MRRIntegratedUIInit=function(loadThree){
           // VR01CY: a stale scene key or two selected native slots must
           // not make the top actions appear enabled. Match the same
           // single public card identity already required on click.
-          attack.disabled=!selection||!topSelectionId||!nativeAttack||
-            nativeAttack.disabled||actionBlocked;
-          move.disabled=!selection||!topSelectionId||!nativeMove||
-            nativeMove.disabled||actionBlocked;
+          // VR01DG: match the VR01DF click-time projection guard at
+          // display time, so unavailable actions are not advertised while
+          // the original camera or 3D stage is unprojectable.
+          const topProjection=topSelectionId?view?.projectSlot?.(info.selectedKey):null;
+          const topStageBounds=stage.getBoundingClientRect();
+          const topProjectionReady=!!topProjection&&
+            Number.isFinite(topProjection.x)&&Number.isFinite(topProjection.y)&&
+            topStageBounds.width>0&&topStageBounds.height>0;
+          attack.disabled=!selection||!topSelectionId||!topProjectionReady||
+            !nativeAttack||nativeAttack.disabled||actionBlocked;
+          move.disabled=!selection||!topSelectionId||!topProjectionReady||
+            !nativeMove||nativeMove.disabled||actionBlocked;
           // VR01CI: keep the original cancel action available during
           // target selection, but not during a private turn handoff.
           const nativeCancel=document.querySelector('#inspectBody button[data-cancel-action]');
