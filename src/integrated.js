@@ -282,6 +282,13 @@ window.MRRIntegratedUIInit=function(loadThree){
           const topProjectionReady=!!topProjection&&
             Number.isFinite(topProjection.x)&&Number.isFinite(topProjection.y)&&
             topStageBounds.width>0&&topStageBounds.height>0;
+          // VR01DI: do not retain a selected-card identity on top controls
+          // when the renderer cannot present that public seat. A future
+          // valid scene sync will repopulate the ID from original Phase21.
+          if(!topProjectionReady){
+            delete attack.dataset.vrTopSelectedCardId;
+            delete move.dataset.vrTopSelectedCardId;
+          }
           attack.disabled=!selection||!topSelectionId||!topProjectionReady||
             !nativeAttack||nativeAttack.disabled||actionBlocked;
           move.disabled=!selection||!topSelectionId||!topProjectionReady||
