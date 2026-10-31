@@ -1582,6 +1582,85 @@ try:
           ],'restored':True
         },('VR01CM stale quick-button click delegated native action',stale_event)
         assert snap()==baseline,'VR01CM transient button state changed Phase21'
+        # VR01DK: a queued click must not use an old integrated quick
+        # control while its parent/child is disabled, hidden or detached.
+        # The unconditional adapter guard also covers non-VR integrated.
+        common_quick_gate=page.evaluate("""() => {
+          const root=document.querySelector('#gameScreen'),
+            ctx=document.querySelector('#mrr-integrated-context'),
+            quick=document.querySelector('#mrr-quick-attack'),
+            native=document.querySelector('#inspectBody button[data-actor="attack"]'),
+            overlay=document.querySelector('#overlay');
+          if(!root||!ctx||ctx.hidden||!quick||quick.hidden||quick.disabled||
+             !native||native.disabled||!overlay?.classList.contains('hidden'))
+            return null;
+          const own=Object.prototype.hasOwnProperty.call(native,'click'),
+            originalClick=native.click,initial={
+              ctxHidden:ctx.hidden,ctxInert:ctx.inert,
+              quickHidden:quick.hidden,quickDisabled:quick.disabled
+            };
+          const parent=quick.parentNode,next=quick.nextSibling;
+          const calls=[],fire=label=>{
+            quick.dispatchEvent(new MouseEvent('click',
+              {bubbles:true,cancelable:true}));
+            calls.push({label,count:delegated});
+          };
+          let delegated=0;
+          native.click=()=>{delegated++;};
+          try{
+            fire('live');
+            ctx.hidden=true;
+            try{fire('hidden-parent');}finally{ctx.hidden=initial.ctxHidden;}
+            ctx.inert=true;
+            try{fire('inert-parent');}finally{ctx.inert=initial.ctxInert;}
+            quick.hidden=true;
+            try{fire('hidden-button');}finally{quick.hidden=initial.quickHidden;}
+            quick.disabled=true;
+            try{fire('disabled-button');}
+            finally{quick.disabled=initial.quickDisabled;}
+            quick.remove();
+            try{fire('detached-button');}
+            finally{parent.insertBefore(quick,next);}
+            overlay.classList.remove('hidden');
+            try{fire('private-pass');}
+            finally{overlay.classList.add('hidden');}
+            root.classList.add('hidden');
+            try{fire('hidden-game');}
+            finally{root.classList.remove('hidden');}
+            fire('restored');
+          }finally{
+            root.classList.remove('hidden');
+            overlay.classList.add('hidden');
+            ctx.hidden=initial.ctxHidden;ctx.inert=initial.ctxInert;
+            quick.hidden=initial.quickHidden;
+            quick.disabled=initial.quickDisabled;
+            if(!quick.isConnected)parent.insertBefore(quick,next);
+            if(own)native.click=originalClick;else delete native.click;
+            MRRIntegrated.scene.sync();
+          }
+          return calls;
+        }""")
+        assert common_quick_gate==[
+          {'label':'live','count':1},
+          {'label':'hidden-parent','count':1},
+          {'label':'inert-parent','count':1},
+          {'label':'hidden-button','count':1},
+          {'label':'disabled-button','count':1},
+          {'label':'detached-button','count':1},
+          {'label':'private-pass','count':1},
+          {'label':'hidden-game','count':1},
+          {'label':'restored','count':2}
+        ],('VR01DK stale integrated quick control reached Phase21',common_quick_gate)
+        # The guard must precede the VR-only branch, so the same safety
+        # applies when the generic integrated view initialized without VR.
+        adapter=(ROOT/'src'/'integrated.js').read_text(encoding='utf-8')
+        guard=adapter.find('// VR01DK: both the generic integrated view')
+        branch=adapter.find('if(vrBoundCommands)',guard)
+        assert guard>=0 and branch>guard and (
+          'context.inert||context.hidden||b.hidden||b.disabled' in
+          adapter[guard:branch]
+        ),'VR01DK common guard must execute before VR-only checks'
+        assert snap()==baseline,'VR01DK common quick-command guard altered Phase21'
         # VR01CN: the on-demand original hand may open in idle selection,
         # but an attack target must immediately fold it and disable the
         # hand tab. Only synthetic public target classes are changed here.
