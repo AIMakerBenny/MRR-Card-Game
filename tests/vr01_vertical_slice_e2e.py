@@ -2110,6 +2110,64 @@ try:
         },('VR01DG unprojectable selected card kept top commands enabled',
           top_projection_display)
         assert snap()==baseline,'VR01DG projection display altered Phase21'
+        # VR01DI: when the 3D projection cannot be trusted, the top
+        # action controls must discard their prior PUBLIC selected-card
+        # identity, restoring it only after projection recovers.
+        top_projection_identity=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene,key=scene?.state?.selectedKey,
+            stage=document.querySelector('#mrr-integrated-stage');
+          const buttons=[
+            document.querySelector('#mrr-integrated-attack'),
+            document.querySelector('#mrr-integrated-move')];
+          const native=[
+            document.querySelector('#inspectBody button[data-actor="attack"]'),
+            document.querySelector('#inspectBody button[data-actor="move"]')];
+          const selected=[...document.querySelectorAll('#arena .slot.selected-slot')]
+            .find(slot=>slot.dataset.slot===key);
+          const id=selected?.querySelector('.board-card .card-ui')
+            ?.getAttribute('data-mrr-public-card-id');
+          if(!scene||!key||!id||!stage||buttons.some(b=>!b)||
+             native.some(b=>!b))return null;
+          const initialDisabled=native.map(b=>b.disabled);
+          const originalProject=scene.projectSlot;
+          const originalBounds=stage.getBoundingClientRect;
+          const state=()=>buttons.map(b=>({
+            id:b.dataset.vrTopSelectedCardId||null,disabled:b.disabled
+          }));
+          let baseline,missing,zero,restored;
+          try{
+            native.forEach(b=>b.disabled=false);
+            scene.sync();baseline=state();
+            scene.projectSlot=function(seat,...args){
+              return seat===key?null:originalProject.call(this,seat,...args);
+            };
+            try{scene.sync();missing=state();}
+            finally{scene.projectSlot=originalProject;scene.sync();}
+            const bounds=stage.getBoundingClientRect();
+            stage.getBoundingClientRect=()=>({...bounds,width:0,height:0});
+            try{scene.sync();zero=state();}
+            finally{stage.getBoundingClientRect=originalBounds;scene.sync();}
+            restored=state();
+          }finally{
+            scene.projectSlot=originalProject;
+            stage.getBoundingClientRect=originalBounds;
+            native.forEach((b,i)=>b.disabled=initialDisabled[i]);
+            scene.sync();
+          }
+          return {id,baseline,missing,zero,restored};
+        }""")
+        assert top_projection_identity and (
+          top_projection_identity['baseline']==
+            [{'id':top_projection_identity['id'],'disabled':False}]*2 and
+          top_projection_identity['missing']==
+            [{'id':None,'disabled':True}]*2 and
+          top_projection_identity['zero']==
+            [{'id':None,'disabled':True}]*2 and
+          top_projection_identity['restored']==
+            top_projection_identity['baseline']
+        ),('VR01DI missing projection kept stale top card IDs',
+          top_projection_identity)
+        assert snap()==baseline,'VR01DI top identity cache changed Phase21'
         # VR01CX: a selected native slot can be repainted with a
         # different PUBLIC card before the integrated top toolbar syncs.
         # Its previous attack/move clicks must never act on the replacement.
