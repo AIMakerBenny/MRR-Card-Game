@@ -136,6 +136,14 @@ window.MRRIntegratedUIInit=function(loadThree){
             // this 3D action group is visually withdrawn. Only delegate
             // when the SAME publicly selected native card still exists.
             const selected=view?.state?.selectedKey;
+            // VR01DE: renderer projection or stage geometry can become
+            // unavailable between two native refreshes. Reject the old
+            // quick click synchronously, before any Phase21 delegation.
+            const seatProjection=selected?view.projectSlot?.(selected):null;
+            const stageBounds=stage.getBoundingClientRect();
+            if(!seatProjection||!Number.isFinite(seatProjection.x)||
+              !Number.isFinite(seatProjection.y)||
+              stageBounds.width<=0||stageBounds.height<=0)return;
             // VR01CF: transient double selection must not execute a
             // command against the previous selected card, even if its
             // public slot and card ID have not changed yet.
