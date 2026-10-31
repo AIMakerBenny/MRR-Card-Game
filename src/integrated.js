@@ -198,9 +198,17 @@ window.MRRIntegratedUIInit=function(loadThree){
             !!selectedSlots[0].querySelector('.board-card .card-ui');
           const valid=!!info.selectedKey && !!view?.hasCard(info.selectedKey)&&
             nativeSelected&&!passPrivate&&!targetPending;
-          quickAttack.hidden=!valid||attack.disabled;
-          quickMove.hidden=!valid||move.disabled;
-          quickCancel.hidden=!valid||cancel.disabled;
+          // VR01CJ: the three mirrored quick controls must carry the
+          // same native availability in both their visual and keyboard
+          // states. An unavailable command cannot remain an enabled button.
+          for(const [quick,available] of [
+            [quickAttack,valid&&!attack.disabled],
+            [quickMove,valid&&!move.disabled],
+            [quickCancel,valid&&!cancel.disabled]
+          ]){
+            quick.hidden=!available;
+            quick.disabled=!available;
+          }
           const show=valid&&(!quickAttack.hidden||!quickMove.hidden||!quickCancel.hidden);
           // VR01CE: capture only the selected card's already PUBLIC Phase21
           // ID when drawing actions. No native game state or private card
