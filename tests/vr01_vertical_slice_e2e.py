@@ -2065,6 +2065,51 @@ try:
         },('VR01DF stale top command ignored missing 3D projection',
           top_projection_click)
         assert snap()==baseline,'VR01DF projection guard changed Phase21'
+        # VR01DG: a real top action must become disabled as soon as the
+        # selected 3D seat or stage geometry is unavailable, and restore
+        # its enabled state without changing original Phase21 actions.
+        top_projection_display=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene,key=scene?.state?.selectedKey,
+            stage=document.querySelector('#mrr-integrated-stage');
+          const top=[
+            document.querySelector('#mrr-integrated-attack'),
+            document.querySelector('#mrr-integrated-move')];
+          const native=[
+            document.querySelector('#inspectBody button[data-actor="attack"]'),
+            document.querySelector('#inspectBody button[data-actor="move"]')];
+          if(!scene||!key||!stage||top.some(b=>!b)||native.some(b=>!b))
+            return null;
+          const oldDisabled=native.map(b=>b.disabled);
+          const oldProjection=scene.projectSlot,oldBounds=stage.getBoundingClientRect;
+          const state=()=>top.map(b=>b.disabled);
+          let result;
+          try{
+            native.forEach(b=>b.disabled=false);scene.sync();
+            const ready=state();
+            scene.projectSlot=function(seat,...args){
+              return seat===key?null:oldProjection.call(this,seat,...args);
+            };
+            try{scene.sync();var missingSeat=state();}
+            finally{scene.projectSlot=oldProjection;scene.sync();}
+            const bounds=stage.getBoundingClientRect();
+            stage.getBoundingClientRect=()=>({...bounds,width:0,height:0});
+            try{scene.sync();var zeroStage=state();}
+            finally{stage.getBoundingClientRect=oldBounds;scene.sync();}
+            result={ready,missingSeat,zeroStage,restored:state()};
+          }finally{
+            scene.projectSlot=oldProjection;stage.getBoundingClientRect=oldBounds;
+            native.forEach((b,i)=>b.disabled=oldDisabled[i]);scene.sync();
+          }
+          return result;
+        }""")
+        assert top_projection_display=={
+          'ready':[False,False],
+          'missingSeat':[True,True],
+          'zeroStage':[True,True],
+          'restored':[False,False]
+        },('VR01DG unprojectable selected card kept top commands enabled',
+          top_projection_display)
+        assert snap()==baseline,'VR01DG projection display altered Phase21'
         # VR01CX: a selected native slot can be repainted with a
         # different PUBLIC card before the integrated top toolbar syncs.
         # Its previous attack/move clicks must never act on the replacement.
