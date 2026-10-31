@@ -171,7 +171,11 @@ window.MRRIntegratedUIInit=function(loadThree){
           const nativeMove=document.querySelector('#inspectBody button[data-actor="move"]');
           attack.disabled=!selection||!nativeAttack||nativeAttack.disabled;
           move.disabled=!selection||!nativeMove||nativeMove.disabled;
-          cancel.disabled=!document.querySelector('#inspectBody button[data-cancel-action]');
+          // VR01CI: the native cancel element may remain in the DOM
+          // while Phase21 temporarily disables the actual action.
+          // Mirror its enabled state instead of advertising a dead button.
+          const nativeCancel=document.querySelector('#inspectBody button[data-cancel-action]');
+          cancel.disabled=!nativeCancel||nativeCancel.disabled;
           inspect.setAttribute('aria-pressed',String(root.classList.contains('mrr-integrated-inspector-open')));
           rail.setAttribute('aria-pressed',String(root.classList.contains('mrr-integrated-rail-open')));
           const suffix=info.attackTargetCount?'  ·  공격 대상 '+info.attackTargetCount:
