@@ -2009,6 +2009,62 @@ try:
           'restored':{'attack':2,'move':2,'cancel':3}
         },('VR01CW stale integrated toolbar click invoked a native action',top_click_gate)
         assert snap()==baseline,'VR01CW toolbar click guard changed Phase21'
+        # VR01DF: test the existing top toolbar against a temporarily
+        # unavailable projection BEFORE the next original scene refresh.
+        # Only original button click methods are stubbed, never game rules.
+        top_projection_click=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene,key=scene?.state?.selectedKey,
+            stage=document.querySelector('#mrr-integrated-stage');
+          const commands=[
+            [document.querySelector('#mrr-integrated-attack'),
+             document.querySelector('#inspectBody button[data-actor="attack"]')],
+            [document.querySelector('#mrr-integrated-move'),
+             document.querySelector('#inspectBody button[data-actor="move"]')]];
+          if(!scene||!key||!stage||commands.some(([top,native])=>!top||!native))
+            return null;
+          const original=commands.map(([top,native])=>({
+            native,disabled:native.disabled,click:native.click,
+            own:Object.prototype.hasOwnProperty.call(native,'click')}));
+          const previousProject=scene.projectSlot,
+            previousBounds=stage.getBoundingClientRect;
+          const counts=[0,0],fire=()=>commands.forEach(([top])=>
+            top.dispatchEvent(new MouseEvent('click',
+              {bubbles:true,cancelable:true})));
+          let result;
+          try{
+            original.forEach((o,i)=>{o.native.disabled=false;
+              o.native.click=()=>{counts[i]++;};});
+            scene.sync();
+            if(commands.some(([top])=>top.disabled))return null;
+            fire();const initial=[...counts];
+            scene.projectSlot=function(seat,...args){
+              return seat===key?null:previousProject.call(this,seat,...args);
+            };
+            try{fire();var missingSeat=[...counts];}
+            finally{scene.projectSlot=previousProject;}
+            const bounds=stage.getBoundingClientRect();
+            stage.getBoundingClientRect=()=>({...bounds,width:0,height:0});
+            try{fire();var zeroStage=[...counts];}
+            finally{stage.getBoundingClientRect=previousBounds;}
+            fire();result={initial,missingSeat,zeroStage,restored:[...counts]};
+          }finally{
+            scene.projectSlot=previousProject;
+            stage.getBoundingClientRect=previousBounds;
+            original.forEach(o=>{
+              o.native.disabled=o.disabled;
+              if(o.own)o.native.click=o.click;
+              else delete o.native.click;
+            });
+            scene.sync();
+          }
+          return result;
+        }""")
+        assert top_projection_click=={
+          'initial':[1,1],'missingSeat':[1,1],
+          'zeroStage':[1,1],'restored':[2,2]
+        },('VR01DF stale top command ignored missing 3D projection',
+          top_projection_click)
+        assert snap()==baseline,'VR01DF projection guard changed Phase21'
         # VR01CX: a selected native slot can be repainted with a
         # different PUBLIC card before the integrated top toolbar syncs.
         # Its previous attack/move clicks must never act on the replacement.
