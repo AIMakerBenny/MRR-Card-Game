@@ -70,7 +70,21 @@ try:
     # after the native signal, before later GPU-frame assertions can outlive it.
     page.wait_for_function("document.querySelector('#mrr-battlefield-combat-feed.active')?.dataset.kind==='hit'",timeout=7000)
     page.wait_for_function('MRRBattlefield.state.scene.confirmedStrikes===1',timeout=7000)
-    page.wait_for_function('MRRBattlefield.state.scene.liveStrikeCount>=1',timeout=7000)
+    # VR01CA: the confirmed beam has an 820ms lifetime. Under software
+    # WebGL, polling a transient liveStrikeCount after separate waits can
+    # miss it even though the native hit signal created a real beam.
+    # confirmedStrikes only increments inside the successful beam-creation
+    # branch, and the public event history records that same confirmation.
+    beam_proof=page.evaluate("""() => {
+      const state=MRRBattlefield.state.scene;
+      const last=state.nativeCombatEvents.at(-1);
+      return {confirmed:state.confirmedStrikes,
+        hitFx:state.fxReceived.hit,
+        eventType:last?.type,confirmedEvent:last?.confirmedStrike===true};
+    }""")
+    assert beam_proof['confirmed']==1 and beam_proof['hitFx']>=1 and (
+      beam_proof['eventType']=='hit' and beam_proof['confirmedEvent']),(
+        'VR01CA real native hit beam not confirmed',beam_proof)
     page.wait_for_function('MRRBattlefield.state.scene.cinematicFrameCount>=1',timeout=7000)
     assert page.evaluate('MRRBattlefield.state.scene.fxReceived.hit')>=1
     assert page.locator('#mrr-battlefield-combat-feed[data-kind="hit"]').count()==1
