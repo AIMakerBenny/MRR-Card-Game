@@ -527,6 +527,19 @@ window.MRRIntegratedUIInit=function(loadThree){
               // The existing native Phase21 inspector remains untouched.
               if(context.contains(document.activeElement))
                 document.activeElement.blur();
+              // VR01DH: a hidden parent alone leaves its quick children
+              // apparently enabled to the VR01 keyboard cue adapter.
+              // Withdraw each command and its stale shortcut until the
+              // selected public seat becomes projectable again.
+              for(const quick of [quickAttack,quickMove,quickCancel]){
+                quick.hidden=true;
+                quick.disabled=true;
+                if(quick===quickAttack||quick===quickMove){
+                  quick.removeAttribute('aria-keyshortcuts');
+                  delete quick.dataset.vrShortcut;
+                  quick.removeAttribute('title');
+                }
+              }
               context.hidden=true;
               context.inert=true;
               context.setAttribute('aria-hidden','true');
