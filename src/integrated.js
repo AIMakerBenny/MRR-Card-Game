@@ -414,8 +414,12 @@ window.MRRIntegratedUIInit=function(loadThree){
                     return {left:b.left-rect.left,right:b.right-rect.left,
                       top:b.top-rect.top,bottom:b.bottom-rect.top};
                   });
+                // VR01DA: a replaced PUBLIC card in the same selected
+                // seat must not inherit the old card's command layout cache.
+                // No native game state or private hand information is read.
                 const layoutKey=[info.selectedKey,Math.round(rect.width),
-                  Math.round(rect.height),width,height,occupancy].join('|');
+                  Math.round(rect.height),width,height,occupancy,
+                  context.dataset.vrSelectedCardId||''].join('|');
                 const lastSlotX=Number(context.dataset.vrSlotX);
                 const lastSlotY=Number(context.dataset.vrSlotY);
                 // Once the button has a safe seat, keep that physical
@@ -450,8 +454,12 @@ window.MRRIntegratedUIInit=function(loadThree){
                 const pointerLocked=context.matches(':hover')||
                   context.matches(':focus-within');
                 const previousKey=context.dataset.vrLayoutKey||'';
-                const sameGeometry=previousKey.split('|').slice(0,5).join('|')===
-                  layoutKey.split('|').slice(0,5).join('|');
+                const previousParts=previousKey.split('|');
+                const currentParts=layoutKey.split('|');
+                const sameGeometry=previousParts.slice(0,5).join('|')===
+                  currentParts.slice(0,5).join('|')&&
+                  previousParts[previousParts.length-1]===
+                    currentParts[currentParts.length-1];
                 const stable=heldSafe&&Number.isFinite(lastSlotX)&&
                   Number.isFinite(lastSlotY)&&
                   ((previousKey===layoutKey&&
