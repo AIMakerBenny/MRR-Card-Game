@@ -254,8 +254,13 @@ window.MRRIntegratedUIInit=function(loadThree){
           // while a target is pending. Preserve native cancel so the user
           // can still exit that pending action.
           const actionBlocked=targetActive||privateHandPass||gameScreenUnavailable;
-          attack.disabled=!selection||!nativeAttack||nativeAttack.disabled||actionBlocked;
-          move.disabled=!selection||!nativeMove||nativeMove.disabled||actionBlocked;
+          // VR01CY: a stale scene key or two selected native slots must
+          // not make the top actions appear enabled. Match the same
+          // single public card identity already required on click.
+          attack.disabled=!selection||!topSelectionId||!nativeAttack||
+            nativeAttack.disabled||actionBlocked;
+          move.disabled=!selection||!topSelectionId||!nativeMove||
+            nativeMove.disabled||actionBlocked;
           // VR01CI: keep the original cancel action available during
           // target selection, but not during a private turn handoff.
           const nativeCancel=document.querySelector('#inspectBody button[data-cancel-action]');
