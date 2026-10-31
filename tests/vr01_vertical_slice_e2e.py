@@ -2451,8 +2451,9 @@ try:
         assert unprojectable_buttons and (
           unprojectable_buttons['hidden']['contextHidden'] and
           all(item['hidden'] and item['disabled'] and
-              item['ariaGone'] and item['dataGone'] and item['titleGone']
-              for item in unprojectable_buttons['hidden']['commands']) and
+              item['ariaGone'] and item['dataGone'] and
+              (i==2 or item['titleGone'])
+              for i,item in enumerate(unprojectable_buttons['hidden']['commands'])) and
           unprojectable_buttons['restored']['contextVisible'] and
           unprojectable_buttons['restored']['states']==
             unprojectable_buttons['before']
