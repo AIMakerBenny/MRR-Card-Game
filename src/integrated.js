@@ -79,6 +79,11 @@ window.MRRIntegratedUIInit=function(loadThree){
           &&!root.querySelector('#arena .slot.legal, #arena .slot.attack-target');
         root.classList.toggle('mrr-integrated-hand-open',open);
         handTab.setAttribute('aria-expanded',String(open));
+        // VR01DM: the native hand-tab label must match its actual state
+        // immediately after click, not only after the next scene sync.
+        const handCount=root.querySelectorAll('#hand .hand-slot').length;
+        handTab.textContent=(open?'손패 접기':'손패 펼치기')+
+          (handCount?' · '+handCount+'장':'');
         if(open){
           const exposed=Math.min(270,Math.max(194,innerHeight*.24));
           const nativeHeight=nativeHandWrap?.offsetHeight||336;
@@ -92,7 +97,11 @@ window.MRRIntegratedUIInit=function(loadThree){
       // VR01CT: queued or scripted clicks on the old hand tab must be
       // harmless after close() clears setHandReveal and removes the stage.
       handTab.addEventListener('click',()=>{
+        // VR01DM: browser queued/synthetic clicks must honor the same
+        // unavailable state the native hand control displays to users.
         if(!setHandReveal||!view||!stage?.isConnected||!handTab.isConnected||
+          handTab.hidden||handTab.disabled||
+          !root.classList.contains('mrr-integrated-playing')||
           root.classList.contains('hidden'))return;
         setHandReveal(!root.classList.contains('mrr-integrated-hand-open'));
       });
