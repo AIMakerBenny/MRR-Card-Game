@@ -208,6 +208,17 @@ window.MRRIntegratedUIInit=function(loadThree){
           ]){
             quick.hidden=!available;
             quick.disabled=!available;
+            if(!available){
+              // VR01CK: when only ONE native command becomes unavailable,
+              // its focused shortcut must immediately relinquish focus
+              // and stale keyboard cues. Other valid buttons stay active.
+              if(document.activeElement===quick)quick.blur();
+              if(quick===quickAttack||quick===quickMove){
+                quick.removeAttribute('aria-keyshortcuts');
+                delete quick.dataset.vrShortcut;
+                quick.removeAttribute('title');
+              }
+            }
           }
           const show=valid&&(!quickAttack.hidden||!quickMove.hidden||!quickCancel.hidden);
           // VR01CE: capture only the selected card's already PUBLIC Phase21
