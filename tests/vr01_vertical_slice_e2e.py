@@ -1524,6 +1524,46 @@ try:
           'expanded':'false','refusedReopen':True,'reenabled':True
         },('VR01CN attack target allowed native hand reopening',attack_hand_gate)
         assert snap()==baseline,'VR01CN native hand guard altered Phase21'
+        # VR01CO: a private Phase21 handoff must collapse and hide the
+        # original hand fan/tab immediately, even while the prior public
+        # battlefield selection remains rendered. No cards or G are read.
+        private_hand_gate=page.evaluate("""() => {
+          const root=document.querySelector('#gameScreen'),
+            tab=document.querySelector('#mrr-integrated-hand-tab'),
+            overlay=document.querySelector('#overlay'),
+            scene=MRRIntegrated.scene;
+          if(!root||!tab||tab.disabled||tab.hidden||!overlay||
+            !overlay.classList.contains('hidden')||
+            !document.querySelector('#hand .hand-slot'))return null;
+          const wasOpen=root.classList.contains('mrr-integrated-hand-open');
+          if(wasOpen)tab.click();
+          let result;
+          try{
+            tab.click();
+            const opened=root.classList.contains('mrr-integrated-hand-open');
+            overlay.classList.remove('hidden');
+            try{
+              scene.sync();
+              const folded=!root.classList.contains('mrr-integrated-hand-open'),
+                disabled=tab.disabled,hidden=tab.hidden,
+                expanded=tab.getAttribute('aria-expanded');
+              tab.click();
+              result={opened,folded,disabled,hidden,expanded,
+                refusedReopen:!root.classList.contains('mrr-integrated-hand-open')};
+            }finally{overlay.classList.add('hidden');scene.sync();}
+            result.restored=!tab.hidden&&!tab.disabled;
+          }finally{
+            if(root.classList.contains('mrr-integrated-hand-open'))tab.click();
+            if(wasOpen&&!root.classList.contains('mrr-integrated-hand-open')&&
+              !tab.disabled)tab.click();
+          }
+          return result;
+        }""")
+        assert private_hand_gate=={
+          'opened':True,'folded':True,'disabled':True,'hidden':True,
+          'expanded':'false','refusedReopen':True,'restored':True
+        },('VR01CO private turn-pass leaked the native hand tab',private_hand_gate)
+        assert snap()==baseline,'VR01CO private native hand guard changed Phase21'
         # VR01CG: a VR-bound quick command must not turn into an unguarded
         # generic-integrated click during close, even before the original
         # stage is removed. No genuine native action executes in this test.
