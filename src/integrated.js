@@ -11,12 +11,15 @@ window.MRRIntegratedUIInit=function(loadThree){
   bar.appendChild(toggle);
   let view=null,stage=null,updating=false,busy=false,lastRefresh=null;
   let setHandReveal=null,removeHandCapture=null,handTabElement=null;
+  let removePrivateSurfaceObserver=null;
   function nativeButton(selector){
     const el=document.querySelector(selector);
     if(!el||el.disabled)return false;
     el.click();view?.sync();return true;
   }
   function close(){
+    // VR01DO: stop privacy/scene observers before removing the 3D stage.
+    removePrivateSurfaceObserver?.();removePrivateSurfaceObserver=null;
     const old=view,oldStage=stage;view=null;stage=null;lastRefresh=null;
     setHandReveal?.(false);
     removeHandCapture?.();removeHandCapture=null;setHandReveal=null;
@@ -630,6 +633,30 @@ window.MRRIntegratedUIInit=function(loadThree){
       });
       view.setCameraPreset('tabletop'); // Higher desktop angle, room for hand and hero HUD.
       view.start();refresh(view.state);
+      // VR01DO: the native turn-pass overlay and game-screen visibility
+      // can change between 3D animation frames. Observe only those two
+      // ORIGINAL public class states and refresh presentation immediately
+      // at the mutation microtask, before another player sees old panels.
+      const nativeOverlay=document.getElementById('overlay');
+      if(nativeOverlay){
+        const privacyKey=()=>String(nativeOverlay.classList.contains('hidden'))+
+          '|' + String(root.classList.contains('hidden'));
+        let lastPrivacyKey=privacyKey();
+        const privacyObserver=new MutationObserver(()=>{
+          if(!view||!stage?.isConnected)return;
+          const next=privacyKey();
+          if(next===lastPrivacyKey)return;
+          lastPrivacyKey=next;
+          lastRefresh?.(view.state);
+        });
+        privacyObserver.observe(nativeOverlay,{
+          attributes:true,attributeFilter:['class']
+        });
+        privacyObserver.observe(root,{
+          attributes:true,attributeFilter:['class']
+        });
+        removePrivateSurfaceObserver=()=>privacyObserver.disconnect();
+      }
       toggle.setAttribute('aria-pressed','true');toggle.textContent='3D 플레이 중';
       toggle.disabled=false;
     }catch(e){console.warn('Integrated battlefield unavailable:',e);close();}
