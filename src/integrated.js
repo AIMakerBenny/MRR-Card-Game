@@ -36,6 +36,10 @@ window.MRRIntegratedUIInit=function(loadThree){
     busy=true;toggle.disabled=true;
     try{
       const THREE=await loadThree();
+      // VR01DP: Phase21 can leave the game scene while Three.js is
+      // loading. Do not create a hidden integrated battlefield after
+      // that native scene transition has already happened.
+      if(root.classList.contains('hidden'))return;
       stage=document.createElement('section');
       stage.id='mrr-integrated-stage';
       stage.setAttribute('aria-label','게임 내 통합 Three.js 전장');
@@ -660,7 +664,11 @@ window.MRRIntegratedUIInit=function(loadThree){
       toggle.setAttribute('aria-pressed','true');toggle.textContent='3D 플레이 중';
       toggle.disabled=false;
     }catch(e){console.warn('Integrated battlefield unavailable:',e);close();}
-    finally{busy=false;}
+    finally{
+      busy=false;
+      // VR01DP: an aborted load still must restore its native toggle.
+      if(!view)toggle.disabled=false;
+    }
   }
   toggle.addEventListener('click',()=>view?close():open());
   window.addEventListener('resize',()=>{
