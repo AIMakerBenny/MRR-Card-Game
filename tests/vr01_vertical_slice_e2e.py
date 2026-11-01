@@ -2028,6 +2028,53 @@ try:
           'restored':[{'open':False,'disabled':False,'pressed':'false'}]*2
         },('VR01DL private or hidden game reopened native panels',guarded_panels)
         assert snap()==baseline,'VR01DL panel guards changed original Phase21'
+        # VR01DN: an original keyboard-focused command inside either
+        # native information panel must relinquish focus during private
+        # player handoff, even if the original DOM element still exists.
+        panel_focus_release=page.evaluate("""() => {
+          const scene=MRRIntegrated.scene,root=document.querySelector('#gameScreen'),
+            overlay=document.querySelector('#overlay');
+          if(!scene||!root||!overlay?.classList.contains('hidden'))return null;
+          const definitions=[
+            ['mrr-integrated-inspector-open','#inspector'],
+            ['mrr-integrated-rail-open','#areaRail']
+          ];
+          const previous=definitions.map(([name])=>root.classList.contains(name));
+          const result=[];
+          try{
+            for(const [name,selector] of definitions){
+              root.classList.remove(...definitions.map(([key])=>key));
+              const panel=root.querySelector(selector);
+              if(!panel)return null;
+              root.classList.add(name);
+              scene.sync();
+              const focusTarget=document.createElement('button');
+              focusTarget.type='button';
+              focusTarget.textContent='QA focus only';
+              panel.append(focusTarget);
+              try{
+                focusTarget.focus();
+                const focused=document.activeElement===focusTarget;
+                overlay.classList.remove('hidden');
+                try{
+                  scene.sync();
+                  result.push({focused,blurred:document.activeElement!==focusTarget,
+                    folded:!root.classList.contains(name)});
+                }finally{overlay.classList.add('hidden');scene.sync();}
+              }finally{focusTarget.remove();}
+            }
+          }finally{
+            overlay.classList.add('hidden');
+            definitions.forEach(([name],i)=>root.classList.toggle(name,previous[i]));
+            scene.sync();
+          }
+          return result;
+        }""")
+        assert panel_focus_release==[
+          {'focused':True,'blurred':True,'folded':True},
+          {'focused':True,'blurred':True,'folded':True}
+        ],('VR01DN private handoff stranded keyboard focus',panel_focus_release)
+        assert snap()==baseline,'VR01DN panel keyboard focus changed Phase21'
         # VR01DM: hand-tab text must change on the SAME click that opens
         # the real original hand, while disabled and hidden synthetic clicks
         # cannot toggle presentation without a native scene refresh.
