@@ -2075,6 +2075,72 @@ try:
           {'focused':True,'blurred':True,'folded':True}
         ],('VR01DN private handoff stranded keyboard focus',panel_focus_release)
         assert snap()==baseline,'VR01DN panel keyboard focus changed Phase21'
+        # VR01DO: native private pass and game screen visibility must
+        # close exposed panels/hand at the next mutation microtask, with
+        # NO manual scene.sync or animation frame while these gates change.
+        privacy_microtask=page.evaluate("""async () => {
+          const root=document.querySelector('#gameScreen'),
+            overlay=document.querySelector('#overlay'),
+            tab=document.querySelector('#mrr-integrated-hand-tab'),
+            inspector=document.querySelector('#mrr-integrated-inspector');
+          const scene=MRRIntegrated.scene;
+          if(!root||!overlay?.classList.contains('hidden')||
+             !tab||tab.hidden||tab.disabled||!inspector||inspector.disabled||
+             !scene)return null;
+          const wasHand=root.classList.contains('mrr-integrated-hand-open'),
+            wasInspector=root.classList.contains('mrr-integrated-inspector-open');
+          const settle=async()=>{await Promise.resolve();await Promise.resolve();};
+          const state=()=>({
+            hand:root.classList.contains('mrr-integrated-hand-open'),
+            panel:root.classList.contains('mrr-integrated-inspector-open'),
+            tabHidden:tab.hidden,tabDisabled:tab.disabled,
+            inspectorDisabled:inspector.disabled
+          });
+          let result;
+          try{
+            if(wasHand)tab.click();
+            if(wasInspector)inspector.click();
+            tab.click();inspector.click();
+            const initiallyOpen=state();
+            overlay.classList.remove('hidden');
+            await settle();const duringPass=state();
+            overlay.classList.add('hidden');
+            await settle();const afterPass=state();
+            tab.click();inspector.click();
+            const beforeHide=state();
+            root.classList.add('hidden');
+            await settle();const hiddenScene=state();
+            root.classList.remove('hidden');
+            await settle();const afterHide=state();
+            result={initiallyOpen,duringPass,afterPass,beforeHide,
+              hiddenScene,afterHide};
+          }finally{
+            overlay.classList.add('hidden');root.classList.remove('hidden');
+            await settle();
+            if(root.classList.contains('mrr-integrated-hand-open')!==wasHand)
+              tab.click();
+            if(root.classList.contains('mrr-integrated-inspector-open')!==wasInspector)
+              inspector.click();
+            scene.sync();
+          }
+          return result;
+        }""")
+        assert privacy_microtask=={
+          'initiallyOpen':{'hand':True,'panel':True,
+            'tabHidden':False,'tabDisabled':False,'inspectorDisabled':False},
+          'duringPass':{'hand':False,'panel':False,
+            'tabHidden':True,'tabDisabled':True,'inspectorDisabled':True},
+          'afterPass':{'hand':False,'panel':False,
+            'tabHidden':False,'tabDisabled':False,'inspectorDisabled':False},
+          'beforeHide':{'hand':True,'panel':True,
+            'tabHidden':False,'tabDisabled':False,'inspectorDisabled':False},
+          'hiddenScene':{'hand':False,'panel':False,
+            'tabHidden':True,'tabDisabled':True,'inspectorDisabled':True},
+          'afterHide':{'hand':False,'panel':False,
+            'tabHidden':False,'tabDisabled':False,'inspectorDisabled':False}
+        },('VR01DO native private transition exposed stale hand or panel',
+          privacy_microtask)
+        assert snap()==baseline,'VR01DO native privacy observer changed Phase21'
         # VR01DM: hand-tab text must change on the SAME click that opens
         # the real original hand, while disabled and hidden synthetic clicks
         # cannot toggle presentation without a native scene refresh.
