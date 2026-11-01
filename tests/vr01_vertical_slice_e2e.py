@@ -25,6 +25,41 @@ try:
       return seed/4294967296;};
     })();""")
     url=f'http://127.0.0.1:{http.server_port}/Marorong_Card_War_Phase76_3D_Prototype.html'
+    # VR01DP: use a separate, minimal browser page to hold the REAL
+    # integrated adapter behind a deferred Three.js loader. None of
+    # these lifecycle checks can alter the Phase21 engine/game fixture.
+    gate_page=browser.new_page()
+    try:
+      gate_page.set_content(
+        '<div id="gameScreen"><div class="mcw-top-controls"></div></div>')
+      gate_page.add_script_tag(content=(
+        ROOT/'src'/'integrated.js').read_text(encoding='utf-8'))
+      deferred_hidden=gate_page.evaluate("""async () => {
+        const root=document.querySelector('#gameScreen');
+        let finish;
+        const pending=new Promise(resolve=>{finish=resolve;});
+        MRRIntegratedUIInit(()=>pending);
+        const toggle=document.querySelector('#mrr-integrated-open');
+        toggle.click();
+        const busy=toggle.disabled;
+        root.classList.add('hidden');
+        finish({});
+        await pending;
+        await Promise.resolve();
+        await Promise.resolve();
+        return {busy,stageAbsent:!document.querySelector('#mrr-integrated-stage'),
+          inactive:!MRRIntegrated.state.open,
+          toggleRestored:!toggle.disabled,
+          nativeStateUntouched:!document.body.classList.contains(
+            'mrr-integrated-active')};
+      }""")
+      assert deferred_hidden=={
+        'busy':True,'stageAbsent':True,'inactive':True,
+        'toggleRestored':True,'nativeStateUntouched':True
+      },('VR01DP hidden native scene reopened after deferred Three.js',
+        deferred_hidden)
+    finally:
+      gate_page.close()
     def snap():
       return page.evaluate("""() => {
         const s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);
