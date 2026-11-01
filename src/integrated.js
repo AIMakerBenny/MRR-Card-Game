@@ -273,6 +273,16 @@ window.MRRIntegratedUIInit=function(loadThree){
           // the original Phase21 inspector or its gameplay state.
           const panelUnavailable=privateHandPass||gameScreenUnavailable;
           if(panelUnavailable){
+            // VR01DN: a focused native inspector/supply command can linger
+            // after its panel closes. Release the ORIGINAL focused element
+            // before making that panel inaccessible for the next player.
+            const active=document.activeElement;
+            if(active&&(
+              (root.classList.contains('mrr-integrated-inspector-open')&&
+                root.querySelector('#inspector')?.contains(active))||
+              (root.classList.contains('mrr-integrated-rail-open')&&
+                root.querySelector('#areaRail')?.contains(active))
+            ))active.blur();
             root.classList.remove('mrr-integrated-inspector-open','mrr-integrated-rail-open');
           }
           for(const control of [inspect,rail]){
