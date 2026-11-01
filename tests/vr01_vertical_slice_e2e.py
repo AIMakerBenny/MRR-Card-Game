@@ -60,6 +60,59 @@ try:
         deferred_hidden)
     finally:
       gate_page.close()
+    # VR01DQ: the same REAL integrated adapter must accept a new open
+    # after a previous deferred loader was cancelled. Resolve and
+    # reject STALE loaders in alternating order without loading Three.js.
+    lifecycle_page=browser.new_page()
+    try:
+      lifecycle_page.set_content(
+        '<div id="gameScreen"><div class="mcw-top-controls"></div></div>')
+      lifecycle_page.add_script_tag(content=(
+        ROOT/'src'/'integrated.js').read_text(encoding='utf-8'))
+      pending_lifecycle=lifecycle_page.evaluate("""async () => {
+        const loads=[];
+        MRRIntegratedUIInit(()=>new Promise((resolve,reject)=>{
+          loads.push({resolve,reject});
+        }));
+        const toggle=document.querySelector('#mrr-integrated-open');
+        const state=()=>({disabled:toggle.disabled,
+          stage:!!document.querySelector('#mrr-integrated-stage'),
+          playing:MRRIntegrated.state.open});
+        const flush=async()=>{await Promise.resolve();await Promise.resolve();};
+        toggle.click();
+        const first=state();
+        MRRIntegrated.close();
+        const firstCancelled=state();
+        toggle.click();
+        const second=state();
+        loads[0].resolve({});
+        await flush();
+        const staleSuccess=state();
+        MRRIntegrated.close();
+        toggle.click();
+        const third=state();
+        loads[1].reject(new Error('VR01DQ stale loader rejection'));
+        await flush();
+        const staleFailure=state();
+        MRRIntegrated.close();
+        loads[2].resolve({});
+        await flush();
+        const completed=state();
+        return {requests:loads.length,first,firstCancelled,second,
+          staleSuccess,third,staleFailure,completed};
+      }""")
+      assert pending_lifecycle=={
+        'requests':3,
+        'first':{'disabled':True,'stage':False,'playing':False},
+        'firstCancelled':{'disabled':False,'stage':False,'playing':False},
+        'second':{'disabled':True,'stage':False,'playing':False},
+        'staleSuccess':{'disabled':True,'stage':False,'playing':False},
+        'third':{'disabled':True,'stage':False,'playing':False},
+        'staleFailure':{'disabled':True,'stage':False,'playing':False},
+        'completed':{'disabled':False,'stage':False,'playing':False}
+      },('VR01DQ cancelled loader corrupted newer 3D open',pending_lifecycle)
+    finally:
+      lifecycle_page.close()
     def snap():
       return page.evaluate("""() => {
         const s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);
