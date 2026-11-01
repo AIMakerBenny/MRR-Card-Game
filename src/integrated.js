@@ -12,12 +12,19 @@ window.MRRIntegratedUIInit=function(loadThree){
   let view=null,stage=null,updating=false,busy=false,lastRefresh=null;
   let setHandReveal=null,removeHandCapture=null,handTabElement=null;
   let removePrivateSurfaceObserver=null;
+  // VR01DQ: each async 3D loader belongs to one open request.
+  // A cancelled earlier request must not resurrect or reset a newer one.
+  let openGeneration=0;
   function nativeButton(selector){
     const el=document.querySelector(selector);
     if(!el||el.disabled)return false;
     el.click();view?.sync();return true;
   }
   function close(){
+    // VR01DQ: invalidate any pending Three.js load, permitting a new
+    // open attempt without waiting for an abandoned loader to resolve.
+    openGeneration++;
+    busy=false;
     // VR01DO: stop privacy/scene observers before removing the 3D stage.
     removePrivateSurfaceObserver?.();removePrivateSurfaceObserver=null;
     const old=view,oldStage=stage;view=null;stage=null;lastRefresh=null;
@@ -34,8 +41,12 @@ window.MRRIntegratedUIInit=function(loadThree){
     if(busy||view||root.classList.contains('hidden'))return;
     if(window.MRRBattlefield?.state.open){window.MRRBattlefield.close();}
     busy=true;toggle.disabled=true;
+    const generation=++openGeneration;
     try{
       const THREE=await loadThree();
+      // VR01DQ: stale deferred imports may resolve after close() or
+      // after a second open request. Only the active request can mount.
+      if(generation!==openGeneration)return;
       // VR01DP: Phase21 can leave the game scene while Three.js is
       // loading. Do not create a hidden integrated battlefield after
       // that native scene transition has already happened.
@@ -663,11 +674,18 @@ window.MRRIntegratedUIInit=function(loadThree){
       }
       toggle.setAttribute('aria-pressed','true');toggle.textContent='3D 플레이 중';
       toggle.disabled=false;
-    }catch(e){console.warn('Integrated battlefield unavailable:',e);close();}
-    finally{
-      busy=false;
-      // VR01DP: an aborted load still must restore its native toggle.
-      if(!view)toggle.disabled=false;
+    }catch(e){
+      // VR01DQ: reject errors from an already-cancelled loader without
+      // closing an unrelated, newer integrated view.
+      if(generation===openGeneration){
+        console.warn('Integrated battlefield unavailable:',e);close();
+      }
+    }finally{
+      if(generation===openGeneration){
+        busy=false;
+        // VR01DP: an aborted load still must restore its native toggle.
+        if(!view)toggle.disabled=false;
+      }
     }
   }
   toggle.addEventListener('click',()=>view?close():open());
