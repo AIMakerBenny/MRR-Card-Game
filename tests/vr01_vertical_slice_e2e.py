@@ -3411,6 +3411,27 @@ try:
     }""",opponent)
     assert projection['same'] and projection['valid'] and projection['finite'] and projection['samples']==10,projection
     assert snap()==baseline,'VR01EU projection cache changed native game state'
+    # VR01FK: while a real native public card is detached, its obsolete
+    # Three.js cache must not return a card-detail preview. Restore the
+    # same card within one synchronous evaluation, before native observers
+    # can observe any persistent change to the original game.
+    preview_guard=page.evaluate("""key => {
+      const scene=MRRIntegrated.scene;
+      const slot=document.querySelector('#arena [data-slot="'+key+'"]');
+      const card=slot?.querySelector('.board-card');
+      if(!card)return {error:'Missing public card'};
+      const initial=scene.getCardPreview(key);
+      const next=card.nextSibling;
+      card.remove();
+      const absent=scene.getCardPreview(key);
+      if(next)slot.insertBefore(card,next);else slot.appendChild(card);
+      const restored=scene.getCardPreview(key);
+      return {initial:!!initial,absent:absent===null,
+        restored:!!restored,skipped:scene.state.vrStalePreviewRejected};
+    }""",opponent)
+    assert preview_guard['initial'] and preview_guard['absent'] and (
+      preview_guard['restored'] and preview_guard['skipped']>=1),preview_guard
+    assert snap()==baseline,'VR01FK detached public preview modified Phase21'
     page.mouse.move(target['x'],target['y'])
     page.wait_for_function("""key=>MRRIntegrated.state.scene.hoveredKey===key &&
       document.querySelector('#vr-aim-line')?.dataset.target===key &&
