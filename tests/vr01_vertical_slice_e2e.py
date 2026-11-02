@@ -3420,17 +3420,23 @@ try:
       const slot=document.querySelector('#arena [data-slot="'+key+'"]');
       const card=slot?.querySelector('.board-card');
       if(!card)return {error:'Missing public card'};
-      const initial=scene.getCardPreview(key);
+      const initial=scene.getCardPreview(key),hasInitial=scene.hasCard(key);
       const next=card.nextSibling;
       card.remove();
-      const absent=scene.getCardPreview(key);
+      const absent=scene.getCardPreview(key),hasAbsent=scene.hasCard(key);
       if(next)slot.insertBefore(card,next);else slot.appendChild(card);
-      const restored=scene.getCardPreview(key);
+      const restored=scene.getCardPreview(key),hasRestored=scene.hasCard(key);
       return {initial:!!initial,absent:absent===null,
-        restored:!!restored,skipped:scene.state.vrStalePreviewRejected};
+        restored:!!restored,skipped:scene.state.vrStalePreviewRejected,
+        hasInitial,hasAbsent,hasRestored,
+        staleQueries:scene.state.vrStaleCardQueriesRejected};
     }""",opponent)
     assert preview_guard['initial'] and preview_guard['absent'] and (
       preview_guard['restored'] and preview_guard['skipped']>=1),preview_guard
+    # VR01FM: public-only quick-action eligibility must withdraw at once,
+    # before the next scheduled 3D sync rebuilds the cached mesh.
+    assert preview_guard['hasInitial'] and not preview_guard['hasAbsent'] and (
+      preview_guard['hasRestored'] and preview_guard['staleQueries']>=1),preview_guard
     assert snap()==baseline,'VR01FK detached public preview modified Phase21'
     # VR01FL: an attribute update on a slot removed within the same
     # MutationObserver batch is not a visible Phase21 combat event.
