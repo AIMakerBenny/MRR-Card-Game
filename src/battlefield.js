@@ -37,7 +37,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // inspected. It never touches picking, gameplay or the legacy 3D modal.
   const vrFocusLamp=vrMode?new THREE.PointLight(0xffd3a0,0,8,2):null;
   let vrFocusedCardKey=null;
-  if(vrFocusLamp){vrFocusLamp.castShadow=false;scene.add(vrFocusLamp);}
+  if(vrFocusLamp){
+    vrFocusLamp.castShadow=false;
+    vrFocusLamp.position.set(0,4.15,0);
+    scene.add(vrFocusLamp);
+  }
 
   const madeGeometry=[],madeMaterials=[],madeTextures=[];
   const material=(options,physical=false)=>{
@@ -1513,7 +1517,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrFocusLamp.intensity+=(strength-vrFocusLamp.intensity)*blend;
       if(focus){
         vrFocusLamp.color.setHex(focus.slot.owner===0?0xb0ffe4:0xffd9b7);
-        vrFocusLamp.position.set(focus.slot.x,4.15,focus.slot.z+1.05);
+        // VR01EB: ease the light's position as well as its intensity.
+        // Avoid allocations and jerky cross-board light teleportation.
+        const move=frozen?1:1-Math.exp(-visualDelta/155);
+        vrFocusLamp.position.x+=(focus.slot.x-vrFocusLamp.position.x)*move;
+        vrFocusLamp.position.y+=(4.15-vrFocusLamp.position.y)*move;
+        vrFocusLamp.position.z+=(focus.slot.z+1.05-vrFocusLamp.position.z)*move;
       }
     }
     for(const [i,c] of cards.entries()){
@@ -1686,6 +1695,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
       vrFocusedCardKey:vrMode?vrFocusedCardKey:null,
       vrFocusedLightIntensity:vrMode?Number(vrFocusLamp.intensity.toFixed(2)):null,
+      vrFocusLightTargetDistance:vrMode&&cardIndex.has(vrFocusedCardKey)?
+        Number(Math.hypot(
+          vrFocusLamp.position.x-cardIndex.get(vrFocusedCardKey).slot.x,
+          vrFocusLamp.position.z-(cardIndex.get(vrFocusedCardKey).slot.z+1.05)
+        ).toFixed(3)):null,
       vrHoveredCardYaw:vrMode&&cardIndex.has(hoveredKey)?
         Number(cardIndex.get(hoveredKey).group.rotation.y.toFixed(4)):null,
       vrSelectedCardYaw:vrMode&&cardIndex.has(selectedKey)?
