@@ -4126,6 +4126,7 @@ try:
     assert page.evaluate('MRRIntegrated.state.scene.vrStrikeConfirmWindow')==12000
     assert page.evaluate('MRRIntegrated.state.scene.vrStaleStrikeSourceRejects')==0
     assert page.evaluate('MRRIntegrated.state.scene.vrStaleStrikeTargetRejects')==0
+    assert page.evaluate('MRRIntegrated.state.scene.vrStrikeMissingPublicRejects')==0
     try:
       page.wait_for_function("""() => {
         const s=MRRIntegrated.state.scene;
@@ -4143,6 +4144,7 @@ try:
           lastUnpaired:s.vrLastUnpairedHit,
           sourceRejects:s.vrStaleStrikeSourceRejects,
           targetRejects:s.vrStaleStrikeTargetRejects,
+          missingPublic:s.vrStrikeMissingPublicRejects,
           pending:s.vrPendingStrike,
           attack:s.attackTargetCount,selected:s.selectedKey,
           nativeAudit:s.vrNativeFxAudit};

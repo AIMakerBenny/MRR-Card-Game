@@ -871,7 +871,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // touching the original Phase21 combat execution.
   let vrStagedAttacks=0,vrStrikeTimeouts=0,vrUnpairedNativeHits=0;
   let vrLastUnpairedHit=null,vrStaleStrikeSourceRejects=0;
-  let vrStaleStrikeTargetRejects=0;
+  let vrStaleStrikeTargetRejects=0,vrStrikeMissingPublicRejects=0;
   // VR01GW: record only a publicly rendered native occupant's ID/name.
   // The visual source must never be borrowed by a different occupant
   // while an earlier attack awaits native fx-hit confirmation.
@@ -905,9 +905,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const nativeStrikeWindow=vrMode?12000:2800;
   function stageAttack(sourceKey,targetKey){
     if(!boardSlots.has(sourceKey)||!boardSlots.has(targetKey)||sourceKey===targetKey)return false;
+    const sourcePublic=vrMode?readStrikePublicCard(sourceKey):null;
+    const targetPublic=vrMode?readStrikePublicCard(targetKey):null;
+    // VR01GY: a stale visual selected/target key without BOTH public
+    // cards cannot stage a projectile. This never blocks the native click
+    // or substitutes a hidden card / gameplay action.
+    if(vrMode&&(!sourcePublic||!targetPublic)){
+      vrStrikeMissingPublicRejects++;
+      pendingStrike=null;
+      return false;
+    }
     pendingStrike={sourceKey,targetKey,at:performance.now(),
-      sourcePublic:vrMode?readStrikePublicCard(sourceKey):null,
-      targetPublic:vrMode?readStrikePublicCard(targetKey):null};
+      sourcePublic,targetPublic};
     if(vrMode)vrStagedAttacks++;
     return true;
   }
@@ -2711,6 +2720,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrStrikeTimeouts:vrMode?vrStrikeTimeouts:null,
       vrStaleStrikeSourceRejects:vrMode?vrStaleStrikeSourceRejects:null,
       vrStaleStrikeTargetRejects:vrMode?vrStaleStrikeTargetRejects:null,
+      vrStrikeMissingPublicRejects:vrMode?vrStrikeMissingPublicRejects:null,
       vrUnpairedNativeHits:vrMode?vrUnpairedNativeHits:null,
       vrLastUnpairedHit:vrMode?vrLastUnpairedHit:null,
       vrPendingStrike:vrMode&&pendingStrike?{
