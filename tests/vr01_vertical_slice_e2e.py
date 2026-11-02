@@ -160,6 +160,58 @@ try:
       },('VR01DR private handoff permitted a deferred 3D open',private_open_gate)
     finally:
       private_open_page.close()
+    # VR01DS: detach or replace the original gameScreen while the
+    # actual adapter is awaiting a deferred Three.js import. The stale
+    # instance must not mount into retired DOM, nor re-open thereafter.
+    for detached in (True,False):
+      dom_page=browser.new_page()
+      try:
+        dom_page.set_content(
+          '<div id="overlay" class="hidden"></div>'
+          '<div id="gameScreen"><div class="mcw-top-controls"></div></div>')
+        dom_page.add_script_tag(content=(
+          ROOT/'src'/'integrated.js').read_text(encoding='utf-8'))
+        retired_screen=dom_page.evaluate("""async detached => {
+          const root=document.getElementById('gameScreen');
+          let finish,loads=0;
+          MRRIntegratedUIInit(()=>{
+            loads++;
+            return new Promise(resolve=>{finish=resolve;});
+          });
+          const toggle=document.querySelector('#mrr-integrated-open');
+          toggle.click();
+          const pending={loads,disabled:toggle.disabled};
+          let replacement;
+          if(detached)root.remove();
+          else{
+            replacement=document.createElement('div');
+            replacement.id='gameScreen';
+            replacement.innerHTML='<div class="mcw-top-controls"></div>';
+            root.before(replacement);
+          }
+          finish({});
+          await Promise.resolve();await Promise.resolve();
+          const after={loads,stageOnOld:!!root.querySelector(
+            '#mrr-integrated-stage'),open:MRRIntegrated.state.open,
+            toggleRestored:!toggle.disabled,
+            rootConnected:root.isConnected,
+            currentRoot:document.getElementById('gameScreen')===root};
+          toggle.click();
+          const noRestart=loads===1;
+          return {pending,after,noRestart};
+        }""",detached)
+        assert retired_screen=={
+          'pending':{'loads':1,'disabled':True},
+          'after':{
+            'loads':1,'stageOnOld':False,'open':False,
+            'toggleRestored':True,'rootConnected':not detached,
+            'currentRoot':False
+          },
+          'noRestart':True
+        },('VR01DS retired original DOM accepted an async 3D stage',
+          detached,retired_screen)
+      finally:
+        dom_page.close()
     def snap():
       return page.evaluate("""() => {
         const s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);
