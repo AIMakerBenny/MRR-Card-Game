@@ -4022,17 +4022,33 @@ try:
     # Three.js native hit. Never create an fx-hit or modify Phase21 state.
     page.evaluate("""key => {
       window.__vr01evProbed=null;
-      const slot=document.querySelector('#arena [data-slot="'+key+'"]');
+      window.__vr01gkFxProbe={mutations:0,matching:0,live:0,fxSeen:0};
+      const arena=document.querySelector('#arena');
+      // VR01GK: Phase21 may replace the entire native slot node
+      // immediately after impact. Observe its stable arena ancestor,
+      // not a detached reference captured before the real attack.
       const observer=new MutationObserver(records=>{
-        if(!records.some(r=>r.attributeName==='class'&&
-          !(r.oldValue||'').split(/\s+/).includes('fx-hit')&&
-          slot.classList.contains('fx-hit')))return;
-        observer.disconnect();
-        slot.classList.add('vr01ev-cosmetic-probe');
-        window.__vr01evProbed=true;
+        for(const record of records){
+          const slot=record.target;
+          if(record.attributeName!=='class'||
+            !slot.matches?.('[data-slot]')||
+            slot.getAttribute('data-slot')!==key)continue;
+          window.__vr01gkFxProbe.mutations++;
+          if(!slot.isConnected)continue;
+          window.__vr01gkFxProbe.live++;
+          if(slot.classList.contains('fx-hit'))
+            window.__vr01gkFxProbe.fxSeen++;
+          if((record.oldValue||'').split(/\s+/).includes('fx-hit')||
+             !slot.classList.contains('fx-hit'))continue;
+          window.__vr01gkFxProbe.matching++;
+          observer.disconnect();
+          slot.classList.add('vr01ev-cosmetic-probe');
+          window.__vr01evProbed=true;
+          return;
+        }
       });
-      observer.observe(slot,{attributes:true,attributeOldValue:true,
-        attributeFilter:['class']});
+      observer.observe(arena,{subtree:true,attributes:true,
+        attributeOldValue:true,attributeFilter:['class']});
     }""",opponent)
     page.mouse.click(target['x'],target['y'])
     page.wait_for_function("""v=>{const [owner,row,col]=v.key.split(':');
@@ -4040,9 +4056,21 @@ try:
       arg={'key':opponent,'hp':before_hp},timeout=13000)
     after=snap()
     assert after!=baseline
-    page.wait_for_function("""() => window.__vr01evProbed===true &&
-      MRRIntegrated.state.scene.vrFxClassNoiseIgnored>=1 &&
-      MRRIntegrated.state.scene.vrFxRisingEdges>=1""",timeout=13000)
+    try:
+      page.wait_for_function("""() => window.__vr01evProbed===true &&
+        MRRIntegrated.state.scene.vrFxClassNoiseIgnored>=1 &&
+        MRRIntegrated.state.scene.vrFxRisingEdges>=1""",timeout=13000)
+    except Exception:
+      print('VR01GK native FX probe diagnostic',page.evaluate("""() => {
+        const s=MRRIntegrated.state.scene;
+        return {probe:window.__vr01evProbed,observer:window.__vr01gkFxProbe,
+          fxNoise:s.vrFxClassNoiseIgnored,edges:s.vrFxRisingEdges,
+          received:s.fxReceived,cardCount:s.publicCardCount,
+          target:document.querySelector('#arena .slot.attack-target')?.dataset.slot,
+          probeClassCount:document.querySelectorAll(
+            '#arena .vr01ev-cosmetic-probe').length};
+      }"""),flush=True)
+      raise
     page.evaluate("""key => document.querySelector(
       '#arena [data-slot="'+key+'"]')?.classList.remove('vr01ev-cosmetic-probe')""",opponent)
     assert snap()==after,'VR01EV native FX class transition observer changed Phase21 state'
