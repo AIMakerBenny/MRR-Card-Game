@@ -870,7 +870,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01GT: preserve bounded public-input timing diagnostics without
   // touching the original Phase21 combat execution.
   let vrStagedAttacks=0,vrStrikeTimeouts=0,vrUnpairedNativeHits=0;
-  let vrLastUnpairedHit=null;
+  let vrLastUnpairedHit=null,vrStaleStrikeSourceRejects=0;
+  // VR01GW: record only a publicly rendered native occupant's ID/name.
+  // The visual source must never be borrowed by a different occupant
+  // while an earlier attack awaits native fx-hit confirmation.
+  function readStrikePublicCard(key){
+    const card=document.querySelector('#arena [data-slot="'+key+
+      '"] .board-card .card-ui');
+    const name=card?.querySelector('.card-name')?.textContent?.trim()||'';
+    return name?{id:card.getAttribute('data-mrr-public-card-id')||null,name}:null;
+  }
   // VR01EA: an afterimage belongs to a CONFIRMED native strike only.
   let vrConfirmedProjectileStarted=0;
   let vrHitReactions=0,vrLandingDustStarted=0;
@@ -895,7 +904,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const nativeStrikeWindow=vrMode?12000:2800;
   function stageAttack(sourceKey,targetKey){
     if(!boardSlots.has(sourceKey)||!boardSlots.has(targetKey)||sourceKey===targetKey)return false;
-    pendingStrike={sourceKey,targetKey,at:performance.now()};
+    pendingStrike={sourceKey,targetKey,at:performance.now(),
+      sourcePublic:vrMode?readStrikePublicCard(sourceKey):null};
     if(vrMode)vrStagedAttacks++;
     return true;
   }
@@ -1076,8 +1086,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     // Attack vectors originate from the player's actual delegated selection.
     // The beam is committed only when the original engine emits fx-hit.
-    const strike=type==='hit'&&pendingStrike?.targetKey===key &&
+    const candidate=type==='hit'&&pendingStrike?.targetKey===key &&
       now-pendingStrike.at<nativeStrikeWindow?pendingStrike:null;
+    const originalSource=candidate?.sourcePublic;
+    const liveSource=originalSource?
+      readStrikePublicCard(candidate.sourceKey):null;
+    // A replacement with a DIFFERENT public identity cannot inherit
+    // the previous native attack's 3D originating projectile.
+    const sourceReplaced=!!(vrMode&&originalSource&&liveSource&&
+      !vrSamePublicIdentity(originalSource.id,originalSource.name,
+        liveSource.id,liveSource.name));
+    if(sourceReplaced)vrStaleStrikeSourceRejects++;
+    const strike=sourceReplaced?null:candidate;
     // The original game confirmed this hit, but the decorative staged
     // source was absent, expired, or aimed at a different public slot.
     // Record why no 3D projectile was attached; never invent a strike.
@@ -2677,6 +2697,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrStrikeConfirmWindow:vrMode?nativeStrikeWindow:null,
       vrStagedAttacks:vrMode?vrStagedAttacks:null,
       vrStrikeTimeouts:vrMode?vrStrikeTimeouts:null,
+      vrStaleStrikeSourceRejects:vrMode?vrStaleStrikeSourceRejects:null,
       vrUnpairedNativeHits:vrMode?vrUnpairedNativeHits:null,
       vrLastUnpairedHit:vrMode?vrLastUnpairedHit:null,
       vrPendingStrike:vrMode&&pendingStrike?{

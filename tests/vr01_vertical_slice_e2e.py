@@ -4124,6 +4124,7 @@ try:
     # VR01GS: confirm the native hit remains the only authority for
     # the projectile even on delayed SwiftShader render/DOM callbacks.
     assert page.evaluate('MRRIntegrated.state.scene.vrStrikeConfirmWindow')==12000
+    assert page.evaluate('MRRIntegrated.state.scene.vrStaleStrikeSourceRejects')==0
     try:
       page.wait_for_function("""() => {
         const s=MRRIntegrated.state.scene;
