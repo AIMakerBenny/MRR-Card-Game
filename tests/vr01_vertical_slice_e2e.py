@@ -3438,6 +3438,31 @@ try:
     assert preview_guard['hasInitial'] and not preview_guard['hasAbsent'] and (
       preview_guard['hasRestored'] and preview_guard['staleQueries']>=1),preview_guard
     assert snap()==baseline,'VR01FK detached public preview modified Phase21'
+    # VR01GE: if a genuine public card has a stable ID, temporarily
+    # removing that ID must not fall back to matching the same name.
+    strict_id=page.evaluate("""key => {
+      const scene=MRRIntegrated.scene;
+      const card=document.querySelector('#arena [data-slot="'+key+
+        '"] .board-card .card-ui');
+      const original=card?.getAttribute('data-mrr-public-card-id');
+      if(!original)return {idAvailable:false};
+      const before=scene.state;
+      let dropped=false;
+      try{
+        card.removeAttribute('data-mrr-public-card-id');
+        dropped=scene.getCardPreview(key)===null&&!scene.hasCard(key);
+      }finally{
+        card.setAttribute('data-mrr-public-card-id',original);
+      }
+      return {idAvailable:true,dropped,
+        recovered:!!scene.getCardPreview(key)&&scene.hasCard(key),
+        staleQueries:scene.state.vrStaleCardQueriesRejected>
+          before.vrStaleCardQueriesRejected};
+    }""",opponent)
+    assert (not strict_id['idAvailable'] or (
+      strict_id['dropped'] and strict_id['recovered'] and
+      strict_id['staleQueries'])),strict_id
+    assert snap()==baseline,'VR01GE strict public identity changed Phase21'
     # VR01GC: a real face hit in the WebGL cache must not point to a
     # different PUBLIC identity after an intervening native DOM repaint.
     # Use the existing physical card projection without invoking a click.

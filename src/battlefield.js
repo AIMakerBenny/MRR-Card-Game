@@ -1292,6 +1292,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let vrTargetLocks=0,vrTargetLock=null;
   let cardHealth=new Map(),healthIndicatorCount=0;
   let pickMeshes=slotPickMeshes.slice(),cardIndex=new Map();
+  // VR01GE: a public ID must never silently degrade into a name-only
+  // comparison when a live native element loses that ID. Centralize
+  // the same strict identity rule for inspector, quick action and hits.
+  function vrMatchesNativePublicCard(item,node){
+    if(!item||!node)return false;
+    const realId=node.getAttribute('data-mrr-public-card-id')||null;
+    const realName=node.querySelector('.card-name')?.textContent?.trim()||'';
+    if(!realName)return false;
+    if(realId||item.publicId)
+      return !!realId&&!!item.publicId&&realId===item.publicId;
+    return realName===item.publicName;
+  }
   // VR01EU: card labels, selection and dense layout can project the same
   // public card many times. Reuse one temporary vector across synchronous
   // project calls instead of allocating a THREE.Vector3 for every corner.
@@ -1323,11 +1335,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(cached&&(first.object===cached.face||first.object===cached.frame)){
         const node=document.querySelector('#arena [data-slot="'+key+
           '"] .board-card .card-ui');
-        const id=node?.getAttribute('data-mrr-public-card-id')||null;
-        const name=node?.querySelector('.card-name')?.textContent?.trim()||'';
-        const valid=!!name&&(id?
-          id===cached.publicId:
-          !cached.publicId&&name===cached.publicName);
+        const valid=vrMatchesNativePublicCard(cached,node);
         if(!valid){
           vrStaleRaycastRejects++;vrFaceHoverBias=0;
           return null;
@@ -1385,10 +1393,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // to an inspector now pointing at an empty or different public slot.
     const node=document.querySelector('#arena [data-slot="'+key+'"] .board-card .card-ui');
     if(vrMode){
-      const realId=node?.getAttribute('data-mrr-public-card-id')||null;
-      const realName=node?.querySelector('.card-name')?.textContent?.trim()||'';
-      if(!realName||(realId?realId!==item.publicId:
-          realName!==item.publicName)){
+      if(!vrMatchesNativePublicCard(item,node)){
         vrStalePreviewRejected++;return null;
       }
     }
@@ -1410,10 +1415,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // VR01FM: quick actions and preview-pin buttons must never rely on
     // a stale 3D mesh after native Phase21 replaced its actual occupant.
     const real=document.querySelector('#arena [data-slot="'+key+'"] .board-card .card-ui');
-    const realId=real?.getAttribute('data-mrr-public-card-id')||null;
-    const realName=real?.querySelector('.card-name')?.textContent?.trim()||'';
-    const valid=!!realName&&(realId?
-      realId===item.publicId:realName===item.publicName);
+    const valid=vrMatchesNativePublicCard(item,real);
     if(!valid)vrStaleCardQueriesRejected++;
     return valid;
   }
