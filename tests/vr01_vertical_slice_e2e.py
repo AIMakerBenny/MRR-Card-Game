@@ -3633,7 +3633,10 @@ try:
       const s=MRRIntegrated.state.scene;
       return s.hoveredKey && s.vrHoveredCardYaw!==null &&
         Math.abs(s.vrHoveredCardYaw)>.085 &&
-        Math.abs(s.vrHoveredCardYaw)<.15;
+        Math.abs(s.vrHoveredCardYaw)<.15 &&
+        Number.isFinite(s.vrFaceHoverBias)&&
+        Math.abs(s.vrFaceHoverBias)<=1&&
+        s.vrFaceHoverSamples>=1;
     }""",timeout=12000)
     assert snap()==baseline,'VR01DW public mesh tilt changed native gameplay'
     # VR01FO: the hovered public card eases slightly toward the viewer

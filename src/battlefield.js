@@ -1297,15 +1297,29 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // project calls instead of allocating a THREE.Vector3 for every corner.
   const vrProjectionPoint=new THREE.Vector3();
   let vrProjectionSamples=0,vrStalePreviewRejected=0,vrStaleCardQueriesRejected=0;
+  // VR01FW: the visible Three.js card face supplies its own UV position.
+  // This is only an inspection tilt, never a different pick or native click.
+  let vrFaceHoverBias=0,vrFaceHoverSamples=0;
   function publicHit(e){
     const rect=renderer.domElement.getBoundingClientRect();
-    if(rect.width<10||rect.height<10||e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)return null;
+    if(rect.width<10||rect.height<10||e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom){
+      if(vrMode)vrFaceHoverBias=0;
+      return null;
+    }
     pointer.set((e.clientX-rect.left)/rect.width*2-1,-((e.clientY-rect.top)/rect.height*2-1));
     raycaster.setFromCamera(pointer,camera);
     const hits=raycaster.intersectObjects(pickMeshes,false);
     // While the new model is arriving from the hand it cannot steal a click
     // from the actual legal native slot beneath it.
-    return hits.find(hit=>!hit.object.userData.mrrDeploying)?.object.userData.mrrSlotKey||null;
+    const first=hits.find(hit=>!hit.object.userData.mrrDeploying);
+    if(vrMode){
+      const publicKey=first?.object.userData.mrrSlotKey;
+      const actualFace=!!publicKey&&cardIndex.get(publicKey)?.face===first.object;
+      vrFaceHoverBias=actualFace&&first.uv?
+        Math.max(-1,Math.min(1,(first.uv.x-.5)*2)):0;
+      if(actualFace&&first.uv)vrFaceHoverSamples++;
+    }
+    return first?.object.userData.mrrSlotKey||null;
   }
   function projectCard(key){
     const c=cardIndex.get(key);
@@ -1782,6 +1796,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if((cardChanged||statusChanged)&&hoveredKey)setHover(hoveredKey,true);
   }
   function setHover(key,force=false){
+    if(vrMode&&!key)vrFaceHoverBias=0;
     if(hoveredKey===key&&!force)return;
     const slot=document.querySelector('#arena [data-slot="'+(key||'')+'"]');
     // VR01N: acquire a target only on a TRUE native attack-target hover
@@ -2205,8 +2220,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // inspector. Only public native hover / selection keys can drive this
       // easing. No mesh is recreated and original raycast faces still pick.
       if(vrMode){
+        // VR01FW: tiny pointer-dependent parallax stays within the
+        // existing restrained card tilt, with NO camera orbit and no
+        // additional hitbox. Only the native visible public face supplies
+        // the horizontal UV; legal empty slots always have zero bias.
         const targetYaw=c.deploy?0:hover?
-          (c.slot.owner===0?-.115:.115):
+          (c.slot.owner===0?-1:1)*(.115+vrFaceHoverBias*.014):
           c.key===selectedKey?(c.slot.owner===0?-.043:.043):0;
         const alpha=frozen?1:1-Math.exp(-visualDelta/130);
         c.visualYaw=(c.visualYaw??0)+(targetYaw-(c.visualYaw??0))*alpha;
@@ -2214,8 +2233,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // VR01FO: small face-forward pitch follows REAL public hover or
         // selection. It never tilts the entire board or changes picking.
         // Reduced motion retains the original static card inclination.
-        const targetPitch=frozen||c.deploy?0:hover?.043:
-          c.key===selectedKey?.014:0;
+        const targetPitch=frozen||c.deploy?0:hover?
+          .043+vrFaceHoverBias*.004:c.key===selectedKey?.014:0;
         c.visualPitch=(c.visualPitch??0)+
           (targetPitch-(c.visualPitch??0))*alpha;
       }
@@ -2440,6 +2459,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         roughness:Number(cardIndex.get(hoveredKey).face.material.roughness.toFixed(3)),
         metalness:Number(cardIndex.get(hoveredKey).face.material.metalness.toFixed(3))
       }:null,
+      vrFaceHoverBias:vrMode?Number(vrFaceHoverBias.toFixed(4)):null,
+      vrFaceHoverSamples:vrMode?vrFaceHoverSamples:null,
       vrHoveredCardYaw:vrMode&&cardIndex.has(hoveredKey)?
         Number(cardIndex.get(hoveredKey).group.rotation.y.toFixed(4)):null,
       vrSelectedCardYaw:vrMode&&cardIndex.has(selectedKey)?
