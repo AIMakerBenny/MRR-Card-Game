@@ -40,7 +40,11 @@ jobs:
         run: python tests/phase71_action_semantics_e2e.py
       - name: Phase70 stable card context button during hover, genuine attack and 3-resolution Chromium QA
         run: python tests/phase70_stable_context_e2e.py
+      # VR01GN: Phase69 is an independent real-game browser regression.
+      # Run it even when earlier VR01 Chromium QA fails; report both failures
+      # without falsely marking the overall build as successful.
       - name: Phase69 3-zone visual hierarchy, native placement and screenshot Chromium QA
+        if: ${{ success() || failure() }}
         run: python tests/phase69_pc_zone_e2e.py
       - name: Phase68 native hand fan reveal, automatic legal target collapse and 3 viewport Chromium QA
         run: python tests/phase68_pc_hand_fan_e2e.py
