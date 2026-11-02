@@ -4103,6 +4103,14 @@ try:
       return s.vrFxRisingEdges>=s.fxReceived.hit&&
         s.vrFxBatchedTransitions>=0;
     }"""),'VR01EW FX transition accounting was inconsistent'
+    # VR01GU: a confirmed native hit only decorates the CURRENT public
+    # card; a stale ID cannot be borrowed via a matching visible name.
+    # The strict identity check is applied to hit recoil at the FX source.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrHitFacePublicSafe===true&&
+        s.vrHitWithoutPublicCard>=0;
+    }"""),'VR01GU native hit attached to stale public identity'
     # VR01DX: attack previews alone cannot generate a face-flash event.
     # Check the native event-backed count only after the actual HP change.
     assert page.evaluate('MRRIntegrated.state.scene.vrHitFaceFlashCount')>=0

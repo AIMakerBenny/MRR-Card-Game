@@ -1050,8 +1050,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // Three.js mesh is still this slot's occupant. Destruction or native
       // removal may precede the MutationObserver callback. Never light a
       // departed card using its stale cached name or identity.
-      const sameCard=!!(victim&&nativeName&&
-        (nativeId?nativeId===victim.publicId:nativeName===victim.publicName));
+      // VR01GU: a native identity cannot fall back to a matching name
+      // when the cached Three.js occupant has a DIFFERENT public ID.
+      // This guard applies to true native hit recoil as well as to the
+      // presentation carry checks added in VR01GJ.
+      const sameCard=!!(victim&&vrSamePublicIdentity(nativeId,nativeName,
+        victim.publicId,victim.publicName));
       const id=nativeId||(sameCard?victim.publicId:null);
       const name=nativeName;
       if(!name)vrHitWithoutPublicCard++;
