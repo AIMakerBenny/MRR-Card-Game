@@ -4170,7 +4170,11 @@ try:
             active:s.vrHitFaceFlashActive,
             rendered:s.vrHitFaceRendered,springPeak:s.vrImpactSpringPeak,
             recoilFrames:s.vrHitRecoilRenderFrames,
-            confirmed:s.confirmedStrikes};
+            confirmed:s.confirmedStrikes,
+            reduced:s.vrReducedMotionActive,
+            audit:s.vrNativeFxAudit,
+            publicSafe:s.vrHitFacePublicSafe,
+            reactions:s.nativeCombatEvents};
         }"""),flush=True)
         raise
     assert page.evaluate('MRRIntegrated.state.scene.vrHitReactions')>=0

@@ -2270,7 +2270,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(c.contactRing){
         const inspected=c.key===hoveredKey?1:c.key===selectedKey?.48:0;
         const target=Math.max(inspected,vrImpactContact*.78);
-        const alpha=frozen?1:1-Math.exp(-visualDelta/160);
+        // VR01GQ: a genuine hit can receive a very short first RAF delta
+        // on SwiftShader. Give its FIRST confirmed rendered frame at least
+        // one 32ms visual easing step, so the contact glow is actually
+        // visible before the short-lived native FX expires.
+        const firstNativeFrame=validFlash&&flash.shownFrames===0&&!frozen;
+        const contactDelta=firstNativeFrame?Math.max(32,visualDelta):visualDelta;
+        const alpha=frozen?1:1-Math.exp(-contactDelta/160);
         c.contactAmount=(c.contactAmount??0)+
           (target-(c.contactAmount??0))*alpha;
         c.contactRing.visible=c.contactAmount>.012;
@@ -2286,7 +2292,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(c.edgeGlint){
         const focus=c.key===hoveredKey?1:c.key===selectedKey?.4:0;
         const nativeImpact=validFlash?.95:0;
-        const alpha=frozen?1:1-Math.exp(-visualDelta/125);
+        const edgeDelta=validFlash&&flash.shownFrames===0&&!frozen?
+          Math.max(32,visualDelta):visualDelta;
+        const alpha=frozen?1:1-Math.exp(-edgeDelta/125);
         c.edgeAmount=(c.edgeAmount??0)+
           (Math.max(focus,nativeImpact)-(c.edgeAmount??0))*alpha;
         c.edgeGlint.visible=c.edgeAmount>.015;
