@@ -458,7 +458,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // authority remains Phase21's .attack-target class; this object is not
   // a raycast input surface and is not regenerated per opponent card.
   const vrTargetBracket=vrMode?new THREE.Group():null;
-  let vrTargetBracketKey=null;
+  let vrTargetBracketKey=null,vrTargetBracketPublicChecks=0;
   if(vrTargetBracket){
     const barX=geometry(new THREE.BoxGeometry(.50,.065,.060));
     const barZ=geometry(new THREE.BoxGeometry(.060,.065,.50));
@@ -1465,6 +1465,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     const source=boardSlots.get(selectedKey),target=boardSlots.get(hoveredKey);
     const arrowVisible=!!(source&&target&&hovered?.attackTarget);
+    if(vrMode)vrTargetBracketPublicChecks++;
     attackArrow.visible=attackTip.visible=arrowVisible;
     if(arrowVisible){
       const pos=attackArrowGeo.attributes.position;
@@ -1652,10 +1653,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(vrTargetBracket){
       // Lock-on is assigned solely by a real hover on a native target.
       const lock=vrTargetLock;
-      const cell=lock&&document.querySelector('#arena [data-slot="'+lock.key+'"]');
+      // VR01EL: sync already revalidates the actual .attack-target
+      // class and derives the native-only 3D arc. No repeated DOM
+      // selectors in the WebGL frame loop, including dense boards.
       const isNative=!!(lock&&selectedKey&&attackTargetCount&&
-        cell?.classList.contains('attack-target')&&
-        cell.querySelector('.board-card .card-ui'));
+        attackArrow.visible&&hoveredKey===lock.key&&cardIndex.has(lock.key));
       vrTargetBracket.visible=isNative;
       vrTargetBracketKey=isNative?lock.key:null;
       if(isNative){
@@ -1990,6 +1992,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrTargetLocks:vrMode?vrTargetLocks:null,
       vrTargetLockKey:vrMode?vrTargetLock?.key||null:null,
       vrTargetBracketKey:vrMode?vrTargetBracketKey:null,
+      vrTargetBracketPublicChecks:vrMode?vrTargetBracketPublicChecks:null,
       vrTargetBracketCount:vrMode&&vrTargetBracket?.visible?vrTargetBracket.children.length:0,
       vrTargetBracketPickSafe:vrMode?vrTargetBracket.children.every(c=>
         !pickMeshes.includes(c)):null,
