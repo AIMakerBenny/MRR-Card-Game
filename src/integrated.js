@@ -41,7 +41,11 @@ window.MRRIntegratedUIInit=function(loadThree){
     // VR01DR: the original private turn-handoff gate must also apply
     // before an async 3D import starts. Never open a gameplay surface
     // while Phase21 is withholding the current player's hand.
-    if(busy||view||root.classList.contains('hidden')||
+    // VR01DS: a stale adapter must never mount into an old DOM node
+    // after Phase21 replaces or detaches the original game screen.
+    if(busy||view||!root.isConnected||!toggle.isConnected||
+      document.getElementById('gameScreen')!==root||
+      root.classList.contains('hidden')||
       !document.querySelector('#overlay.hidden'))return;
     if(window.MRRBattlefield?.state.open){window.MRRBattlefield.close();}
     busy=true;toggle.disabled=true;
@@ -57,7 +61,11 @@ window.MRRIntegratedUIInit=function(loadThree){
       // VR01DR: privacy may switch to the next player while Three.js
       // imports. Discard the pending opening rather than briefly
       // mounting a 3D battlefield behind the private pass overlay.
-      if(root.classList.contains('hidden')||
+      // VR01DS: async import resolution can outlive a DOM screen
+      // replacement. Do not add an orphaned stage to the retired root.
+      if(!root.isConnected||!toggle.isConnected||
+        document.getElementById('gameScreen')!==root||
+        root.classList.contains('hidden')||
         !document.querySelector('#overlay.hidden'))return;
       stage=document.createElement('section');
       stage.id='mrr-integrated-stage';
