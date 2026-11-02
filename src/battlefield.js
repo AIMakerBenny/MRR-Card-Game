@@ -272,6 +272,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // no raycast surfaces, fabricated targets or changes to the native board.
   const vrInspectionContactGeo=vrMode?
     geometry(new THREE.RingGeometry(1.12,1.24,52)):null;
+  // VR01FP: shared, slim 3D frame-edge highlights appear only while a
+  // REAL public card is inspected. Never cover its illustration or pick face.
+  const vrEdgeGlintGeo=vrMode?
+    geometry(new THREE.BoxGeometry(.035,2.51,.025)):null;
   const cardGeometry=geometry(new THREE.BoxGeometry(tabletop?2.22:2.08,2.84,.22));
   const cardFaceGeometry=geometry(new THREE.PlaneGeometry(tabletop?2.10:1.96,2.71));
   // Phase57: dimensional gilt trims are scenery, not selectable meshes.
@@ -1371,6 +1375,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // are non-pickable, bounded, and never counted as occupied cards.
         scene.remove(c.group);if(c.seat)scene.remove(c.seat);
         if(c.contactRing)c.contactRing.material.dispose();
+        if(c.edgeGlintMaterial)c.edgeGlintMaterial.dispose();
         if(c.face.material.map){
           const tex=c.face.material.map;tex.userData.artDisposed=true;tex.dispose();
           if(vrMode){
@@ -1410,6 +1415,22 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         }
         const stand=new THREE.Mesh(cardGeometry,bronze);
         stand.position.z=-.065;stand.scale.set(1.055,1.05,.18);group.add(stand);
+        let edgeGlint=null,edgeGlintMaterial=null;
+        if(vrMode){
+          edgeGlintMaterial=new THREE.MeshBasicMaterial({
+            color:slot.owner===0?0xc5ffe8:0xffdfad,
+            transparent:true,opacity:0,depthWrite:false,
+            blending:THREE.AdditiveBlending
+          });
+          edgeGlint=new THREE.Group();
+          for(const x of [-1.09,1.09]){
+            const stripe=new THREE.Mesh(vrEdgeGlintGeo,edgeGlintMaterial);
+            stripe.position.set(x,0,.202);
+            edgeGlint.add(stripe);
+          }
+          edgeGlint.visible=false;
+          group.add(edgeGlint);
+        }
         // Parent the indicators to the 3D card so tilt, hover and focus
         // transform the art and health/status as a single visible object.
         const hpBg=new THREE.Mesh(healthBackGeo,healthBackMat);
@@ -1448,7 +1469,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           // raycast list and no seat surface is ever part of pickMeshes.
           scene.add(seat);
         }
-        const item={key:p.key,group,face,frame,seat,contactRing,slot,hpBg,hpFill,
+        const item={key:p.key,group,face,frame,seat,contactRing,
+          edgeGlint,edgeGlintMaterial,slot,hpBg,hpFill,
           hpDamageTrail,statusDot,publicId:p.cardId,publicName:p.name,
           fingerprint:vrCardFingerprint(p)};
         const carry=vrMode?hitReactionCarry.get(p.key):null;
@@ -1951,6 +1973,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.contactRing.material.opacity=.68*c.contactAmount;
         c.contactRing.scale.setScalar(.91+.09*c.contactAmount);
       }
+      // VR01FP: side-frame light is independent for each public card,
+      // time-eased without modifying the shared frame material or art.
+      if(c.edgeGlint){
+        const focus=c.key===hoveredKey?1:c.key===selectedKey?.4:0;
+        const alpha=frozen?1:1-Math.exp(-visualDelta/125);
+        c.edgeAmount=(c.edgeAmount??0)+(focus-(c.edgeAmount??0))*alpha;
+        c.edgeGlint.visible=c.edgeAmount>.015;
+        c.edgeGlintMaterial.opacity=.44*c.edgeAmount;
+      }
       // VR01EF: a true public status dot softly breathes only when ready
       // or protected. Spent units remain still, and reduced motion is static.
       // This scales the EXISTING indicator, never a click or rule surface.
@@ -2204,6 +2235,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     for(const c of cards){
       if(c.seat)scene.remove(c.seat);
       if(c.contactRing)c.contactRing.material.dispose();
+      if(c.edgeGlintMaterial)c.edgeGlintMaterial.dispose();
       const tex=c.face.material.map;
       if(tex){tex.userData.artDisposed=true;uniqueTextures.add(tex);}
       c.face.material.dispose();
@@ -2257,6 +2289,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         Number(cardIndex.get(selectedKey).group.rotation.y.toFixed(4)):null,
       vrHoveredCardPitch:vrMode&&cardIndex.has(hoveredKey)?
         Number(((cardIndex.get(hoveredKey).visualPitch)||0).toFixed(4)):null,
+      vrHoveredEdgeGlintOpacity:vrMode&&cardIndex.get(hoveredKey)?.edgeGlint?
+        Number(cardIndex.get(hoveredKey).edgeGlintMaterial.opacity.toFixed(3)):null,
+      vrEdgeGlintPickSafe:vrMode?cards.every(c=>!c.edgeGlint||
+        c.edgeGlint.children.every(m=>!pickMeshes.includes(m))):null,
       nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,peakLiveFxCount,
       fxSources:'native-slot-classes',cinematicRevision:49,
       vrFxClassNoiseIgnored:vrMode?vrFxClassNoiseIgnored:null,

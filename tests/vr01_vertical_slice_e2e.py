@@ -3644,6 +3644,15 @@ try:
         s.vrHoveredCardPitch<.055;
     }""",timeout=14000)
     assert snap()==baseline,'VR01FO pitch changed native gameplay'
+    # VR01FP: actual occupied public meshes, not a drawn hand card,
+    # receive two soft non-interactive side-frame gleams on inspection.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrEdgeGlintPickSafe===true&&
+        s.vrHoveredEdgeGlintOpacity>.22&&
+        s.vrHoveredEdgeGlintOpacity<.46;
+    }""",timeout=14000)
+    assert snap()==baseline,'VR01FP edge glint changed Phase21 rules'
     # VR01DU: a curved 17-point THREE.js trajectory must appear only
     # while the REAL Phase21 attack-target remains hovered.
     page.wait_for_function("""() => {
