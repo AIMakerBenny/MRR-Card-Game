@@ -38,7 +38,11 @@ window.MRRIntegratedUIInit=function(loadThree){
     finally{oldStage?.remove();toggle.disabled=false;}
   }
   async function open(){
-    if(busy||view||root.classList.contains('hidden'))return;
+    // VR01DR: the original private turn-handoff gate must also apply
+    // before an async 3D import starts. Never open a gameplay surface
+    // while Phase21 is withholding the current player's hand.
+    if(busy||view||root.classList.contains('hidden')||
+      !document.querySelector('#overlay.hidden'))return;
     if(window.MRRBattlefield?.state.open){window.MRRBattlefield.close();}
     busy=true;toggle.disabled=true;
     const generation=++openGeneration;
@@ -50,7 +54,11 @@ window.MRRIntegratedUIInit=function(loadThree){
       // VR01DP: Phase21 can leave the game scene while Three.js is
       // loading. Do not create a hidden integrated battlefield after
       // that native scene transition has already happened.
-      if(root.classList.contains('hidden'))return;
+      // VR01DR: privacy may switch to the next player while Three.js
+      // imports. Discard the pending opening rather than briefly
+      // mounting a 3D battlefield behind the private pass overlay.
+      if(root.classList.contains('hidden')||
+        !document.querySelector('#overlay.hidden'))return;
       stage=document.createElement('section');
       stage.id='mrr-integrated-stage';
       stage.setAttribute('aria-label','게임 내 통합 Three.js 전장');
