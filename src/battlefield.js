@@ -2018,7 +2018,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
               vrHitRecoilRenderFrames++;
               if(age>=1||time-impact.born>20000)c.hitReaction=null;
             }
-            const recoil=impact&&age<1?Math.sin(Math.PI*Math.max(0,age))*(1-Math.max(0,age)*.35):0;
+            // VR01FG: a reduced-motion user must never see native-hit
+            // recoil translation or tilt. Keep the public, static hit
+            // feedback and normal-graphics motion unchanged.
+            const recoil=impact&&!frozen&&age<1?
+              Math.sin(Math.PI*Math.max(0,age))*(1-Math.max(0,age)*.35):0;
             c.group.position.x=c.slot.x+(impact?.dx||0)*recoil*.34;
             c.group.position.z=c.slot.z+(impact?.dz||0)*recoil*.34;
             c.group.rotation.z=(impact?.dx||0)*recoil*.10;
@@ -2208,6 +2212,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrHitFaceRendered:vrMode?[...vrHitFaceFlash.values()].filter(f=>
         f.shownFrames>0).length:null,
       vrReducedMotionActive:vrMode?matchMedia('(prefers-reduced-motion: reduce)').matches:null,
+      vrReducedMotionRecoilSafe:vrMode&&matchMedia('(prefers-reduced-motion: reduce)').matches?
+        cards.every(c=>!c.hitReaction||(
+          Math.abs(c.group.position.x-c.slot.x)<.001&&
+          Math.abs(c.group.position.z-c.slot.z)<.001&&
+          Math.abs(c.group.rotation.z)<.001)):null,
       vrReducedMotionFxStatic:vrMode&&matchMedia('(prefers-reduced-motion: reduce)').matches?
         liveEffects.every(f=>f.sparkMat.opacity===0&&
           (!f.projectile||!f.projectile.mesh.visible)):null,
