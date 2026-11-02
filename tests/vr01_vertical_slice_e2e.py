@@ -3562,6 +3562,14 @@ try:
         }"""),flush=True)
         raise
     assert page.evaluate('MRRIntegrated.state.scene.vrHitReactions')>=0
+    # VR01EE: if native HP remains displayed, the 3D bar reaches the
+    # EXACT public health fraction and never creates damage itself.
+    if page.locator(f'#arena [data-slot="{opponent}"] .board-card .hpbar').count():
+      page.wait_for_function("""key => {
+        const bar=MRRIntegrated.state.scene.vrPublicHealthVisual?.[key];
+        return !!bar&&Math.abs(bar.display-bar.target)<.012;
+      }""",arg=opponent,timeout=16000)
+      assert snap()==after,'VR01EE visual health transition changed Phase21 HP'
     # VR01O: only the original native targeting state can retain a
     # lock-on after resolution; there must never be an orphaned VR target.
     page.wait_for_function("""() => {
