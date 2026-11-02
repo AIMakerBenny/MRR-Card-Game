@@ -871,6 +871,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // touching the original Phase21 combat execution.
   let vrStagedAttacks=0,vrStrikeTimeouts=0,vrUnpairedNativeHits=0;
   let vrLastUnpairedHit=null,vrStaleStrikeSourceRejects=0;
+  let vrStaleStrikeTargetRejects=0;
   // VR01GW: record only a publicly rendered native occupant's ID/name.
   // The visual source must never be borrowed by a different occupant
   // while an earlier attack awaits native fx-hit confirmation.
@@ -905,7 +906,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   function stageAttack(sourceKey,targetKey){
     if(!boardSlots.has(sourceKey)||!boardSlots.has(targetKey)||sourceKey===targetKey)return false;
     pendingStrike={sourceKey,targetKey,at:performance.now(),
-      sourcePublic:vrMode?readStrikePublicCard(sourceKey):null};
+      sourcePublic:vrMode?readStrikePublicCard(sourceKey):null,
+      targetPublic:vrMode?readStrikePublicCard(targetKey):null};
     if(vrMode)vrStagedAttacks++;
     return true;
   }
@@ -1097,7 +1099,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       !vrSamePublicIdentity(originalSource.id,originalSource.name,
         liveSource.id,liveSource.name));
     if(sourceReplaced)vrStaleStrikeSourceRejects++;
-    const strike=sourceReplaced?null:candidate;
+    // VR01GX: a DIFFERENT target occupant in the same board slot must
+    // not inherit the previously staged 3D attack projectile. The real
+    // Phase21 hit, including lethal target removal, remains authoritative.
+    const originalTarget=candidate?.targetPublic;
+    const liveTarget=originalTarget?
+      readStrikePublicCard(candidate.targetKey):null;
+    const targetReplaced=!!(vrMode&&originalTarget&&liveTarget&&
+      !vrSamePublicIdentity(originalTarget.id,originalTarget.name,
+        liveTarget.id,liveTarget.name));
+    if(targetReplaced)vrStaleStrikeTargetRejects++;
+    const strike=sourceReplaced||targetReplaced?null:candidate;
     // The original game confirmed this hit, but the decorative staged
     // source was absent, expired, or aimed at a different public slot.
     // Record why no 3D projectile was attached; never invent a strike.
@@ -2698,6 +2710,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrStagedAttacks:vrMode?vrStagedAttacks:null,
       vrStrikeTimeouts:vrMode?vrStrikeTimeouts:null,
       vrStaleStrikeSourceRejects:vrMode?vrStaleStrikeSourceRejects:null,
+      vrStaleStrikeTargetRejects:vrMode?vrStaleStrikeTargetRejects:null,
       vrUnpairedNativeHits:vrMode?vrUnpairedNativeHits:null,
       vrLastUnpairedHit:vrMode?vrLastUnpairedHit:null,
       vrPendingStrike:vrMode&&pendingStrike?{

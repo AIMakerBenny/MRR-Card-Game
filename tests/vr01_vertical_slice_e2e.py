@@ -4125,6 +4125,7 @@ try:
     # the projectile even on delayed SwiftShader render/DOM callbacks.
     assert page.evaluate('MRRIntegrated.state.scene.vrStrikeConfirmWindow')==12000
     assert page.evaluate('MRRIntegrated.state.scene.vrStaleStrikeSourceRejects')==0
+    assert page.evaluate('MRRIntegrated.state.scene.vrStaleStrikeTargetRejects')==0
     try:
       page.wait_for_function("""() => {
         const s=MRRIntegrated.state.scene;
@@ -4140,6 +4141,8 @@ try:
           staged:s.vrStagedAttacks,timeouts:s.vrStrikeTimeouts,
           unpaired:s.vrUnpairedNativeHits,
           lastUnpaired:s.vrLastUnpairedHit,
+          sourceRejects:s.vrStaleStrikeSourceRejects,
+          targetRejects:s.vrStaleStrikeTargetRejects,
           pending:s.vrPendingStrike,
           attack:s.attackTargetCount,selected:s.selectedKey,
           nativeAudit:s.vrNativeFxAudit};
