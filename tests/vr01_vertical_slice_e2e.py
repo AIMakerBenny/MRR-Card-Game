@@ -3459,10 +3459,22 @@ try:
       return s.vrTargetLockKey===key&&s.vrTargetLocks===1&&
         s.vrTargetLockScale>1.07&&s.vrTargetLockScale<1.5;
     }""",arg=opponent,timeout=14000)
+    # VR01EI: the lock has an actual 3D four-corner bracket only while
+    # the original engine says this public slot is attack-target.
+    page.wait_for_function("""key => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrTargetBracketKey===key&&
+        s.vrTargetBracketCount===8&&s.vrTargetBracketPickSafe===true;
+    }""",arg=opponent,timeout=14000)
+    assert snap()==baseline,'VR01EI visual target bracket modified native game'
     page.mouse.move(3,550)
     page.wait_for_function("""()=>MRRIntegrated.state.scene.vrTargetLockKey===null&&
       !document.querySelector('#vr-aim-line').getAttribute('d')""",timeout=12000)
     assert page.evaluate('MRRIntegrated.state.scene.vrTargetLocks')==1
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrTargetBracketKey===null&&s.vrTargetBracketCount===0;
+    }""",timeout=14000)
     assert page.evaluate('MRRIntegrated.state.scene.vrAttackArcVisible') is False,(
       'VR01DU off-target aim arc was not hidden')
     page.wait_for_function('MRRIntegrated.state.scene.vrAttackArcMoteCount===0',
