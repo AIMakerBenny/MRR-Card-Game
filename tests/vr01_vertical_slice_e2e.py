@@ -3400,6 +3400,20 @@ try:
       document.querySelector('#vr-aim-line')?.dataset.target===key &&
       !!document.querySelector('#vr-aim-line')?.getAttribute('d')""",
       arg=opponent,timeout=15000)
+    # VR01EF: real public status chips drive the existing Three.js
+    # readiness or ward indicator, not hidden hand or AI state.
+    page.wait_for_function("""() => {
+      const board=[...document.querySelectorAll('#arena .slot[data-slot]')]
+        .filter(s=>s.querySelector('.board-card .card-ui'));
+      const visible=board.filter(s=>
+        !!s.querySelector('.board-card .status-chip')?.textContent.trim());
+      const scene=MRRIntegrated.state.scene;
+      return scene.vrStatusBeaconCount===visible.length &&
+        scene.vrStatusBeacons.every(s=>
+          s.scale>=.87&&s.scale<=1.15&&
+          ['ward','spent','ready'].includes(s.kind));
+    }""",timeout=14000)
+    assert snap()==baseline,'VR01EF status lights altered native turn state'
     # VR01DY: a real Three.js local light follows only the publicly hovered
     # card, never the private hand, and introduces no game-state changes.
     page.wait_for_function("""key => {
