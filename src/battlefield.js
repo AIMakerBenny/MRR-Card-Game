@@ -1757,6 +1757,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrLandingGuideReveals++;
     }
     vrLandingGuideKey=nextLandingKey;
+    // VR01FY: when the original game revokes a legal empty slot, retire
+    // its decorative columns synchronously during public DOM sync.
+    // Never expose a stale landing beacon for another render frame.
+    if(vrMode&&!legalLanding)
+      for(const post of vrLandingPillars)post.visible=false;
     if(vrLandingGuide){
       vrLandingGuide.visible=legalLanding;
       if(legalLanding){
@@ -1768,6 +1773,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const arrowVisible=!!(source&&target&&hovered?.attackTarget);
     if(vrMode)vrTargetBracketPublicChecks++;
     attackArrow.visible=attackTip.visible=arrowVisible;
+    // VR01FY: native target withdrawal also immediately removes the
+    // decorative orbit markers instead of waiting for the next RAF.
+    if(vrMode&&!arrowVisible)
+      for(const spark of vrTargetSparks)spark.visible=false;
     if(arrowVisible){
       const pathKey=selectedKey+'>'+hoveredKey;
       if(!vrMode||pathKey!==vrAimPathKey){
@@ -2079,15 +2088,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     // VR01FU: the companion 3D posts follow ONLY the already validated
     // legal empty hover. The four meshes are recycled across all slots.
-    for(const post of vrLandingPillars){
+    for(let i=0;i<vrLandingPillars.length;i++){
+      const post=vrLandingPillars[i];
       post.visible=!!vrLandingGuide?.visible;
       if(!post.visible)continue;
       const slot=boardSlots.get(vrLandingGuideKey);
       if(!slot){post.visible=false;continue;}
+      // VR01FY: corner-to-corner 45ms rising sequence makes the actual
+      // vacant destination materialize with depth instead of four posts
+      // abruptly appearing at once. Reduced motion remains fully static.
       const raw=frozen?1:Math.max(0,Math.min(1,
-        (time-vrLandingGuideBorn)/260));
+        (time-vrLandingGuideBorn-i*45)/260));
       const rise=1-Math.pow(1-raw,3);
-      post.scale.y=.05+.95*rise;
+      post.scale.set(.88+.12*rise,.05+.95*rise,.88+.12*rise);
       post.position.set(slot.x+post.userData.cornerX*.93,
         .48+(post.scale.y-1)*.31,
         slot.z+post.userData.cornerZ*.96);
@@ -2592,6 +2605,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrLandingPillarCount:vrMode?vrLandingPillars.filter(p=>p.visible).length:null,
       vrLandingPillarsPickSafe:vrMode?vrLandingPillars.every(p=>
         !pickMeshes.includes(p)):null,
+      vrLandingPillarScales:vrMode?vrLandingPillars.filter(p=>p.visible)
+        .map(p=>Number(p.scale.y.toFixed(3))):null,
       vrAttackArcMoteCount:vrMode?vrAttackMotes.filter(m=>m.visible).length:null,
       vrAttackArcMotePickSafe:vrMode?vrAttackMotes.every(m=>!pickMeshes.includes(m)):null,
       vrAimPathBuilds:vrMode?vrAimPathBuilds:null,

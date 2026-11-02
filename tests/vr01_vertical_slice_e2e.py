@@ -3752,7 +3752,8 @@ try:
     assert page.evaluate('MRRIntegrated.state.scene.vrTargetLocks')==lock_count
     page.wait_for_function("""() => {
       const s=MRRIntegrated.state.scene;
-      return s.vrTargetBracketKey===null&&s.vrTargetBracketCount===0;
+      return s.vrTargetBracketKey===null&&s.vrTargetBracketCount===0&&
+        s.vrTargetSparkCount===0;
     }""",timeout=14000)
     assert page.evaluate('MRRIntegrated.state.scene.vrAttackArcVisible') is False,(
       'VR01DU off-target aim arc was not hidden')
@@ -4843,6 +4844,8 @@ try:
       return s.vrLandingGuideVisible===true&&
         s.vrLandingGuideKey===key&&s.vrLandingGuidePickSafe===true &&
         s.vrLandingPillarCount===4&&s.vrLandingPillarsPickSafe===true&&
+        s.vrLandingPillarScales.length===4&&
+        s.vrLandingPillarScales.every(v=>v>=.05&&v<=1.001)&&
         s.vrLandingGuideReveals>=1&&
         s.vrLandingGuideScale>.96&&s.vrLandingGuideScale<1.04 &&
         s.vrLandingGuideLightOpacity>.11&&s.vrLandingGuideLightOpacity<=.13;
