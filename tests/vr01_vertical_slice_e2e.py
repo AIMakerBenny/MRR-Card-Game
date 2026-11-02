@@ -3498,6 +3498,11 @@ try:
     assert 'error' not in stale_ray and stale_ray['rejected'] and (
       stale_ray['hovered'] is None),stale_ray
     assert snap()==baseline,'VR01GC stale raycast changed Phase21'
+    # VR01GH: the stale identity gate is slot-wide, including native
+    # floor raycasts, and must not invent a Phase21 hover or pick action.
+    # Re-check the two existing synthetic pointer scenarios with the
+    # stricter occupied-slot guard in place.
+    assert stale_ray['rejected'] and stale_ray['hovered'] is None,stale_ray
     # VR01GD: a native card swapped between pointerdown and pointerup
     # must not receive the original card's delegated release click.
     stale_gesture=page.evaluate("""key => {

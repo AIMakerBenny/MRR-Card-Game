@@ -1326,13 +1326,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // from the actual legal native slot beneath it.
     const first=hits.find(hit=>!hit.object.userData.mrrDeploying);
     if(vrMode&&first){
-      // VR01GC: a card face can be replaced by a native Phase21 paint
-      // before the timed WebGL sync. Never forward its stale raycast
-      // identity to the original native click/hover bridge. Empty-slot
-      // raycasts continue through the pre-existing legal-slot logic.
+      // VR01GH: THREE raycasting may hit the slot floor before the card.
+      // Every hit at an OCCUPIED cached public slot must be checked against
+      // the current native occupant, regardless of which mesh was nearest.
+      // Truly vacant native slots remain governed by Phase21's legal class.
       const key=first.object.userData.mrrSlotKey;
       const cached=cardIndex.get(key);
-      if(cached&&(first.object===cached.face||first.object===cached.frame)){
+      if(cached){
         const node=document.querySelector('#arena [data-slot="'+key+
           '"] .board-card .card-ui');
         const valid=vrMatchesNativePublicCard(cached,node);
