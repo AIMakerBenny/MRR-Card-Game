@@ -3400,6 +3400,15 @@ try:
       document.querySelector('#vr-aim-line')?.dataset.target===key &&
       !!document.querySelector('#vr-aim-line')?.getAttribute('d')""",
       arg=opponent,timeout=15000)
+    # VR01DW: the genuine public card mesh pivots subtly toward the pointer
+    # without rebuilding a card or changing Phase21 targeting or damage.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.hoveredKey && s.vrHoveredCardYaw!==null &&
+        Math.abs(s.vrHoveredCardYaw)>.085 &&
+        Math.abs(s.vrHoveredCardYaw)<.15;
+    }""",timeout=12000)
+    assert snap()==baseline,'VR01DW public mesh tilt changed native gameplay'
     # VR01DU: a curved 17-point THREE.js trajectory must appear only
     # while the REAL Phase21 attack-target remains hovered.
     page.wait_for_function("""() => {
