@@ -779,6 +779,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01EA: an afterimage belongs to a CONFIRMED native strike only.
   let vrConfirmedProjectileStarted=0;
   let vrHitReactions=0,vrLandingDustStarted=0;
+  let vrHealthBarTransitions=0;
   let vrImpactSpringPeak=0;
   // VR01DX: confirmed native hit FX may illuminate a CURRENT public face.
   // A short-lived keyed event survives HP-text texture reconstruction, but
@@ -1191,7 +1192,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       signature=cardsSignature;
       // Preserve unchanged public 3D cards. Previously any new card replaced
       // every mesh and texture, making a crowded board visibly flicker.
-      const reuse=new Map(),hitReactionCarry=new Map();
+      const reuse=new Map(),hitReactionCarry=new Map(),healthBarCarry=new Map();
       const occupiedNext=new Set(list.filter(p=>!!p.name).map(p=>p.key));
       // Public HP/stat text can change after fx-hit and force a fresh
       // texture. Preserve the old card's visual-only physical reaction
@@ -1199,6 +1200,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(vrMode)for(const c of cards){
         if(c.hitReaction)hitReactionCarry.set(c.key,{
           id:c.publicId,name:c.publicName,reaction:c.hitReaction});
+        if(Number.isFinite(c.visualHealth))healthBarCarry.set(c.key,{
+          id:c.publicId,name:c.publicName,value:c.visualHealth});
       }
       if(vrMode)for(const p of list){
         const old=cardIndex.get(p.key);
@@ -1276,6 +1279,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const carry=vrMode?hitReactionCarry.get(p.key):null;
         if(carry&&(carry.id?carry.id===p.cardId:carry.name===p.name))
           item.hitReaction=carry.reaction;
+        const hpCarry=vrMode?healthBarCarry.get(p.key):null;
+        if(hpCarry&&(hpCarry.id?hpCarry.id===p.cardId:hpCarry.name===p.name))
+          item.visualHealth=hpCarry.value;
         // Only newly confirmed, friendly, matching real cards can launch
         // from the last player hand click. Old cards never animate again.
         if(vrMode&&slot.owner===0&&vrPendingDeploy&&
@@ -1326,8 +1332,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         item.frame.material=p.selected?gold:(slot.owner===0?blue:red);
         item.hpBg.visible=item.hpFill.visible=p.hasHealth;
         item.hpFill.material=p.hpRatio<=.33?healthDangerMat:p.hpRatio<=.66?healthWarnMat:healthHealthyMat;
-        item.hpFill.scale.x=Math.max(.001,p.hpRatio??0);
-        item.hpFill.position.x=-1.02*(1-(p.hpRatio??0));
+        // VR01EE: read ONLY the existing public HP bar and animate its
+        // THREE.js indicator. The native DOM and actual HP are untouched.
+        const current=Math.max(0,Math.min(1,p.hpRatio??0));
+        if(vrMode){
+          if(!Number.isFinite(item.visualHealth))item.visualHealth=current;
+          if(Number.isFinite(item.healthTarget)&&
+            Math.abs(item.healthTarget-current)>.002)vrHealthBarTransitions++;
+          else if(!Number.isFinite(item.healthTarget)&&
+            Math.abs(item.visualHealth-current)>.002)vrHealthBarTransitions++;
+          item.healthTarget=current;
+        }else{
+          item.hpFill.scale.x=Math.max(.001,current);
+          item.hpFill.position.x=-1.02*(1-current);
+        }
         item.statusDot.material=/보호|방호/.test(p.stateChip)?wardMat:
           /행동 완료|대기/.test(p.stateChip)?actedMat:readyMat;
         item.statusDot.visible=!!p.stateChip;
@@ -1571,6 +1589,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     for(const [i,c] of cards.entries()){
+      if(vrMode&&Number.isFinite(c.healthTarget)){
+        const alpha=frozen?1:1-Math.exp(-visualDelta/220);
+        c.visualHealth+=(c.healthTarget-c.visualHealth)*alpha;
+        if(Math.abs(c.visualHealth-c.healthTarget)<.0008)c.visualHealth=c.healthTarget;
+        const visible=Math.max(0,Math.min(1,c.visualHealth));
+        c.hpFill.scale.x=Math.max(.001,visible);
+        c.hpFill.position.x=-1.02*(1-visible);
+      }
       // Native-confirmed impact gleams directly on the CURRENT real card
       // surface even when its public HP update forces a texture replacement.
       const flash=vrMode?vrHitFaceFlash.get(c.key):null;
@@ -1792,6 +1818,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrDepartHaloStarted:vrMode?vrDepartHaloCount:null,
       vrDepartHaloActive:vrMode?vrDepartBursts.filter(f=>!!f.halo).length:null,
       vrHitReactions:vrMode?vrHitReactions:null,
+      vrHealthBarTransitions:vrMode?vrHealthBarTransitions:null,
+      vrPublicHealthVisual:vrMode?Object.fromEntries(cards.filter(c=>c.hpFill.visible)
+        .map(c=>[c.key,{display:Number((c.visualHealth??0).toFixed(3)),
+          target:Number((c.healthTarget??0).toFixed(3))}])):null,
       vrImpactSpringPeak:vrMode?Number(vrImpactSpringPeak.toFixed(3)):null,
       vrHitFaceFlashCount:vrMode?vrHitFaceFlashCount:null,
       vrHitFaceFlashPeak:vrMode?Number(vrHitFaceFlashPeak.toFixed(4)):null,
