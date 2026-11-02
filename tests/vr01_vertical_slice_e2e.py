@@ -3410,6 +3410,15 @@ try:
         s.vrFocusLightTargetDistance<.35;
     }""",arg=opponent,timeout=14000)
     assert snap()==baseline,'VR01DY scene spotlight modified Phase21 state'
+    # VR01ED: the original Three.js face surface becomes subtly glossier
+    # on a real public hover. This is not an artwork or engine-state rewrite.
+    page.wait_for_function("""key => {
+      const s=MRRIntegrated.state.scene;
+      const m=s.vrHoveredCardSurface;
+      return s.hoveredKey===key && m &&
+        m.roughness<.35 && m.metalness>.14;
+    }""",arg=opponent,timeout=14000)
+    assert snap()==baseline,'VR01ED card face material altered native gameplay'
     # VR01DW: the genuine public card mesh pivots subtly toward the pointer
     # without rebuilding a card or changing Phase21 targeting or damage.
     page.wait_for_function("""() => {
