@@ -3473,11 +3473,26 @@ try:
     }""")
     assert capture_lost['dragging'] is False and capture_lost['lost']>=1,capture_lost
     assert snap()==baseline,'VR01FI lost pointer capture changed Phase21'
+    # Re-arm a fresh visual-only drag to retain the original VR01FB
+    # stop-interrupt regression separately from VR01FI capture loss.
+    rearmed=page.evaluate("""() => {
+      const stage=document.querySelector('#mrr-integrated-stage');
+      const canvas=stage.querySelector('canvas');
+      const capture=stage.setPointerCapture;
+      stage.setPointerCapture=()=>{};
+      try{
+        canvas.dispatchEvent(new PointerEvent('pointerdown',{
+          bubbles:true,button:0,pointerId:990,clientX:0,clientY:0}));
+      }finally{stage.setPointerCapture=capture;}
+      return MRRIntegrated.state.scene.vrPointerDragging;
+    }""")
+    assert rearmed is True,'VR01FJ could not rearm stop-interruption fixture'
     page.evaluate('MRRIntegrated.scene.stop()')
     assert page.evaluate("""() => {
       const s=MRRIntegrated.state.scene;
-      return s.vrPointerDragging===false&&s.vrInterruptedPointerGestures>=1;
-    }"""),'VR01FB stop retained a stale active pointer drag'
+      return s.vrPointerDragging===false&&s.vrInterruptedPointerGestures>=1&&
+        s.hoveredKey===null&&s.vrTargetLockKey===null&&!s.vrAttackArcVisible;
+    }"""),'VR01FJ stop retained drag or stale public aim presentation'
     # VR01FH: DOM events arriving while the native 3D view is
     # stopped must never start a card click or adjust the camera.
     paused_events=page.evaluate("""() => {
