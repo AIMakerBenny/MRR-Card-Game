@@ -3416,6 +3416,20 @@ try:
       document.querySelector('#vr-aim-line')?.dataset.target===key &&
       !!document.querySelector('#vr-aim-line')?.getAttribute('d')""",
       arg=opponent,timeout=15000)
+    # VR01FE: duplicate PC resize calls must not reallocate the WebGL
+    # drawing buffer; the next real viewport change still performs resize.
+    same_size=page.evaluate("""() => {
+      const stage=MRRIntegrated.scene;
+      const before=stage.state;
+      stage.resize();stage.resize();
+      const after=stage.state;
+      return {real:after.vrCanvasResizes-before.vrCanvasResizes,
+        skipped:after.vrCanvasResizeSkips-before.vrCanvasResizeSkips,
+        projected:!!stage.projectCardBounds(after.hoveredKey)};
+    }""")
+    assert same_size['real']==0 and same_size['skipped']>=2 and (
+      same_size['projected'] is True),same_size
+    assert snap()==baseline,'VR01FE duplicate scene resize mutated Phase21'
     # VR01ET: a real stop/resume must not advance Phase21 input or leave
     # the 3D animation clock carrying a stale hidden-tab frame interval.
     before_resume=page.evaluate('MRRIntegrated.state.scene.frames')
