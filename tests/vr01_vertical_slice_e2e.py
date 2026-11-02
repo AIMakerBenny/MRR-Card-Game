@@ -3405,7 +3405,9 @@ try:
     page.wait_for_function("""key => {
       const s=MRRIntegrated.state.scene;
       return s.vrFocusedCardKey===key&&
-        s.vrFocusedLightIntensity>10;
+        s.vrFocusedLightIntensity>10 &&
+        s.vrFocusLightTargetDistance!==null &&
+        s.vrFocusLightTargetDistance<.35;
     }""",arg=opponent,timeout=14000)
     assert snap()==baseline,'VR01DY scene spotlight modified Phase21 state'
     # VR01DW: the genuine public card mesh pivots subtly toward the pointer
