@@ -417,6 +417,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   attackArrow.visible=false;scene.add(attackArrow);
   const attackTip=new THREE.Mesh(geometry(new THREE.ConeGeometry(.28,.69,10)),attackGlow);
   attackTip.visible=false;scene.add(attackTip);
+  // VR01EM: all confirmed strike afterimages share ONE geometry for this
+  // scene. Only short-lived per-impact opacity materials need disposal.
+  const vrProjectileGeo=vrMode?geometry(new THREE.IcosahedronGeometry(.24,1)):null;
   // VR01EC: three shared, non-pickable sparks flow along ONLY the native
   // attack-target preview. Reuse GPU resources and keep reduced motion still.
   const vrAttackMotes=[];
@@ -952,16 +955,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         group.userData.beams||=[];group.userData.beams.push(beam);
         group.userData.beamResources||=[];group.userData.beamResources.push(beamGeo,beamMat);
       }
-      if(vrMode){
-        // A small arc-travelling luminous remnant after the ACTUAL hit.
-        // Decorative only: no extra raycast mesh, combat or damage event.
-        const orbGeo=new THREE.IcosahedronGeometry(.24,1);
+      if(vrMode&&!matchMedia('(prefers-reduced-motion: reduce)').matches){
+        // VR01EM: a confirmed Phase21 hit may produce a lightweight
+        // afterimage, but never a second attack or an extra hitbox.
+        // Share its GPU geometry and skip the moving orb if the user
+        // requests reduced motion.
         const orbMat=new THREE.MeshBasicMaterial({color:0xffe2ad,transparent:true,
           opacity:.9,depthWrite:false,blending:THREE.AdditiveBlending});
-        const orb=new THREE.Mesh(orbGeo,orbMat);
+        const orb=new THREE.Mesh(vrProjectileGeo,orbMat);
         orb.position.copy(origin);
         group.add(orb);
-        group.userData.projectileResources=[orbGeo,orbMat];
+        group.userData.projectileResources=[orbMat];
         confirmedProjectile={mesh:orb,from:origin.clone(),to:end.clone()};
         vrConfirmedProjectileStarted++;
       }
@@ -1951,6 +1955,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       vrConfirmedProjectileStarted:vrMode?vrConfirmedProjectileStarted:null,
       vrConfirmedProjectileActive:vrMode?liveEffects.filter(f=>f.projectile?.mesh.visible).length:null,
+      vrProjectileGeometryShared:vrMode?liveEffects.every(f=>
+        !f.projectile||f.projectile.mesh.geometry===vrProjectileGeo):null,
+      vrProjectilePickSafe:vrMode?liveEffects.every(f=>
+        !f.projectile||!pickMeshes.includes(f.projectile.mesh)):null,
       realCombatQaRevision:50,nativeCombatEvents:nativeCombatEvents.slice(),
       visualArtRevision:51,pcArtRevision:tabletop?57:0,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
       vrAdaptiveCardScales:vrMode?Object.fromEntries(cards.map(c=>[c.key,Math.round((c.visualScale||1.30)*1000)/1000])):null,
