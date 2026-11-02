@@ -1690,7 +1690,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     attackTargetCount=list.filter(p=>p.attackTarget).length;
     // A target lock is a PURELY visual cue, valid only while the original
     // game itself still marks this exact public card as attack-target.
-    if(vrTargetLock&&!list.some(p=>p.key===vrTargetLock.key&&p.attackTarget))
+    // VR01FZ: a target glow belongs to an actual PUBLIC occupant,
+    // not merely a reusable native board slot. HP or stat updates keep
+    // it; a replaced card ID/name or revoked attack class retires it.
+    if(vrMode&&vrTargetLock&&!list.some(p=>
+      p.key===vrTargetLock.key&&p.attackTarget&&p.name&&
+      (vrTargetLock.id?
+        p.cardId===vrTargetLock.id:
+        !p.cardId&&p.name===vrTargetLock.name)))
       vrTargetLock=null;
     // VR01P: a departed card must not leave hover light or its inspector
     // attached to an empty, non-actionable slot. Legal empty slots remain.
@@ -1814,8 +1821,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       !!slot?.classList.contains('attack-target')&&
       !!slot.querySelector('.board-card .card-ui');
     if(!canLock)vrTargetLock=null;
-    else if(vrTargetLock?.key!==key){
-      vrTargetLock={key,at:performance.now()};vrTargetLocks++;
+    else if(hoveredKey!==key&&vrTargetLock?.key!==key){
+      // VR01FZ: sync() can force-refresh an unchanged hovered slot.
+      // Such a refresh must not acquire a new native lock after the
+      // old public occupant disappeared or its identity changed.
+      const publicCard=slot.querySelector('.board-card .card-ui');
+      const id=publicCard?.getAttribute('data-mrr-public-card-id')||null;
+      const name=publicCard?.querySelector('.card-name')?.textContent?.trim()||'';
+      if(name){
+        vrTargetLock={key,id,name,at:performance.now()};
+        vrTargetLocks++;
+      }
     }
     hoveredKey=key;
     const card=slot?.querySelector('.board-card .card-ui');

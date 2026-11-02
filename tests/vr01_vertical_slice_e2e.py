@@ -3746,6 +3746,38 @@ try:
         s.vrTargetBracketPublicChecks>=1;
     }""",arg=opponent,timeout=14000)
     assert snap()==baseline,'VR01EI visual target bracket modified native game'
+    # VR01FZ: replacing only the publicly visible occupant identity
+    # at the locked native slot must retire that old visual target lock.
+    # Restoring the exact DOM value in the same synchronous task must
+    # not invent a second lock on forced public-sync reconciliation.
+    stale_lock=page.evaluate("""key => {
+      const stage=MRRIntegrated.scene;
+      const card=document.querySelector('#arena [data-slot="'+key+
+        '"] .board-card .card-ui');
+      if(!card)return {error:'missing public target card'};
+      const original=card.getAttribute('data-mrr-public-card-id');
+      const originalName=card.querySelector('.card-name')?.textContent?.trim();
+      const nameNode=card.querySelector('.card-name');
+      const before=stage.state.vrTargetLocks;
+      let revoked=null;
+      try{
+        if(original)card.setAttribute('data-mrr-public-card-id',
+          'vr01fz-temporary-public-identity');
+        else nameNode.textContent=originalName+' temporary';
+        stage.sync();
+        revoked=stage.state.vrTargetLockKey;
+      }finally{
+        if(original)card.setAttribute('data-mrr-public-card-id',original);
+        else nameNode.textContent=originalName;
+        stage.sync();
+      }
+      return {revoked,remaining:stage.state.vrTargetLockKey,
+        count:stage.state.vrTargetLocks,before};
+    }""",opponent)
+    assert 'error' not in stale_lock and stale_lock['revoked'] is None and (
+      stale_lock['remaining'] is None and
+      stale_lock['count']==stale_lock['before']),stale_lock
+    assert snap()==baseline,'VR01FZ target identity guard modified Phase21'
     page.mouse.move(3,550)
     page.wait_for_function("""()=>MRRIntegrated.state.scene.vrTargetLockKey===null&&
       !document.querySelector('#vr-aim-line').getAttribute('d')""",timeout=12000)
