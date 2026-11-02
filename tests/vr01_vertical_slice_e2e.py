@@ -3400,6 +3400,14 @@ try:
       document.querySelector('#vr-aim-line')?.dataset.target===key &&
       !!document.querySelector('#vr-aim-line')?.getAttribute('d')""",
       arg=opponent,timeout=15000)
+    # VR01DU: a curved 17-point THREE.js trajectory must appear only
+    # while the REAL Phase21 attack-target remains hovered.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrAttackArcVisible===true&&s.vrAttackArcSamples===17 &&
+        s.vrAttackArcPeakY>2.5&&s.vrAttackArcPeakY<2.9;
+    }""",timeout=14000)
+    assert snap()==baseline,'VR01DU 3D aim preview changed Phase21 gameplay'
     # VR01N: only a genuinely native target hover creates one bounded,
     # temporary lock-on accent; moving off clears it without touching
     # damage or inventing legal actions.
@@ -3412,6 +3420,8 @@ try:
     page.wait_for_function("""()=>MRRIntegrated.state.scene.vrTargetLockKey===null&&
       !document.querySelector('#vr-aim-line').getAttribute('d')""",timeout=12000)
     assert page.evaluate('MRRIntegrated.state.scene.vrTargetLocks')==1
+    assert page.evaluate('MRRIntegrated.state.scene.vrAttackArcVisible') is False,(
+      'VR01DU off-target aim arc was not hidden')
     assert snap()==baseline,'Changing the cursor changed Phase21 gameplay'
     page.mouse.move(target['x'],target['y'])
     page.wait_for_function("""key=>{
