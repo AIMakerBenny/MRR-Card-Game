@@ -3475,6 +3475,9 @@ try:
       arg={'key':opponent,'hp':before_hp},timeout=13000)
     after=snap()
     assert after!=baseline
+    # VR01DX: attack previews alone cannot generate a face-flash event.
+    # Check the native event-backed count only after the actual HP change.
+    assert page.evaluate('MRRIntegrated.state.scene.vrHitFaceFlashCount')>=0
     # VR01K: ONLY original Phase21 confirmed native FX may render an impact
     # badge. Merely selecting, aiming or hovering must not create one.
     page.wait_for_function("""key=>{
@@ -3510,6 +3513,12 @@ try:
     }""",arg=opponent,timeout=12000)
     if page.locator(f'#arena [data-slot="{opponent}"] .board-card').count():
       page.wait_for_function('MRRIntegrated.state.scene.vrHitReactions>=1',timeout=13000)
+      # VR01DX: only the real native fx-hit can start the face glow. The
+      # peak is cumulative so SwiftShader delays cannot hide a short flash.
+      page.wait_for_function("""() => {
+        const s=MRRIntegrated.state.scene;
+        return s.vrHitFaceFlashCount>=1&&s.vrHitFaceFlashPeak>.08;
+      }""",timeout=13000)
     assert page.evaluate('MRRIntegrated.state.scene.vrHitReactions')>=0
     # VR01O: only the original native targeting state can retain a
     # lock-on after resolution; there must never be an orphaned VR target.
