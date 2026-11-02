@@ -507,6 +507,22 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     vrTargetBracket.visible=false;
     scene.add(vrTargetBracket);
   }
+  // VR01FT: two restrained world-space motes accompany only an actual
+  // Phase21 attack-target lock. They are NOT bracket children, keeping
+  // its eight tested corner meshes and original raycaster unchanged.
+  const vrTargetSparks=[];
+  if(vrMode){
+    const sparkGeo=geometry(new THREE.OctahedronGeometry(.12,0));
+    const sparkMat=new THREE.MeshBasicMaterial({
+      color:0xffdaaa,transparent:true,opacity:.79,depthWrite:false,
+      blending:THREE.AdditiveBlending
+    });
+    madeMaterials.push(sparkMat);
+    for(let i=0;i<2;i++){
+      const spark=new THREE.Mesh(sparkGeo,sparkMat);
+      spark.visible=false;scene.add(spark);vrTargetSparks.push(spark);
+    }
+  }
   const center=new THREE.Mesh(geometry(new THREE.BoxGeometry(21,.035,.1)),tabletop?parchmentInk:gold);
   center.position.y=.19;scene.add(center);
   const seal=new THREE.Mesh(geometry(new THREE.TorusGeometry(1.06,.055,8,80)),tabletop?parchmentInk:bronze);
@@ -1982,6 +1998,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         vrTargetBracket.children[0].material.opacity=
           frozen?.85:.73+.12*(.5+.5*Math.sin(time*.006));
       }
+      // VR01FT: the two glints follow only the current native public
+      // target. Stop, lost targeting or reduced motion removes them.
+      for(let i=0;i<vrTargetSparks.length;i++){
+        const spark=vrTargetSparks[i];
+        spark.visible=isNative&&!frozen;
+        if(!spark.visible)continue;
+        const slot=boardSlots.get(lock.key);
+        const theta=time*.0028+i*Math.PI;
+        spark.position.set(slot.x+Math.cos(theta)*.94,
+          .82+.13*Math.sin(theta*2),slot.z+Math.sin(theta)*.97);
+        spark.scale.setScalar(.76+.18*(.5+.5*Math.sin(theta*3)));
+      }
     }
     // VR01EP: only expire deferred events by age in the render loop.
     // The cardIndex can be stale for up to one public sync after the
@@ -2279,6 +2307,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       attackArrow.visible=attackTip.visible=false;
       vrAimPathKey=null;
       if(vrTargetBracket)vrTargetBracket.visible=false;
+      for(const m of vrTargetSparks)m.visible=false;
       vrTargetBracketKey=null;
     }
     running=false;cancelAnimationFrame(raf);fxObserver.disconnect();
@@ -2472,6 +2501,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrTargetBracketCount:vrMode&&vrTargetBracket?.visible?vrTargetBracket.children.length:0,
       vrTargetBracketPickSafe:vrMode?vrTargetBracket.children.every(c=>
         !pickMeshes.includes(c)):null,
+      vrTargetSparkCount:vrMode?vrTargetSparks.filter(m=>m.visible).length:null,
+      vrTargetSparksPickSafe:vrMode?vrTargetSparks.every(m=>
+        !pickMeshes.includes(m)):null,
       vrLandingGuideKey:vrMode?vrLandingGuideKey:null,
       vrLandingGuideReveals:vrMode?vrLandingGuideReveals:null,
       vrLandingGuideScale:vrMode?Number(vrLandingGuide.scale.x.toFixed(3)):null,
