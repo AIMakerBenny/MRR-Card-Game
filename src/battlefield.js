@@ -1274,11 +1274,6 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         if(!p.name)continue;
         const retained=reuse.get(p.key);
         if(retained){
-          const pending=vrMode?vrPendingPublicHits.get(p.key):null;
-          if(pending&&(pending.id?pending.id===p.cardId:pending.name===p.name)){
-            if(!retained.deploy){retained.hitReaction=pending.reaction;vrHitReactions++; }
-            vrPendingPublicHits.delete(p.key);vrDeferredHitApplied++;
-          }
           cards.push(retained);cardIndex.set(p.key,retained);
           pickMeshes.push(retained.frame,retained.face);publicCardCount++;
           continue;
@@ -1336,12 +1331,6 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const carry=vrMode?hitReactionCarry.get(p.key):null;
         if(carry&&(carry.id?carry.id===p.cardId:carry.name===p.name))
           item.hitReaction=carry.reaction;
-        const pending=vrMode?vrPendingPublicHits.get(p.key):null;
-        if(pending&&(pending.id?pending.id===p.cardId:pending.name===p.name)){
-          item.hitReaction=pending.reaction;
-          vrPendingPublicHits.delete(p.key);
-          vrDeferredHitApplied++;vrHitReactions++;
-        }
         const hpCarry=vrMode?healthBarCarry.get(p.key):null;
         if(hpCarry&&(hpCarry.id?hpCarry.id===p.cardId:hpCarry.name===p.name)){
           item.visualHealth=hpCarry.value;
@@ -1378,6 +1367,24 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           if(Math.abs(a.slot.x-b.slot.x)<3.43&&Math.abs(a.slot.z-b.slot.z)<.65)
             a.vrNearRow=b.vrNearRow=true;
         }
+      }
+    }
+    // VR01EO: deferred native hits can arrive after a public DOM paint
+    // without changing the card fingerprint. Reconcile every public sync,
+    // not only on card construction. Never carry FX to another card ID.
+    if(vrMode&&vrPendingPublicHits.size){
+      const snapshotByKey=new Map(list.filter(p=>!!p.name).map(p=>[p.key,p]));
+      for(const [key,pending] of vrPendingPublicHits){
+        const p=snapshotByKey.get(key),item=cardIndex.get(key);
+        if(!p||!item||
+          !(pending.id?pending.id===p.cardId:pending.name===p.name)){
+          vrPendingPublicHits.delete(key);continue;
+        }
+        if(item.deploy)continue;
+        item.hitReaction=pending.reaction;
+        vrPendingPublicHits.delete(key);
+        vrDeferredHitApplied++;
+        vrHitReactions++;
       }
     }
     const nextSelectedKey=list.find(p=>p.selected)?.key||null;
@@ -1987,6 +1994,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrHitReactions:vrMode?vrHitReactions:null,
       vrDeferredHitApplied:vrMode?vrDeferredHitApplied:null,
       vrPendingPublicHitCount:vrMode?vrPendingPublicHits.size:null,
+      vrPendingPublicHitKeys:vrMode?[...vrPendingPublicHits.keys()]:null,
       vrStatusBeaconCount:vrMode?cards.filter(c=>c.statusDot.visible).length:null,
       vrStatusBeacons:vrMode?cards.filter(c=>c.statusDot.visible).map(c=>({
         key:c.key,kind:c.publicStatusKind,
