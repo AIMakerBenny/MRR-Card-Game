@@ -40,6 +40,10 @@ try:
       source=place(0);turn();target=place(1);turn()
       page.locator('#mrr-vr-open').click()
       page.wait_for_function('MRRVR.status.open && MRRIntegrated.state.scene.frames>5',timeout=45000)
+      # VR01GP: the real scene may not yet have re-read media changes;
+      # anchor the lethal-FX test to its observed reduced-motion state.
+      page.wait_for_function('expected => MRRIntegrated.state.scene.vrReducedMotionActive===expected',
+          arg=reduced,timeout=15000)
       target_slot=page.locator(f'#arena [data-slot="{target}"]');hits=0
       while target_slot.locator('.board-card').count() and hits<12:
         if hits:turn();turn()
@@ -68,9 +72,25 @@ try:
         print('Native hit',hits,'reduced',reduced,flush=True)
       assert not target_slot.locator('.board-card').count(),'No native lethal combat occurred'
       page.wait_for_function('k=>!MRRIntegrated.scene.hasCard(k)',arg=target,timeout=15000)
-      departing=page.evaluate('MRRIntegrated.state.scene.vrDepartStarted')
-      halos=page.evaluate('MRRIntegrated.state.scene.vrDepartHaloStarted')
-      assert departing==0 if reduced else departing>=1
+      # VR01GP: hasCard() intentionally rejects a removed native card
+      # BEFORE the next WebGL card-cache sync. The departure burst is
+      # created by that later sync, so wait for the real public 3D mesh
+      # count to converge before asserting the visual-only departure.
+      page.wait_for_function("""() => {
+        const s=MRRIntegrated.state.scene;
+        return s.cardMeshCount===document.querySelectorAll(
+          '#arena .board-card .card-ui').length;
+      }""",timeout=15000)
+      if not reduced:
+        page.wait_for_function('MRRIntegrated.state.scene.vrDepartStarted>=1',
+            timeout=10000)
+      state_at_death=page.evaluate('MRRIntegrated.state.scene')
+      departing=state_at_death['vrDepartStarted']
+      halos=state_at_death['vrDepartHaloStarted']
+      assert (departing==0 if reduced else departing>=1),(
+          'Departure count inconsistent with observed reduced-motion state',
+          reduced,state_at_death['vrReducedMotionActive'],
+          departing,halos,state_at_death['cardMeshCount'])
       assert halos==departing,('Every genuine VR departure must start exactly one halo',halos,departing)
       page.wait_for_function('''() => {const s=MRRIntegrated.state.scene;return
         !s.vrTargetLockKey&&!s.hoveredKey&&s.vrDepartActive===0&&
