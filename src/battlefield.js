@@ -872,7 +872,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let vrHitReactions=0,vrLandingDustStarted=0;
   let vrHealthBarTransitions=0;
   let vrImpactSpringPeak=0,vrHitRecoilRenderFrames=0;
-  let vrNativeHitEdgePeak=0;
+  let vrNativeHitEdgePeak=0,vrNativeHitContactPeak=0;
   // VR01DX: confirmed native hit FX may illuminate a CURRENT public face.
   // A short-lived keyed event survives HP-text texture reconstruction, but
   // an unrelated replacement with a different public card ID cannot glow.
@@ -2117,17 +2117,29 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const flash=vrMode?vrHitFaceFlash.get(c.key):null;
       const validFlash=flash&&
         (flash.publicId?flash.publicId===c.publicId:flash.name===c.publicName);
+      // VR01FX: a real public impact can illuminate the same occupied
+      // seat that is already used for genuine card inspection. The
+      // existing confirmed FX event is the ONLY authority for this pulse.
+      if(validFlash&&flash.firstShownAt===undefined)
+        flash.firstShownAt=time;
+      const vrImpactContact=validFlash&&!frozen?Math.max(0,
+        1-(time-flash.firstShownAt)/900):0;
       // VR01FN: ease the card's physical contact light to the REAL native
       // hover/selection state. Each public mesh owns its own opacity, so
       // neighboring seats never flash together. Reduced motion is static.
       if(c.contactRing){
-        const target=c.key===hoveredKey?1:c.key===selectedKey?.48:0;
+        const inspected=c.key===hoveredKey?1:c.key===selectedKey?.48:0;
+        const target=Math.max(inspected,vrImpactContact*.78);
         const alpha=frozen?1:1-Math.exp(-visualDelta/160);
         c.contactAmount=(c.contactAmount??0)+
           (target-(c.contactAmount??0))*alpha;
         c.contactRing.visible=c.contactAmount>.012;
         c.contactRing.material.opacity=.68*c.contactAmount;
+        c.contactRing.material.color.setHex(vrImpactContact>.02?
+          0xffb18e:c.slot.owner===0?0xa1f9d6:0xffc997);
         c.contactRing.scale.setScalar(.91+.09*c.contactAmount);
+        if(vrImpactContact>.02)vrNativeHitContactPeak=Math.max(
+          vrNativeHitContactPeak,c.contactRing.material.opacity);
       }
       // VR01FP: side-frame light is independent for each public card,
       // time-eased without modifying the shared frame material or art.
@@ -2192,8 +2204,6 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
       // Native-confirmed impact gleams directly on the CURRENT real card
       // surface even when its public HP update forces a texture replacement.
-      if(validFlash&&flash.firstShownAt===undefined)
-        flash.firstShownAt=time;
       const flashAge=validFlash?Math.min(
         Math.max(0,(time-flash.firstShownAt)/1100),
         Math.min(1,flash.shownFrames/6)):1;
@@ -2541,6 +2551,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrHitWithoutPublicCard:vrMode?vrHitWithoutPublicCard:null,
       vrHitFaceFlashPeak:vrMode?Number(vrHitFaceFlashPeak.toFixed(4)):null,
       vrNativeHitEdgePeak:vrMode?Number(vrNativeHitEdgePeak.toFixed(4)):null,
+      vrNativeHitContactPeak:vrMode?Number(vrNativeHitContactPeak.toFixed(4)):null,
       vrHitFaceFlashActive:vrMode?vrHitFaceFlash.size:null,
       vrHitFaceRendered:vrMode?[...vrHitFaceFlash.values()].filter(f=>
         f.shownFrames>0).length:null,
