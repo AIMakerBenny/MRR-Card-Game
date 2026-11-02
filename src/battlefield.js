@@ -412,6 +412,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   attackArrow.visible=false;scene.add(attackArrow);
   const attackTip=new THREE.Mesh(geometry(new THREE.ConeGeometry(.28,.69,10)),attackGlow);
   attackTip.visible=false;scene.add(attackTip);
+  // VR01EC: three shared, non-pickable sparks flow along ONLY the native
+  // attack-target preview. Reuse GPU resources and keep reduced motion still.
+  const vrAttackMotes=[];
+  if(vrMode){
+    const moteGeo=geometry(new THREE.SphereGeometry(.115,10,6));
+    const moteMat=new THREE.MeshBasicMaterial({color:0xffe2b1,
+      transparent:true,opacity:.78,depthWrite:false,blending:THREE.AdditiveBlending});
+    madeMaterials.push(moteMat);
+    for(let i=0;i<3;i++){
+      const mote=new THREE.Mesh(moteGeo,moteMat);
+      mote.visible=false;scene.add(mote);vrAttackMotes.push(mote);
+    }
+  }
   // VR01DV: one reusable, non-pickable 3D landing guide. It follows only a
   // currently vacant slot marked .legal by the real Phase21 game renderer.
   // No per-slot meshes, invented legal targets or new input actions.
@@ -1471,6 +1484,23 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       attackArrowMat.opacity=frozen?.95:.76+.18*(.5+.5*Math.sin(time*.007));
       attackTip.scale.setScalar(frozen?1:1+.12*(.5+.5*Math.sin(time*.009)));
     }
+    // VR01EC: keep the real attack route readable as three light motes,
+    // without creating any new legal attack target or input surface.
+    if(vrMode){
+      const pos=attackArrowGeo.attributes.position;
+      const end=attackArcSegments;
+      for(let i=0;i<vrAttackMotes.length;i++){
+        const mote=vrAttackMotes[i];
+        mote.visible=attackArrow.visible&&!frozen;
+        if(!mote.visible)continue;
+        const t=(time*.00024+i/3)%1;
+        mote.position.set(
+          pos.getX(0)+(pos.getX(end)-pos.getX(0))*t,
+          1.77+.98*Math.sin(Math.PI*t),
+          pos.getZ(0)+(pos.getZ(end)-pos.getZ(0))*t);
+        mote.scale.setScalar(.7+.45*Math.sin(Math.PI*t));
+      }
+    }
     // Phase72: decorative slot halos never enter raycast target meshes.
     if(tabletop)for(const [key,slot] of boardSlots){
       // Phases74-76: semantic targets share existing halos/materials;
@@ -1735,6 +1765,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrLandingGuidePickSafe:vrMode?!pickMeshes.includes(vrLandingGuide.children[0])&&
         !pickMeshes.includes(vrLandingGuide.children[1])&&
         !pickMeshes.includes(vrLandingGuide.children[2]):null,
+      vrAttackArcMoteCount:vrMode?vrAttackMotes.filter(m=>m.visible).length:null,
+      vrAttackArcMotePickSafe:vrMode?vrAttackMotes.every(m=>!pickMeshes.includes(m)):null,
       vrAttackArcVisible:vrMode?attackArrow.visible:null,
       vrAttackArcSamples:vrMode&&attackArrow.visible?attackArrowGeo.attributes.position.count:0,
       vrAttackArcPeakY:vrMode&&attackArrow.visible?
