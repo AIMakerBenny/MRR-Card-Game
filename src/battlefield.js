@@ -1191,8 +1191,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       signature=cardsSignature;
       // Preserve unchanged public 3D cards. Previously any new card replaced
       // every mesh and texture, making a crowded board visibly flicker.
-      const reuse=new Map();
+      const reuse=new Map(),hitReactionCarry=new Map();
       const occupiedNext=new Set(list.filter(p=>!!p.name).map(p=>p.key));
+      // Public HP/stat text can change after fx-hit and force a fresh
+      // texture. Preserve the old card's visual-only physical reaction
+      // only for the SAME public identity occupying the same native slot.
+      if(vrMode)for(const c of cards){
+        if(c.hitReaction)hitReactionCarry.set(c.key,{
+          id:c.publicId,name:c.publicName,reaction:c.hitReaction});
+      }
       if(vrMode)for(const p of list){
         const old=cardIndex.get(p.key);
         if(p.name&&old?.fingerprint===vrCardFingerprint(p))reuse.set(p.key,old);
@@ -1266,6 +1273,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         }
         const item={key:p.key,group,face,frame,seat,slot,hpBg,hpFill,statusDot,
           publicId:p.cardId,publicName:p.name,fingerprint:vrCardFingerprint(p)};
+        const carry=vrMode?hitReactionCarry.get(p.key):null;
+        if(carry&&(carry.id?carry.id===p.cardId:carry.name===p.name))
+          item.hitReaction=carry.reaction;
         // Only newly confirmed, friendly, matching real cards can launch
         // from the last player hand click. Old cards never animate again.
         if(vrMode&&slot.owner===0&&vrPendingDeploy&&
