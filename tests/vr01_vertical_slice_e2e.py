@@ -4302,6 +4302,14 @@ try:
         getComputedStyle(line).pointerEvents==='none';
     }""",arg=hovered_target,timeout=16000)
     assert snap()==prior_move,'VR01AB hover preview changed native game'
+    # VR01DV: physically anchored landing guide only on the genuine,
+    # empty .legal slot. Decorative geometry cannot join native raycasts.
+    page.wait_for_function("""key=>{
+      const s=MRRIntegrated.state.scene;
+      return s.vrLandingGuideVisible===true&&
+        s.vrLandingGuideKey===key&&s.vrLandingGuidePickSafe===true;
+    }""",arg=hovered_target,timeout=14000)
+    assert snap()==prior_move,'VR01DV placement beacon mutated native gameplay'
     page.screenshot(path=str(ROOT/'tests/vr01ab_native_move_hover_1920x1080.png'),
       animations='disabled')
     page.mouse.move(4,540)
@@ -4311,6 +4319,11 @@ try:
         !document.querySelector('#vr-guide-targets .vr-legal-guide.vr-legal-hover');
     }""",timeout=16000)
     assert snap()==prior_move,'VR01AB hover exit changed native game'
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrLandingGuideVisible===false&&s.vrLandingGuideKey===null;
+    }""",timeout=14000)
+    assert snap()==prior_move,'VR01DV expired landing guide mutated engine'
     page.screenshot(path=str(ROOT/'tests/vr01z_native_move_aim_1920x1080.png'),
       animations='disabled')
     # Cancel the genuinely pending native move. Action still available.
