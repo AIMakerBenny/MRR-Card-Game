@@ -1636,6 +1636,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let drag=false,moved=false,lastX=0,lastY=0,startX=0,startY=0;
   let vrActivePointerId=null,vrInterruptedPointerGestures=0;
   let vrForeignPointerEventsIgnored=0,vrPausedInputEventsIgnored=0;
+  let vrLostPointerCaptures=0;
   function updateCamera(){
     const aspect=mount.clientWidth/Math.max(1,mount.clientHeight);
     const d=distance*(aspect<.75?1.6:aspect<1.1?1.22:1);
@@ -1694,6 +1695,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     drag=false;moved=false;vrActivePointerId=null;setHover(null);
   }
+  function lostPointerCapture(e){
+    // VR01FI: focus loss, OS gestures, or another surface stealing the
+    // pointer can release capture without pointerup or pointercancel.
+    // Abandon only the matching gesture; never infer a Phase21 click.
+    if(!vrMode||!drag||e.pointerId!==vrActivePointerId)return;
+    vrLostPointerCaptures++;
+    cancelPointer(e);
+  }
   function wheel(e){
     e.preventDefault();
     if(vrMode&&(!running||disposed)){vrPausedInputEventsIgnored++;return;}
@@ -1705,6 +1714,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   mount.addEventListener('pointermove',move);
   mount.addEventListener('pointerup',up);
   mount.addEventListener('pointercancel',cancelPointer);
+  if(vrMode)mount.addEventListener('lostpointercapture',lostPointerCapture);
   mount.addEventListener('pointerleave',leave);
   mount.addEventListener('wheel',wheel,{passive:false});
   let frames=0,raf=0,running=false,disposed=false,lastDraw=0,lastVisualTime=0;
@@ -2127,6 +2137,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     mount.removeEventListener('pointermove',move);
     mount.removeEventListener('pointerup',up);
     mount.removeEventListener('pointercancel',cancelPointer);
+    if(vrMode)mount.removeEventListener('lostpointercapture',lostPointerCapture);
     mount.removeEventListener('pointerleave',leave);
     mount.removeEventListener('wheel',wheel);
     renderer.dispose();renderer.domElement.remove();
@@ -2144,6 +2155,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrPointerDragging:vrMode?drag:null,
       vrInterruptedPointerGestures:vrMode?vrInterruptedPointerGestures:null,
       vrForeignPointerEventsIgnored:vrMode?vrForeignPointerEventsIgnored:null,
+      vrLostPointerCaptures:vrMode?vrLostPointerCaptures:null,
       vrPausedInputEventsIgnored:vrMode?vrPausedInputEventsIgnored:null,
       vrCameraAuto:vrMode?!manualCamera:null,
       vrCrowdedComposition:vrMode&&cameraPreset==='tabletop'&&cards.length>=16,
