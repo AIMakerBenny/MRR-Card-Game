@@ -3674,6 +3674,13 @@ try:
     if page.locator(f'#arena [data-slot="{opponent}"] .board-card').count():
       page.wait_for_function('MRRIntegrated.state.scene.vrHitRecoilRenderFrames>=2',
         timeout=13000)
+    # VR01FA: transient visual effects use the same public snapshot
+    # to confirm identity, never hidden combat state or a second engine.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrTransientPublicIndexBuilds>=1&&
+        s.vrTransientPublicComparisons>=1;
+    }"""),'VR01FA public transient effect index did not reconcile'
     # VR01EP: active visual-only hit flashes must never be associated
     # with a missing or replaced public card after native sync.
     assert page.evaluate('MRRIntegrated.state.scene.vrHitFacePublicSafe') is True
