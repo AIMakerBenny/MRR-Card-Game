@@ -3438,6 +3438,41 @@ try:
     assert preview_guard['hasInitial'] and not preview_guard['hasAbsent'] and (
       preview_guard['hasRestored'] and preview_guard['staleQueries']>=1),preview_guard
     assert snap()==baseline,'VR01FK detached public preview modified Phase21'
+    # VR01GC: a real face hit in the WebGL cache must not point to a
+    # different PUBLIC identity after an intervening native DOM repaint.
+    # Use the existing physical card projection without invoking a click.
+    stale_ray=page.evaluate("""key => {
+      const scene=MRRIntegrated.scene;
+      const canvas=document.querySelector('#mrr-integrated-stage canvas');
+      const card=document.querySelector('#arena [data-slot="'+key+
+        '"] .board-card .card-ui');
+      if(!canvas||!card)return {error:'missing public raycast target'};
+      const pt=scene.projectCard(key);
+      const original=card.getAttribute('data-mrr-public-card-id');
+      const nameNode=card.querySelector('.card-name');
+      const originalName=nameNode?.textContent;
+      const before=scene.state.vrStaleRaycastRejects;
+      let rejected=false,hovered=null;
+      try{
+        if(original)card.setAttribute('data-mrr-public-card-id',
+          'vr01gc-intervening-public-card');
+        else nameNode.textContent=originalName+' other';
+        canvas.dispatchEvent(new PointerEvent('pointermove',{
+          bubbles:true,pointerId:991,clientX:pt.x,clientY:pt.y
+        }));
+        const state=scene.state;
+        rejected=state.vrStaleRaycastRejects>before;
+        hovered=state.hoveredKey;
+      }finally{
+        if(original)card.setAttribute('data-mrr-public-card-id',original);
+        else nameNode.textContent=originalName;
+        scene.sync();
+      }
+      return {rejected,hovered};
+    }""",opponent)
+    assert 'error' not in stale_ray and stale_ray['rejected'] and (
+      stale_ray['hovered'] is None),stale_ray
+    assert snap()==baseline,'VR01GC stale raycast changed Phase21'
     # VR01FL: an attribute update on a slot removed within the same
     # MutationObserver batch is not a visible Phase21 combat event.
     detached_fx=page.evaluate("""() => {

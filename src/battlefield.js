@@ -1300,6 +1300,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01FW: the visible Three.js card face supplies its own UV position.
   // This is only an inspection tilt, never a different pick or native click.
   let vrFaceHoverBias=0,vrFaceHoverSamples=0;
+  let vrStaleRaycastRejects=0;
   function publicHit(e){
     const rect=renderer.domElement.getBoundingClientRect();
     if(rect.width<10||rect.height<10||e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom){
@@ -1312,6 +1313,27 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // While the new model is arriving from the hand it cannot steal a click
     // from the actual legal native slot beneath it.
     const first=hits.find(hit=>!hit.object.userData.mrrDeploying);
+    if(vrMode&&first){
+      // VR01GC: a card face can be replaced by a native Phase21 paint
+      // before the timed WebGL sync. Never forward its stale raycast
+      // identity to the original native click/hover bridge. Empty-slot
+      // raycasts continue through the pre-existing legal-slot logic.
+      const key=first.object.userData.mrrSlotKey;
+      const cached=cardIndex.get(key);
+      if(cached&&(first.object===cached.face||first.object===cached.frame)){
+        const node=document.querySelector('#arena [data-slot="'+key+
+          '"] .board-card .card-ui');
+        const id=node?.getAttribute('data-mrr-public-card-id')||null;
+        const name=node?.querySelector('.card-name')?.textContent?.trim()||'';
+        const valid=!!name&&(id?
+          id===cached.publicId:
+          !cached.publicId&&name===cached.publicName);
+        if(!valid){
+          vrStaleRaycastRejects++;vrFaceHoverBias=0;
+          return null;
+        }
+      }
+    }
     if(vrMode){
       const publicKey=first?.object.userData.mrrSlotKey;
       const actualFace=!!publicKey&&cardIndex.get(publicKey)?.face===first.object;
@@ -2489,6 +2511,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrProjectionSamples:vrMode?vrProjectionSamples:null,
       vrStalePreviewRejected:vrMode?vrStalePreviewRejected:null,
       vrStaleCardQueriesRejected:vrMode?vrStaleCardQueriesRejected:null,
+      vrStaleRaycastRejects:vrMode?vrStaleRaycastRejects:null,
       vrResumeFirstDelta:vrMode?vrResumeFirstDelta:null,
       vrPointerDragging:vrMode?drag:null,
       vrInterruptedPointerGestures:vrMode?vrInterruptedPointerGestures:null,
