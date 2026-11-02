@@ -215,6 +215,29 @@ function reflowHand(fan){
   }
   handLayoutDirty=false;
 }
+
+ // VR01DT: 3D inspection responds to the pointer but cannot change Phase21
+ // cards, click anchors, native targeting or game state.
+ function resetHandTilt(card){
+   for(const name of ['--vr-tilt-x','--vr-tilt-y','--vr-glint-x','--vr-glint-y'])
+     card.style.removeProperty(name);
+ }
+ function updateHandTilt(card,ev){
+   if(!open||!ui||ui.classList.contains('vr-placing')||
+       !q('#overlay')?.classList.contains('hidden')||
+       window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+     resetHandTilt(card);return;
+   }
+   const rect=q('.vr-card-face',card)?.getBoundingClientRect();
+   if(!rect||rect.width<=0||rect.height<=0)return;
+   const clamp=v=>Math.max(-1,Math.min(1,v));
+   const x=clamp((ev.clientX-rect.left-rect.width/2)/(rect.width/2));
+   const y=clamp((ev.clientY-rect.top-rect.height/2)/(rect.height/2));
+   card.style.setProperty('--vr-tilt-x',(-y*5).toFixed(2)+'deg');
+   card.style.setProperty('--vr-tilt-y',(x*6).toFixed(2)+'deg');
+   card.style.setProperty('--vr-glint-x',((x+1)*50).toFixed(1)+'%');
+   card.style.setProperty('--vr-glint-y',((y+1)*50).toFixed(1)+'%');
+ }
 function updateHand(){
   const src=qa('#hand .hand-slot');
   const hand=src.map((slot,i)=>{
@@ -367,7 +390,10 @@ function updateHand(){
       schedule();
     });
     card.addEventListener('mouseenter',()=>card.classList.add('raised'));
-    card.addEventListener('mouseleave',()=>card.classList.remove('raised'));
+    card.addEventListener('pointermove',ev=>updateHandTilt(card,ev));
+    card.addEventListener('mouseleave',()=>{
+      card.classList.remove('raised');resetHandTilt(card);
+    });
     fan.append(card);
   }
   fan.dataset.count=String(n);
