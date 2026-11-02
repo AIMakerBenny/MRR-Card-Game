@@ -3587,6 +3587,13 @@ try:
     page.evaluate("""key => document.querySelector(
       '#arena [data-slot="'+key+'"]')?.classList.remove('vr01ev-cosmetic-probe')""",opponent)
     assert snap()==after,'VR01EV native FX class transition observer changed Phase21 state'
+    # VR01EZ: authenticated native rising edges are never suppressed by
+    # an elapsed-time guess; Phase55 keeps its original timer gate.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrFxRapidNativeEdges>=0&&s.fxReceived.hit>=1&&
+        s.vrFxRisingEdges>=s.fxReceived.hit;
+    }"""),'VR01EZ native FX edge handling rejected genuine hit'
     # VR01EW: only actual CSS rising edges may trigger 3D FX,
     # including when multiple native slot mutations share one batch.
     assert page.evaluate("""() => {
