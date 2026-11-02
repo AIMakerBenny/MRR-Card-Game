@@ -1387,6 +1387,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         vrHitReactions++;
       }
     }
+    // VR01EP: cap visual event lifetime and reject vacant/replaced
+    // public identities even when no Three.js card rebuild is needed.
+    if(vrMode){
+      const liveKeys=new Set(list.filter(p=>!!p.name).map(p=>p.key));
+      for(const [key,fx] of vrHitFaceFlash){
+        if(!liveKeys.has(key)){
+          vrHitFaceFlash.delete(key);continue;
+        }
+        const publicCard=list.find(p=>p.key===key);
+        if(!(fx.publicId?fx.publicId===publicCard.cardId:
+          fx.name===publicCard.name))vrHitFaceFlash.delete(key);
+      }
+    }
     const nextSelectedKey=list.find(p=>p.selected)?.key||null;
     // VR01M: a grounded selection response starts ONLY on a native
     // .selected-slot transition. Never synthesize a click or an attack.
@@ -1680,9 +1693,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           frozen?.85:.73+.12*(.5+.5*Math.sin(time*.006));
       }
     }
+    // VR01EP: the last public sync has already rejected missing or
+    // different identities. Do not traverse native HTML in the render
+    // loop just to clean up visual-only hit events.
     for(const [key,hit] of vrPendingPublicHits){
-      if(time-hit.reaction.born>4000||!document.querySelector(
-        '#arena [data-slot="'+key+'"] .board-card .card-ui'))
+      const item=cardIndex.get(key);
+      const same=!!item&&(hit.id?item.publicId===hit.id:
+        item.publicName===hit.name);
+      if(!same||time-hit.reaction.born>4000)
         vrPendingPublicHits.delete(key);
     }
     for(const [key,fx] of vrHitFaceFlash){
@@ -2014,6 +2032,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrHitFaceFlashActive:vrMode?vrHitFaceFlash.size:null,
       vrHitFaceRendered:vrMode?[...vrHitFaceFlash.values()].filter(f=>
         f.shownFrames>0).length:null,
+      vrHitFacePublicSafe:vrMode?[...vrHitFaceFlash].every(([key,fx])=>{
+        const c=cardIndex.get(key);
+        return !!c&&(fx.publicId?fx.publicId===c.publicId:
+          fx.name===c.publicName);
+      }):null,
       vrSelectionBursts:vrMode?vrSelectionBursts:null,
       vrTargetLocks:vrMode?vrTargetLocks:null,
       vrTargetLockKey:vrMode?vrTargetLock?.key||null:null,
