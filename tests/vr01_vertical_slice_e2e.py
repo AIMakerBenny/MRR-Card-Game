@@ -3653,6 +3653,15 @@ try:
         s.vrHoveredEdgeGlintOpacity<.46;
     }""",timeout=14000)
     assert snap()==baseline,'VR01FP edge glint changed Phase21 rules'
+    # VR01FQ: a real native selected card has restrained, non-pickable
+    # physical corner strokes surrounding its occupied 3D seat.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return !!s.selectedKey&&s.vrSeatCornersPickSafe===true&&
+        s.vrSelectedSeatCornersOpacity>.30&&
+        s.vrSelectedSeatCornersOpacity<.64;
+    }""",timeout=14000)
+    assert snap()==baseline,'VR01FQ selected corners changed Phase21'
     # VR01DU: a curved 17-point THREE.js trajectory must appear only
     # while the REAL Phase21 attack-target remains hovered.
     page.wait_for_function("""() => {

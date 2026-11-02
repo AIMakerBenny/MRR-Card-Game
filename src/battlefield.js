@@ -276,6 +276,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // REAL public card is inspected. Never cover its illustration or pick face.
   const vrEdgeGlintGeo=vrMode?
     geometry(new THREE.BoxGeometry(.035,2.51,.025)):null;
+  // VR01FQ: world-space seat corner strokes make the currently native
+  // selected public card legible without adding an HTML panel or hitbox.
+  // These four pairs are shared GPU geometry for every occupied card.
+  const vrSeatCornersGeo=vrMode?(()=>{
+    const vertices=[],w=1.35,d=1.42,l=.32;
+    for(const sx of [-1,1])for(const sz of [-1,1]){
+      const x=sx*w,z=sz*d;
+      vertices.push(x,0,z,x-sx*l,0,z);
+      vertices.push(x,0,z,x,0,z-sz*l);
+    }
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+    return geometry(g);
+  })():null;
   const cardGeometry=geometry(new THREE.BoxGeometry(tabletop?2.22:2.08,2.84,.22));
   const cardFaceGeometry=geometry(new THREE.PlaneGeometry(tabletop?2.10:1.96,2.71));
   // Phase57: dimensional gilt trims are scenery, not selectable meshes.
@@ -1376,6 +1390,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         scene.remove(c.group);if(c.seat)scene.remove(c.seat);
         if(c.contactRing)c.contactRing.material.dispose();
         if(c.edgeGlintMaterial)c.edgeGlintMaterial.dispose();
+        if(c.seatCornersMaterial)c.seatCornersMaterial.dispose();
         if(c.face.material.map){
           const tex=c.face.material.map;tex.userData.artDisposed=true;tex.dispose();
           if(vrMode){
@@ -1447,7 +1462,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const statusDot=new THREE.Mesh(statusGeo,readyMat);
         statusDot.position.set(1.22,1.67,.26);group.add(statusDot);
         scene.add(group);
-        let seat=null,contactRing=null;
+        let seat=null,contactRing=null,seatCorners=null,seatCornersMaterial=null;
         if(vrMode){
           seat=new THREE.Group();
           seat.position.set(slot.x,.25,slot.z);
@@ -1465,12 +1480,21 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           contactRing.position.y=.105;
           contactRing.visible=false;
           seat.add(contactRing);
+          seatCornersMaterial=new THREE.LineBasicMaterial({
+            color:slot.owner===0?0xcfffea:0xffdb9d,
+            transparent:true,opacity:0,depthWrite:false,
+            blending:THREE.AdditiveBlending
+          });
+          seatCorners=new THREE.LineSegments(vrSeatCornersGeo,seatCornersMaterial);
+          seatCorners.position.y=.13;
+          seatCorners.visible=false;
+          seat.add(seatCorners);
           // Position is decorative: card clicks still hit the pre-existing
           // raycast list and no seat surface is ever part of pickMeshes.
           scene.add(seat);
         }
         const item={key:p.key,group,face,frame,seat,contactRing,
-          edgeGlint,edgeGlintMaterial,slot,hpBg,hpFill,
+          edgeGlint,edgeGlintMaterial,seatCorners,seatCornersMaterial,slot,hpBg,hpFill,
           hpDamageTrail,statusDot,publicId:p.cardId,publicName:p.name,
           fingerprint:vrCardFingerprint(p)};
         const carry=vrMode?hitReactionCarry.get(p.key):null;
@@ -1982,6 +2006,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.edgeGlint.visible=c.edgeAmount>.015;
         c.edgeGlintMaterial.opacity=.44*c.edgeAmount;
       }
+      // VR01FQ: the four genuine 3D seat corners belong only to the
+      // card selected by native Phase21. No speculative attack cue.
+      if(c.seatCorners){
+        const focus=c.key===selectedKey?1:0;
+        const alpha=frozen?1:1-Math.exp(-visualDelta/135);
+        c.seatCornerAmount=(c.seatCornerAmount??0)+
+          (focus-(c.seatCornerAmount??0))*alpha;
+        c.seatCorners.visible=c.seatCornerAmount>.012;
+        c.seatCornersMaterial.opacity=.62*c.seatCornerAmount;
+      }
       // VR01EF: a true public status dot softly breathes only when ready
       // or protected. Spent units remain still, and reduced motion is static.
       // This scales the EXISTING indicator, never a click or rule surface.
@@ -2236,6 +2270,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(c.seat)scene.remove(c.seat);
       if(c.contactRing)c.contactRing.material.dispose();
       if(c.edgeGlintMaterial)c.edgeGlintMaterial.dispose();
+      if(c.seatCornersMaterial)c.seatCornersMaterial.dispose();
       const tex=c.face.material.map;
       if(tex){tex.userData.artDisposed=true;uniqueTextures.add(tex);}
       c.face.material.dispose();
@@ -2293,6 +2328,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         Number(cardIndex.get(hoveredKey).edgeGlintMaterial.opacity.toFixed(3)):null,
       vrEdgeGlintPickSafe:vrMode?cards.every(c=>!c.edgeGlint||
         c.edgeGlint.children.every(m=>!pickMeshes.includes(m))):null,
+      vrSelectedSeatCornersOpacity:vrMode&&cardIndex.get(selectedKey)?.seatCorners?
+        Number(cardIndex.get(selectedKey).seatCornersMaterial.opacity.toFixed(3)):null,
+      vrSeatCornersPickSafe:vrMode?cards.every(c=>
+        !c.seatCorners||!pickMeshes.includes(c.seatCorners)):null,
       nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,peakLiveFxCount,
       fxSources:'native-slot-classes',cinematicRevision:49,
       vrFxClassNoiseIgnored:vrMode?vrFxClassNoiseIgnored:null,
