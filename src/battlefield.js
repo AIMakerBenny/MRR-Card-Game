@@ -1181,6 +1181,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let vrTargetLocks=0,vrTargetLock=null;
   let cardHealth=new Map(),healthIndicatorCount=0;
   let pickMeshes=slotPickMeshes.slice(),cardIndex=new Map();
+  // VR01EU: card labels, selection and dense layout can project the same
+  // public card many times. Reuse one temporary vector across synchronous
+  // project calls instead of allocating a THREE.Vector3 for every corner.
+  const vrProjectionPoint=new THREE.Vector3();
+  let vrProjectionSamples=0;
   function publicHit(e){
     const rect=renderer.domElement.getBoundingClientRect();
     if(rect.width<10||rect.height<10||e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)return null;
@@ -1195,7 +1200,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const c=cardIndex.get(key);
     if(!c)return null;
     c.group.updateMatrixWorld(true);
-    const point=c.group.localToWorld(new THREE.Vector3(0,.12,.15)).project(camera);
+    vrProjectionSamples++;
+    const point=c.group.localToWorld(vrProjectionPoint.set(0,.12,.15)).project(camera);
     const r=renderer.domElement.getBoundingClientRect();
     return {x:r.left+(point.x+1)*r.width/2,y:r.top+(1-point.y)*r.height/2};
   }
@@ -1209,17 +1215,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     item.group.updateMatrixWorld(true);
     const rect=renderer.domElement.getBoundingClientRect();
     const halfW=1.05,halfH=1.355;
-    const vertices=[[-halfW,-halfH],[halfW,-halfH],
-      [halfW,halfH],[-halfW,halfH]];
-    const pixels=vertices.map(([x,y])=>{
-      const p=item.face.localToWorld(new THREE.Vector3(x,y,.002)).project(camera);
-      return {x:rect.left+(1+p.x)*rect.width/2,
-        y:rect.top+(1-p.y)*rect.height/2};
-    });
-    if(!pixels.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)))return null;
-    const xs=pixels.map(p=>p.x),ys=pixels.map(p=>p.y);
-    return {left:Math.min(...xs),right:Math.max(...xs),
-      top:Math.min(...ys),bottom:Math.max(...ys)};
+    let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;
+    for(let i=0;i<4;i++){
+      const x=i===1||i===2?halfW:-halfW,y=i>=2?halfH:-halfH;
+      const p=item.face.localToWorld(vrProjectionPoint.set(x,y,.002)).project(camera);
+      vrProjectionSamples++;
+      const px=rect.left+(1+p.x)*rect.width/2;
+      const py=rect.top+(1-p.y)*rect.height/2;
+      if(!Number.isFinite(px)||!Number.isFinite(py))return null;
+      left=Math.min(left,px);right=Math.max(right,px);
+      top=Math.min(top,py);bottom=Math.max(bottom,py);
+    }
+    return {left,right,top,bottom};
   }
   // Phase53: render the exact card-face canvas already shown on the public
   // WebGL mesh. No second artwork catalogue or hidden-game data.
@@ -1242,7 +1249,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   function projectSlot(key){
     const c=boardSlots.get(key);
     if(!c)return null;
-    const point=new THREE.Vector3(c.x,.4,c.z).project(camera);
+    vrProjectionSamples++;
+    const point=vrProjectionPoint.set(c.x,.4,c.z).project(camera);
     const r=renderer.domElement.getBoundingClientRect();
     return {x:r.left+(point.x+1)*r.width/2,y:r.top+(1-point.y)*r.height/2};
   }
@@ -2016,6 +2024,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       publicCardCount,cardMeshCount:cards.length,shadows:renderer.shadowMap.enabled,
       rendererAlive:renderer.domElement.isConnected,yaw,pitch,distance,
       vrRenderResumes:vrMode?vrRenderResumes:null,
+      vrProjectionSamples:vrMode?vrProjectionSamples:null,
       vrResumeFirstDelta:vrMode?vrResumeFirstDelta:null,
       vrCameraAuto:vrMode?!manualCamera:null,
       vrCrowdedComposition:vrMode&&cameraPreset==='tabletop'&&cards.length>=16,
