@@ -755,6 +755,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   impactLamp.position.set(0,2,0);scene.add(impactLamp);
   let pendingStrike=null,cinemaImpact=null,confirmedStrikes=0,cinematicFrameCount=0;
   let vrHitReactions=0,vrLandingDustStarted=0;
+  // VR01DX: confirmed native hit FX may illuminate a CURRENT public face.
+  // A short-lived keyed event survives HP-text texture reconstruction, but
+  // an unrelated replacement with a different public card ID cannot glow.
+  const vrHitFaceFlash=new Map();
+  let vrHitFaceFlashCount=0,vrHitFaceFlashPeak=0;
   const vrLandingDust=[],vrDepartBursts=[];
   let vrDepartCount=0;
   let latestCombat=null;
@@ -850,6 +855,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // The original Phase76 3D presentation is untouched.
     if(vrMode&&type==='hit'){
       const victim=cardIndex.get(key);
+      if(victim){
+        vrHitFaceFlash.set(key,{at:now,publicId:victim.publicId,name:victim.publicName});
+        vrHitFaceFlashCount++;
+      }
       if(victim&&!victim.deploy){
         const from=pendingStrike?.targetKey===key?boardSlots.get(pendingStrike.sourceKey):null;
         const dx=spot.x-(from?.x??spot.x+.4),dz=spot.z-(from?.z??spot.z+1);
@@ -1202,7 +1211,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           scene.add(seat);
         }
         const item={key:p.key,group,face,frame,seat,slot,hpBg,hpFill,statusDot,
-          fingerprint:vrCardFingerprint(p)};
+          publicId:p.cardId,publicName:p.name,fingerprint:vrCardFingerprint(p)};
         // Only newly confirmed, friendly, matching real cards can launch
         // from the last player hand click. Old cards never animate again.
         if(vrMode&&slot.owner===0&&vrPendingDeploy&&
@@ -1449,6 +1458,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     if(vrMode&&vrSelectionBurst&&time-vrSelectionBurst.at>520)
       vrSelectionBurst=null;
+    for(const [key,fx] of vrHitFaceFlash){
+      if(time-fx.at>460)vrHitFaceFlash.delete(key);
+    }
     if(vrLandingGuide?.visible){
       // Lightweight ambient motion; reduced-motion keeps a steady beacon.
       vrLandingGuide.children[0].rotation.z=frozen?0:time*.0012;
@@ -1456,6 +1468,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrLandingGuide.position.y=.36+(frozen?0:.025*Math.sin(time*.005));
     }
     for(const [i,c] of cards.entries()){
+      // Native-confirmed impact gleams directly on the CURRENT real card
+      // surface even when its public HP update forces a texture replacement.
+      const flash=vrMode?vrHitFaceFlash.get(c.key):null;
+      const validFlash=flash&&
+        (flash.publicId?flash.publicId===c.publicId:flash.name===c.publicName);
+      const flashAge=validFlash?(time-flash.at)/460:1;
+      const intensity=validFlash&&!frozen&&flashAge>=0&&flashAge<1?
+        .95*Math.pow(1-flashAge,2):0;
+      if(vrMode){
+        c.face.material.emissive.setHex(0xff9565);
+        c.face.material.emissiveIntensity=intensity;
+        vrHitFaceFlashPeak=Math.max(vrHitFaceFlashPeak,intensity);
+      }
       const hover=c.key===hoveredKey;
       // VR01DW: the existing real Three.js card subtly turns toward an
       // inspector. Only public native hover / selection keys can drive this
@@ -1578,7 +1603,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     for(const fx of liveEffects.splice(0))removeFx(fx);
     for(const f of vrLandingDust.splice(0)){scene.remove(f.points);f.geo.dispose();f.mat.dispose();}
     for(const f of vrDepartBursts.splice(0))removeVrDeparture(f);
-    recentFx.clear();pendingStrike=null;cinemaImpact=null;impactLamp.intensity=0;
+    recentFx.clear();vrHitFaceFlash.clear();
+    pendingStrike=null;cinemaImpact=null;impactLamp.intensity=0;
     for(const c of cards){
       if(c.seat)scene.remove(c.seat);
       c.face.material.map.userData.artDisposed=true;c.face.material.map.dispose();c.face.material.dispose();
@@ -1624,6 +1650,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrDepartHaloStarted:vrMode?vrDepartHaloCount:null,
       vrDepartHaloActive:vrMode?vrDepartBursts.filter(f=>!!f.halo).length:null,
       vrHitReactions:vrMode?vrHitReactions:null,
+      vrHitFaceFlashCount:vrMode?vrHitFaceFlashCount:null,
+      vrHitFaceFlashPeak:vrMode?Number(vrHitFaceFlashPeak.toFixed(4)):null,
+      vrHitFaceFlashActive:vrMode?vrHitFaceFlash.size:null,
       vrSelectionBursts:vrMode?vrSelectionBursts:null,
       vrTargetLocks:vrMode?vrTargetLocks:null,
       vrTargetLockKey:vrMode?vrTargetLock?.key||null:null,
