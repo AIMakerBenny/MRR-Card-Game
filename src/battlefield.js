@@ -865,7 +865,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01EV: a native CSS FX is one transition onto a real slot, NOT an
   // arbitrary class change while that slot still has the same fx-* class.
   let vrFxClassNoiseIgnored=0,vrFxRisingEdges=0,vrFxBatchedTransitions=0;
-  let vrFxRapidNativeEdges=0;
+  let vrFxRapidNativeEdges=0,vrDetachedFxRecordsIgnored=0;
   const recentFx=new Map();
   const effectColors={hit:0xffa96e,heal:0x7affbd,summon:0x69d8ef};
   const fxObserver=new MutationObserver(records=>{
@@ -885,7 +885,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     for(const record of records){
       if(record.type!=='attributes'||record.attributeName!=='class')continue;
       const node=record.target;
-      if(!(node instanceof Element)||!node.matches('#arena [data-slot]'))continue;
+      if(!(node instanceof Element))continue;
+      // VR01FL: native re-render may remove an old slot in the same
+      // mutation batch that added fx-hit. Detached slot classes are no
+      // longer visible public actions and must never create combat FX.
+      if(vrMode&&!node.isConnected){
+        vrDetachedFxRecordsIgnored++;continue;
+      }
+      if(!node.matches('#arena [data-slot]'))continue;
       const key=node.getAttribute('data-slot');
       if(!boardSlots.has(key))continue;
       const before=(record.oldValue||'').split(/\s+/);
@@ -2204,6 +2211,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrFxRisingEdges:vrMode?vrFxRisingEdges:null,
       vrFxBatchedTransitions:vrMode?vrFxBatchedTransitions:null,
       vrFxRapidNativeEdges:vrMode?vrFxRapidNativeEdges:null,
+      vrDetachedFxRecordsIgnored:vrMode?vrDetachedFxRecordsIgnored:null,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       vrConfirmedProjectileStarted:vrMode?vrConfirmedProjectileStarted:null,
       vrConfirmedProjectileActive:vrMode?liveEffects.filter(f=>f.projectile?.mesh.visible).length:null,
