@@ -3588,6 +3588,12 @@ try:
         }"""),flush=True)
         raise
     assert page.evaluate('MRRIntegrated.state.scene.vrHitReactions')>=0
+    # VR01EK: a native-confirmed hit may queue through public HP re-render,
+    # but the queue must never outlive the real 3D public occupant.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrPendingPublicHitCount>=0&&s.vrPendingPublicHitCount<=30;
+    }"""),'VR01EK native FX pending queue bounds failed'
     # VR01EE: if native HP remains displayed, the 3D bar reaches the
     # EXACT public health fraction and never creates damage itself.
     if page.locator(f'#arena [data-slot="{opponent}"] .board-card .hpbar').count():
