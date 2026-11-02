@@ -3538,7 +3538,8 @@ try:
     # Phase21 strike, never speculative hover or targeting.
     page.wait_for_function("""() => {
       const s=MRRIntegrated.state.scene;
-      return s.confirmedStrikes>=1&&s.vrConfirmedProjectileStarted>=1;
+      return s.confirmedStrikes>=1&&s.vrConfirmedProjectileStarted>=1&&
+        s.vrProjectileGeometryShared===true&&s.vrProjectilePickSafe===true;
     }""",timeout=14000)
     assert snap()==after,'VR01EA confirmed projectile changed Phase21 HP'
     outcome=page.evaluate("""key=>{
