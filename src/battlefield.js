@@ -454,6 +454,27 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     vrLandingGuide.add(arc,floorMark,lightColumn);
     vrLandingGuide.visible=false;scene.add(vrLandingGuide);
   }
+  // VR01EI: a single camera-visible 3D four-corner target bracket. The
+  // authority remains Phase21's .attack-target class; this object is not
+  // a raycast input surface and is not regenerated per opponent card.
+  const vrTargetBracket=vrMode?new THREE.Group():null;
+  let vrTargetBracketKey=null;
+  if(vrTargetBracket){
+    const barX=geometry(new THREE.BoxGeometry(.50,.065,.060));
+    const barZ=geometry(new THREE.BoxGeometry(.060,.065,.50));
+    const bronzeLight=new THREE.MeshBasicMaterial({color:0xffd197,
+      transparent:true,opacity:.85,depthWrite:false});
+    madeMaterials.push(bronzeLight);
+    for(const sx of [-1,1])for(const sz of [-1,1]){
+      const xbar=new THREE.Mesh(barX,bronzeLight);
+      xbar.position.set(sx*.77,0,sz*1.09);
+      const zbar=new THREE.Mesh(barZ,bronzeLight);
+      zbar.position.set(sx*1.01,0,sz*.85);
+      vrTargetBracket.add(xbar,zbar);
+    }
+    vrTargetBracket.visible=false;
+    scene.add(vrTargetBracket);
+  }
   const center=new THREE.Mesh(geometry(new THREE.BoxGeometry(21,.035,.1)),tabletop?parchmentInk:gold);
   center.position.y=.19;scene.add(center);
   const seal=new THREE.Mesh(geometry(new THREE.TorusGeometry(1.06,.055,8,80)),tabletop?parchmentInk:bronze);
@@ -1588,6 +1609,24 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     if(vrMode&&vrSelectionBurst&&time-vrSelectionBurst.at>520)
       vrSelectionBurst=null;
+    if(vrTargetBracket){
+      // Lock-on is assigned solely by a real hover on a native target.
+      const lock=vrTargetLock;
+      const cell=lock&&document.querySelector('#arena [data-slot="'+lock.key+'"]');
+      const isNative=!!(lock&&selectedKey&&attackTargetCount&&
+        cell?.classList.contains('attack-target')&&
+        cell.querySelector('.board-card .card-ui'));
+      vrTargetBracket.visible=isNative;
+      vrTargetBracketKey=isNative?lock.key:null;
+      if(isNative){
+        const slot=boardSlots.get(lock.key);
+        vrTargetBracket.position.set(slot.x,.53,slot.z);
+        const progress=frozen?1:Math.max(0,Math.min(1,(time-lock.at)/340));
+        vrTargetBracket.scale.setScalar(1.14-.14*(1-Math.pow(1-progress,3)));
+        vrTargetBracket.children[0].material.opacity=
+          frozen?.85:.73+.12*(.5+.5*Math.sin(time*.006));
+      }
+    }
     for(const [key,fx] of vrHitFaceFlash){
       // A SwiftShader or texture re-upload stall can take longer than the
       // original 460ms flash. Show at least four REAL rendered frames, with
@@ -1903,6 +1942,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrSelectionBursts:vrMode?vrSelectionBursts:null,
       vrTargetLocks:vrMode?vrTargetLocks:null,
       vrTargetLockKey:vrMode?vrTargetLock?.key||null:null,
+      vrTargetBracketKey:vrMode?vrTargetBracketKey:null,
+      vrTargetBracketCount:vrMode&&vrTargetBracket?.visible?vrTargetBracket.children.length:0,
+      vrTargetBracketPickSafe:vrMode?vrTargetBracket.children.every(c=>
+        !pickMeshes.includes(c)):null,
       vrLandingGuideKey:vrMode?vrLandingGuideKey:null,
       vrLandingGuideReveals:vrMode?vrLandingGuideReveals:null,
       vrLandingGuideScale:vrMode?Number(vrLandingGuide.scale.x.toFixed(3)):null,
