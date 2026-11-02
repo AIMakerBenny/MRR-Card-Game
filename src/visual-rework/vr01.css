@@ -677,13 +677,13 @@ body.mrr-vr-active #mrr-vr-shell:not(.vr-placing) .vr-hand:has(.vr-card:focus-vi
    Fixed native hit anchors, neighbors and the 1200x960 art region are intact. */
 @media(prefers-reduced-motion:no-preference){
  body.mrr-vr-active #mrr-vr-shell:not(.vr-placing)
- .vr-card:hover:not(:focus-visible) .vr-card-face{
+ .vr-card:is(:hover,.raised):not(:focus-visible) .vr-card-face{
   transform:translateX(-50%) perspective(950px)
    rotateX(var(--vr-tilt-x,0deg)) rotateY(var(--vr-tilt-y,0deg)) scale(1.03);
   transform-style:preserve-3d;will-change:transform;
  }
  body.mrr-vr-active #mrr-vr-shell:not(.vr-placing)
- .vr-card:hover:not(:focus-visible) .vr-card-face::after{
+ .vr-card:is(:hover,.raised):not(:focus-visible) .vr-card-face::after{
   content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
   background:radial-gradient(circle at var(--vr-glint-x,50%) var(--vr-glint-y,50%),
    #fff9d54d 0%,#f9e6ae1c 27%,transparent 65%);
