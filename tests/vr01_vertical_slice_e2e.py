@@ -3597,6 +3597,13 @@ try:
       const s=MRRIntegrated.state.scene;
       return s.vrPendingPublicHitCount>=0&&s.vrPendingPublicHitCount<=30;
     }"""),'VR01EK native FX pending queue bounds failed'
+    # VR01EO: after public reconciliation, deferred visual-only events
+    # may remain only for publicly rendered native cards.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrPendingPublicHitKeys.every(key=>
+        !!document.querySelector('#arena [data-slot="'+key+'"] .board-card .card-ui'));
+    }"""),'VR01EO deferred FX remained on missing native card'
     # VR01EE: if native HP remains displayed, the 3D bar reaches the
     # EXACT public health fraction and never creates damage itself.
     if page.locator(f'#arena [data-slot="{opponent}"] .board-card .hpbar').count():
