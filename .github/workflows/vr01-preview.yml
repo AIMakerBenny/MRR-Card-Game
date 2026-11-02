@@ -23,6 +23,9 @@ jobs:
       - name: Build with unchanged Phase21 game scripts
         run: |
           python build.py
+          # VR01GV: syntax preflight before the Chromium-heavy visual QA.
+          node --check src/battlefield.js
+          python -m py_compile tests/vr01_vertical_slice_e2e.py tests/vr01p_finish_e2e.py
           python -m pip install beautifulsoup4 playwright
           python tests/static_audit.py
           python -m playwright install --with-deps chromium

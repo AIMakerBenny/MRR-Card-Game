@@ -21,6 +21,14 @@ jobs:
           npm run vendor
       - name: Build phase 76
         run: python build.py
+      # VR01GV: fail fast on source/fixture parser errors instead of
+      # installing a full browser and spending minutes in Chromium.
+      # This is additive; the original byte-identical engine audit and
+      # every real gameplay E2E test still run unchanged.
+      - name: Preflight JavaScript and Python browser fixture syntax
+        run: |
+          node --check src/battlefield.js
+          python -m py_compile tests/vr01_vertical_slice_e2e.py tests/vr01p_finish_e2e.py tests/phase76_field_focus_e2e.py tests/phase69_pc_zone_e2e.py
       - name: Install testing dependencies
         run: |
           python -m pip install --upgrade pip
