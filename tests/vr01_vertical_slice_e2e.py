@@ -3400,6 +3400,18 @@ try:
       document.querySelector('#vr-aim-line')?.dataset.target===key &&
       !!document.querySelector('#vr-aim-line')?.getAttribute('d')""",
       arg=opponent,timeout=15000)
+    # VR01ET: a real stop/resume must not advance Phase21 input or leave
+    # the 3D animation clock carrying a stale hidden-tab frame interval.
+    before_resume=page.evaluate('MRRIntegrated.state.scene.frames')
+    page.evaluate('MRRIntegrated.scene.stop()')
+    page.wait_for_timeout(160)
+    assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume
+    page.evaluate('MRRIntegrated.scene.start()')
+    page.wait_for_function("""n => {
+      const s=MRRIntegrated.state.scene;
+      return s.frames>n&&s.vrRenderResumes>=1&&s.vrResumeFirstDelta===32;
+    }""",arg=before_resume,timeout=16000)
+    assert snap()==baseline,'VR01ET render resume changed Phase21 state'
     # VR01EF: real public status chips drive the existing Three.js
     # readiness or ward indicator, not hidden hand or AI state.
     page.wait_for_function("""() => {
