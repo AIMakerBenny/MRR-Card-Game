@@ -2089,6 +2089,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(vrMode)vrInterruptedPointerGestures++;
     }
     vrActivePointerId=null;
+    // VR01FJ: a hidden or stopped canvas cannot keep an old visual
+    // hover/aim lock. This only withdraws presentation; Phase21 controls,
+    // selection and actual legal target classes remain untouched.
+    if(vrMode){
+      if(hoveredKey)setHover(null,true);
+      vrTargetLock=null;
+      attackArrow.visible=attackTip.visible=false;
+      vrAimPathKey=null;
+      if(vrTargetBracket)vrTargetBracket.visible=false;
+      vrTargetBracketKey=null;
+    }
     running=false;cancelAnimationFrame(raf);fxObserver.disconnect();
     lastDraw=0;lastVisualTime=0;
   }
