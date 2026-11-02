@@ -1693,15 +1693,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           frozen?.85:.73+.12*(.5+.5*Math.sin(time*.006));
       }
     }
-    // VR01EP: the last public sync has already rejected missing or
-    // different identities. Do not traverse native HTML in the render
-    // loop just to clean up visual-only hit events.
+    // VR01EP: only expire deferred events by age in the render loop.
+    // The cardIndex can be stale for up to one public sync after the
+    // native HP repaint, so identity checks belong in sync() only.
+    // This avoids discarding a legitimate new public card before it
+    // gets its replacement Three.js mesh, without querying the DOM.
     for(const [key,hit] of vrPendingPublicHits){
-      const item=cardIndex.get(key);
-      const same=!!item&&(hit.id?item.publicId===hit.id:
-        item.publicName===hit.name);
-      if(!same||time-hit.reaction.born>4000)
-        vrPendingPublicHits.delete(key);
+      if(time-hit.reaction.born>4000)vrPendingPublicHits.delete(key);
     }
     for(const [key,fx] of vrHitFaceFlash){
       // VR01EN: do not expire a confirmed visual hit before slow software
