@@ -1719,6 +1719,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // it; a replaced card ID/name or revoked attack class retires it.
     if(vrMode&&vrTargetLock&&(
       vrTargetLock.sourceKey!==selectedKey||
+      // VR01GG: a new occupant in the SAME native source slot must
+      // not inherit the prior selected card's old target glints. The
+      // initial source is recorded using only public Phase21 identity.
+      (vrTargetLock.sourceName&&!list.some(p=>
+        p.key===vrTargetLock.sourceKey&&p.selected&&p.name&&
+        (vrTargetLock.sourceId?
+          p.cardId===vrTargetLock.sourceId:
+          !p.cardId&&p.name===vrTargetLock.sourceName)))||
       !list.some(p=>
       p.key===vrTargetLock.key&&p.attackTarget&&p.name&&
       (vrTargetLock.id?
@@ -1863,8 +1871,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const id=publicCard?.getAttribute('data-mrr-public-card-id')||null;
       const name=publicCard?.querySelector('.card-name')?.textContent?.trim()||'';
       if(name){
+        const sourceCard=document.querySelector('#arena [data-slot="'+selectedKey+
+          '"] .board-card .card-ui');
+        const sourceId=sourceCard?.getAttribute('data-mrr-public-card-id')||null;
+        const sourceName=sourceCard?.querySelector('.card-name')?.textContent?.trim()||'';
         vrTargetLock={key,id,name,sourceKey:selectedKey,
-          at:performance.now()};
+          sourceId,sourceName,at:performance.now()};
         vrTargetLocks++;
       }
     }

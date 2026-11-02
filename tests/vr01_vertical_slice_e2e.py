@@ -3903,6 +3903,46 @@ try:
     }""",arg={'key':opponent,'count':lock_count},timeout=15000)
     assert snap()==baseline,'Hovering native aim cue changed game state'
     page.screenshot(path=str(ROOT/'tests/vr01_attack_lockon_1920x1080.png'),animations='disabled')
+    # VR01GG: a genuine native card replacement in the selected source
+    # slot must revoke the previous aim even if the selected slot key
+    # and opponent target class remain identical.
+    changed_source=page.evaluate("""() => {
+      const scene=MRRIntegrated.scene;
+      const node=document.querySelector('#arena .slot.selected-slot .board-card .card-ui');
+      if(!node)return {available:false};
+      const original=node.getAttribute('data-mrr-public-card-id');
+      const name=node.querySelector('.card-name');
+      const originalName=name?.textContent;
+      const before=scene.state.vrTargetLocks;
+      let revoked=false,visualsGone=false;
+      try{
+        if(original)node.setAttribute('data-mrr-public-card-id',
+          'vr01gg-replacement-selected-card');
+        else name.textContent=originalName+' replacement';
+        scene.sync();
+        const state=scene.state;
+        revoked=state.vrTargetLockKey===null;
+        visualsGone=state.vrTargetSparkCount===0&&
+          state.vrTargetBracketCount===0;
+      }finally{
+        if(original)node.setAttribute('data-mrr-public-card-id',original);
+        else name.textContent=originalName;
+        scene.sync();
+      }
+      const after=scene.state;
+      return {available:true,revoked,visualsGone,
+        notReacquired:after.vrTargetLockKey===null,
+        countStable:after.vrTargetLocks===before};
+    }""")
+    assert (not changed_source['available'] or all(changed_source.values())),changed_source
+    assert snap()==baseline,'VR01GG selected occupant changed Phase21'
+    # Reacquire the original native target using real mouse movement,
+    # preserving the independent VR01GB source-key scenario below.
+    page.mouse.move(3,550)
+    page.mouse.move(target['x'],target['y'])
+    page.wait_for_function("""key=>
+      MRRIntegrated.state.scene.vrTargetLockKey===key
+    """,arg=opponent,timeout=15000)
     # VR01GB: when the genuine native selected source changes, even if
     # the opponent slot remains marked attack-target, the old preview
     # lock must not be reused as though its origin were unchanged.
