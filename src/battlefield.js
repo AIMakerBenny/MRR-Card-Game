@@ -863,6 +863,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01EV: a native CSS FX is one transition onto a real slot, NOT an
   // arbitrary class change while that slot still has the same fx-* class.
   let vrFxClassNoiseIgnored=0,vrFxRisingEdges=0,vrFxBatchedTransitions=0;
+  let vrFxRapidNativeEdges=0;
   const recentFx=new Map();
   const effectColors={hit:0xffa96e,heal:0x7affbd,summon:0x69d8ef};
   const fxObserver=new MutationObserver(records=>{
@@ -898,9 +899,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           vrFxRisingEdges++;
           if(!node.classList.contains(fxClass))vrFxBatchedTransitions++;
         }
-        // Even multiple DOM writes in a single native frame are one effect.
         const stamp=key+'|'+type,now=performance.now();
-        if(now-(recentFx.get(stamp)||-9999)<95)continue;
+        const previousAt=recentFx.get(stamp);
+        // VR01EZ: the ordered oldValue/afterValue proof is already
+        // a real native FX rising edge. A second real pulse inside 95ms
+        // must NOT vanish just because an earlier visual happened recently.
+        // Preserve the older Phase55 timer gate outside the VR01 PC view.
+        if(vrMode){
+          if(previousAt!==undefined&&now-previousAt<95)
+            vrFxRapidNativeEdges++;
+        }else if(previousAt!==undefined&&now-previousAt<95)continue;
         recentFx.set(stamp,now);
         triggerNativeFx(type,key,now);
       }
@@ -2089,6 +2097,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrFxClassNoiseIgnored:vrMode?vrFxClassNoiseIgnored:null,
       vrFxRisingEdges:vrMode?vrFxRisingEdges:null,
       vrFxBatchedTransitions:vrMode?vrFxBatchedTransitions:null,
+      vrFxRapidNativeEdges:vrMode?vrFxRapidNativeEdges:null,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       vrConfirmedProjectileStarted:vrMode?vrConfirmedProjectileStarted:null,
       vrConfirmedProjectileActive:vrMode?liveEffects.filter(f=>f.projectile?.mesh.visible).length:null,
