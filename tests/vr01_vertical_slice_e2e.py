@@ -3571,6 +3571,18 @@ try:
       return s.frames>n&&s.vrRenderResumes>=1&&s.vrResumeFirstDelta===32;
     }""",arg=before_resume,timeout=16000)
     assert snap()==baseline,'VR01ET render resume changed Phase21 state'
+    # VR01FJ: stop intentionally withdraws stale hover/lock. After
+    # resume a NEW real mouse motion must acquire the native target;
+    # the pre-pause visual state is not allowed to resurrect itself.
+    page.mouse.move(3,550)
+    page.mouse.move(target['x'],target['y'])
+    page.wait_for_function("""key => {
+      const s=MRRIntegrated.state.scene;
+      return s.hoveredKey===key&&s.vrTargetLockKey===key;
+    }""",arg=opponent,timeout=14000)
+    lock_count=page.evaluate('MRRIntegrated.state.scene.vrTargetLocks')
+    assert lock_count>=2,lock_count
+    assert snap()==baseline,'VR01FJ real mouse reacquisition mutated Phase21'
     # VR01EF: real public status chips drive the existing Three.js
     # readiness or ward indicator, not hidden hand or AI state.
     page.wait_for_function("""() => {
@@ -3637,11 +3649,11 @@ try:
     # VR01N: only a genuinely native target hover creates one bounded,
     # temporary lock-on accent; moving off clears it without touching
     # damage or inventing legal actions.
-    page.wait_for_function("""key=>{
+    page.wait_for_function("""v=>{
       const s=MRRIntegrated.state.scene;
-      return s.vrTargetLockKey===key&&s.vrTargetLocks===1&&
+      return s.vrTargetLockKey===v.key&&s.vrTargetLocks===v.count&&
         s.vrTargetLockScale>1.07&&s.vrTargetLockScale<1.5;
-    }""",arg=opponent,timeout=14000)
+    }""",arg={'key':opponent,'count':lock_count},timeout=14000)
     # VR01EI / VR01EL: native-confirmed 3D target bracket, reusing
     # the public arc state instead of querying the DOM per render frame.
     page.wait_for_function("""key => {
@@ -3654,7 +3666,7 @@ try:
     page.mouse.move(3,550)
     page.wait_for_function("""()=>MRRIntegrated.state.scene.vrTargetLockKey===null&&
       !document.querySelector('#vr-aim-line').getAttribute('d')""",timeout=12000)
-    assert page.evaluate('MRRIntegrated.state.scene.vrTargetLocks')==1
+    assert page.evaluate('MRRIntegrated.state.scene.vrTargetLocks')==lock_count
     page.wait_for_function("""() => {
       const s=MRRIntegrated.state.scene;
       return s.vrTargetBracketKey===null&&s.vrTargetBracketCount===0;
@@ -3665,11 +3677,11 @@ try:
       timeout=14000)
     assert snap()==baseline,'Changing the cursor changed Phase21 gameplay'
     page.mouse.move(target['x'],target['y'])
-    page.wait_for_function("""key=>{
+    page.wait_for_function("""v=>{
       const s=MRRIntegrated.state.scene;
-      return s.vrTargetLockKey===key&&s.vrTargetLocks===2&&
-        document.querySelector('#vr-aim-line')?.dataset.target===key;
-    }""",arg=opponent,timeout=15000)
+      return s.vrTargetLockKey===v.key&&s.vrTargetLocks===v.count+1&&
+        document.querySelector('#vr-aim-line')?.dataset.target===v.key;
+    }""",arg={'key':opponent,'count':lock_count},timeout=15000)
     assert snap()==baseline,'Hovering native aim cue changed game state'
     page.screenshot(path=str(ROOT/'tests/vr01_attack_lockon_1920x1080.png'),animations='disabled')
     # Capture VR01S feedback at the actual native FX DOM insertion, not
