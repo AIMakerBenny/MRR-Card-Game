@@ -3395,6 +3395,22 @@ try:
     page.screenshot(path=str(ROOT/'tests/vr01_attack_target_1920x1080.png'),animations='disabled')
     target=page.evaluate('(key)=>MRRIntegrated.scene.projectCard(key)',opponent)
     assert target and 0<target['x']<1920 and 0<target['y']<1080
+    # VR01EU: repeated public-only card and face projections must be
+    # deterministic within one camera frame and not change Phase21 state.
+    projection=page.evaluate("""key => {
+      const stage=MRRIntegrated.scene;
+      const before=stage.state.vrProjectionSamples;
+      const a=stage.projectCardBounds(key);
+      const b=stage.projectCardBounds(key);
+      const center=stage.projectCard(key);
+      const slot=stage.projectSlot(key);
+      return {same:a&&b&&JSON.stringify(a)===JSON.stringify(b),
+        valid:a&&a.right>a.left&&a.bottom>a.top,
+        finite:center&&slot&&[center.x,center.y,slot.x,slot.y].every(Number.isFinite),
+        samples:stage.state.vrProjectionSamples-before};
+    }""",opponent)
+    assert projection['same'] and projection['valid'] and projection['finite'] and projection['samples']==10,projection
+    assert snap()==baseline,'VR01EU projection cache changed native game state'
     page.mouse.move(target['x'],target['y'])
     page.wait_for_function("""key=>MRRIntegrated.state.scene.hoveredKey===key &&
       document.querySelector('#vr-aim-line')?.dataset.target===key &&
