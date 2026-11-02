@@ -3584,6 +3584,13 @@ try:
         return !!bar&&Math.abs(bar.display-bar.target)<.012;
       }""",arg=opponent,timeout=16000)
       assert snap()==after,'VR01EE visual health transition changed Phase21 HP'
+      # VR01EH: a surviving card with reduced public HP should produce
+      # a short, non-pickable trailing damage segment behind its real bar.
+      page.wait_for_function("""() => {
+        const s=MRRIntegrated.state.scene;
+        return s.vrDamageTrailsStarted>=1&&s.vrDamageTrailPickSafe===true;
+      }""",timeout=14000)
+      assert snap()==after,'VR01EH damage trail changed native HP'
     # VR01O: only the original native targeting state can retain a
     # lock-on after resolution; there must never be an orphaned VR target.
     page.wait_for_function("""() => {
