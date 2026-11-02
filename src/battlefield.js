@@ -810,7 +810,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let vrConfirmedProjectileStarted=0;
   let vrHitReactions=0,vrLandingDustStarted=0;
   let vrHealthBarTransitions=0;
-  let vrImpactSpringPeak=0;
+  let vrImpactSpringPeak=0,vrHitRecoilRenderFrames=0;
   // VR01DX: confirmed native hit FX may illuminate a CURRENT public face.
   // A short-lived keyed event survives HP-text texture reconstruction, but
   // an unrelated replacement with a different public card ID cannot glow.
@@ -1949,14 +1949,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           c.group.position.y=1.76+c.visualLift+(frozen?0:Math.sin(time*.0015+i*.67)*.025);
           if(vrMode){
             const impact=c.hitReaction;
-            // As with the hit face, software WebGL must be able to show
-            // several actual frames before this native-confirmed reaction ends.
+            // VR01EX: slow software WebGL can spend multiple seconds on
+            // uploads after the actual native hit. Start the recoil's clock
+            // on its first rendered card frame, not the original DOM event.
+            // Keep the 6-frame floor and a 20-second orphan upper bound.
+            if(impact&&impact.firstShownAt===undefined)
+              impact.firstShownAt=time;
             const age=impact?Math.min(
-              Math.max(0,(time-impact.born)/720),
+              Math.max(0,(time-impact.firstShownAt)/900),
               Math.min(1,(impact.shownFrames||0)/6)):1;
             if(impact){
               impact.shownFrames=(impact.shownFrames||0)+1;
-              if(age>=1||time-impact.born>4000)c.hitReaction=null;
+              vrHitRecoilRenderFrames++;
+              if(age>=1||time-impact.born>20000)c.hitReaction=null;
             }
             const recoil=impact&&age<1?Math.sin(Math.PI*Math.max(0,age))*(1-Math.max(0,age)*.35):0;
             c.group.position.x=c.slot.x+(impact?.dx||0)*recoil*.34;
@@ -2120,6 +2125,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         .map(c=>[c.key,{display:Number((c.visualHealth??0).toFixed(3)),
           target:Number((c.healthTarget??0).toFixed(3))}])):null,
       vrImpactSpringPeak:vrMode?Number(vrImpactSpringPeak.toFixed(3)):null,
+      vrHitRecoilRenderFrames:vrMode?vrHitRecoilRenderFrames:null,
       vrHitFaceFlashCount:vrMode?vrHitFaceFlashCount:null,
       vrHitFaceFlashPeak:vrMode?Number(vrHitFaceFlashPeak.toFixed(4)):null,
       vrHitFaceFlashActive:vrMode?vrHitFaceFlash.size:null,
