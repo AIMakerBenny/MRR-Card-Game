@@ -3645,10 +3645,16 @@ try:
             hitReactions:s.vrHitReactions,flashCount:s.vrHitFaceFlashCount,
             flashPeak:s.vrHitFaceFlashPeak,active:s.vrHitFaceFlashActive,
             rendered:s.vrHitFaceRendered,springPeak:s.vrImpactSpringPeak,
+            recoilFrames:s.vrHitRecoilRenderFrames,
             confirmed:s.confirmedStrikes};
         }"""),flush=True)
         raise
     assert page.evaluate('MRRIntegrated.state.scene.vrHitReactions')>=0
+    # VR01EX: the genuine hit reaction must reach actual rendered frames
+    # rather than expiring at the event timestamp under software WebGL.
+    if page.locator(f'#arena [data-slot="{opponent}"] .board-card').count():
+      page.wait_for_function('MRRIntegrated.state.scene.vrHitRecoilRenderFrames>=2',
+        timeout=13000)
     # VR01EP: active visual-only hit flashes must never be associated
     # with a missing or replaced public card after native sync.
     assert page.evaluate('MRRIntegrated.state.scene.vrHitFacePublicSafe') is True
