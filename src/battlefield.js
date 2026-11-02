@@ -1570,6 +1570,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         vrHitFaceFlashPeak=Math.max(vrHitFaceFlashPeak,intensity);
       }
       const hover=c.key===hoveredKey;
+      // VR01ED: a per-card Three.js material, already unique for its public
+      // texture, catches more of the existing scene lighting on inspection.
+      // No duplicate artwork, hidden information, geometry or input layer.
+      if(vrMode){
+        const targetRoughness=hover?.29:c.key===selectedKey?.37:.48;
+        const targetMetalness=hover?.18:c.key===selectedKey?.11:.05;
+        const alpha=frozen?1:1-Math.exp(-visualDelta/145);
+        c.face.material.roughness+=(targetRoughness-c.face.material.roughness)*alpha;
+        c.face.material.metalness+=(targetMetalness-c.face.material.metalness)*alpha;
+      }
       // VR01DW: the existing real Three.js card subtly turns toward an
       // inspector. Only public native hover / selection keys can drive this
       // easing. No mesh is recreated and original raycast faces still pick.
@@ -1730,6 +1740,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           vrFocusLamp.position.x-cardIndex.get(vrFocusedCardKey).slot.x,
           vrFocusLamp.position.z-(cardIndex.get(vrFocusedCardKey).slot.z+1.05)
         ).toFixed(3)):null,
+      vrHoveredCardSurface:vrMode&&cardIndex.has(hoveredKey)?{
+        roughness:Number(cardIndex.get(hoveredKey).face.material.roughness.toFixed(3)),
+        metalness:Number(cardIndex.get(hoveredKey).face.material.metalness.toFixed(3))
+      }:null,
       vrHoveredCardYaw:vrMode&&cardIndex.has(hoveredKey)?
         Number(cardIndex.get(hoveredKey).group.rotation.y.toFixed(4)):null,
       vrSelectedCardYaw:vrMode&&cardIndex.has(selectedKey)?
