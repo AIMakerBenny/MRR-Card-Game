@@ -4151,6 +4151,37 @@ try:
       }"""),flush=True)
       raise
     assert snap()==after,'VR01EA confirmed projectile changed Phase21 HP'
+    # VR01GZ: test the safety gate WITHOUT manufacturing a native
+    # fx-hit. A vacant origin is not a real selected public card and
+    # must never reserve a speculative 3D projectile or change Phase21.
+    missing_origin=page.evaluate("""key=>{
+      const scene=MRRIntegrated.scene,before=scene.state;
+      const empty=[...document.querySelectorAll('#arena [data-slot]')]
+        .find(e=>!e.querySelector('.board-card .card-ui')&&
+          e.getAttribute('data-slot')!==key);
+      if(!empty)return {error:'no native empty slot'};
+      const accepted=scene.stageAttack(empty.getAttribute('data-slot'),key);
+      const latest=scene.state;
+      return {rejected:accepted===false,
+        counted:latest.vrStrikeMissingPublicRejects===
+          before.vrStrikeMissingPublicRejects+1,
+        notStaged:latest.vrStagedAttacks===before.vrStagedAttacks,
+        noPending:latest.vrPendingStrike===null,
+        noNewConfirmed:latest.confirmedStrikes===before.confirmedStrikes};
+    }""",opponent)
+    assert 'error' not in missing_origin and all(missing_origin.values()),missing_origin
+    assert snap()==after,'VR01GZ vacant native origin changed Phase21'
+    strike_trace=page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return {confirmed:s.confirmedStrikes,projectiles:s.vrConfirmedProjectileStarted,
+        staged:s.vrStagedAttacks,unpaired:s.vrUnpairedNativeHits,
+        sourceRejects:s.vrStaleStrikeSourceRejects,
+        targetRejects:s.vrStaleStrikeTargetRejects,
+        missingRejects:s.vrStrikeMissingPublicRejects,
+        nativeFx:s.fxReceived.hit,publicAudit:s.vrNativeFxAudit.slice(-3)};
+    }""")
+    print('VR01GZ confirmed native strike and public-origin safety',
+      strike_trace,flush=True)
     outcome=page.evaluate("""key=>{
       const vr=MRRVR.status,scene=MRRIntegrated.state.scene;
       return {events:vr.outcomeHistory.filter(e=>e.key===key&&e.type==='hit'),
