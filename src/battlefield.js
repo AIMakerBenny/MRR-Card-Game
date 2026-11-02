@@ -390,8 +390,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const borderline=new THREE.Mesh(geometry(new THREE.BoxGeometry(20.5,.014,.07)),brassInlay);
     borderline.position.set(0,.155,0);scene.add(borderline);
   }
+  // VR01DU: a single reusable 3D native attack trajectory. The 17 samples
+  // only exist in VR01; Phase55 keeps its original 2-point straight arrow.
+  // This line never enters pickMeshes and has no gameplay callback.
+  const attackArcSegments=vrMode?16:1;
   const attackArrowGeo=geometry(new THREE.BufferGeometry());
-  attackArrowGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));
+  attackArrowGeo.setAttribute('position',new THREE.BufferAttribute(
+    new Float32Array((attackArcSegments+1)*3),3));
   const attackArrowMat=new THREE.LineBasicMaterial({color:0xffc074,transparent:true,opacity:.95});
   madeMaterials.push(attackArrowMat);
   const attackArrow=new THREE.Line(attackArrowGeo,attackArrowMat);
@@ -1245,13 +1250,24 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     attackArrow.visible=attackTip.visible=arrowVisible;
     if(arrowVisible){
       const pos=attackArrowGeo.attributes.position;
-      pos.setXYZ(0,source.x,1.65,source.z);
-      pos.setXYZ(1,target.x,1.65,target.z);
+      for(let i=0;i<=attackArcSegments;i++){
+        const t=i/attackArcSegments;
+        const rise=vrMode?.98*Math.sin(Math.PI*t):0;
+        pos.setXYZ(i,source.x+(target.x-source.x)*t,
+          1.65+rise,source.z+(target.z-source.z)*t);
+      }
       pos.needsUpdate=true;
-      const direction=new THREE.Vector3(target.x-source.x,0,target.z-source.z);
+      // The original arrow tip still lands on the TRUE Phase21 target.
+      // Its tangent follows the 3D arc rather than faking an attack action.
+      const last=attackArcSegments-1;
+      const direction=new THREE.Vector3(
+        pos.getX(attackArcSegments)-pos.getX(last),
+        pos.getY(attackArcSegments)-pos.getY(last),
+        pos.getZ(attackArcSegments)-pos.getZ(last));
       attackTip.position.set(target.x,1.66,target.z);
       attackTip.rotation.set(0,0,0);
       attackTip.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());
+      attackArrowGeo.computeBoundingSphere();
     }
     events.onState?.({selectedKey,hoveredKey,legalCount,attackTargetCount,publicCardCount});
     if((cardChanged||statusChanged)&&hoveredKey)setHover(hoveredKey,true);
@@ -1366,6 +1382,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     if(!frozen)sealCore.rotation.y=time*.00035;
+    // VR01DU: gentle aiming feedback, not an animation of confirmed damage.
+    if(vrMode&&attackArrow.visible){
+      attackArrowMat.opacity=frozen?.95:.76+.18*(.5+.5*Math.sin(time*.007));
+      attackTip.scale.setScalar(frozen?1:1+.12*(.5+.5*Math.sin(time*.009)));
+    }
     // Phase72: decorative slot halos never enter raycast target meshes.
     if(tabletop)for(const [key,slot] of boardSlots){
       // Phases74-76: semantic targets share existing halos/materials;
@@ -1550,6 +1571,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrSelectionBursts:vrMode?vrSelectionBursts:null,
       vrTargetLocks:vrMode?vrTargetLocks:null,
       vrTargetLockKey:vrMode?vrTargetLock?.key||null:null,
+      vrAttackArcVisible:vrMode?attackArrow.visible:null,
+      vrAttackArcSamples:vrMode&&attackArrow.visible?attackArrowGeo.attributes.position.count:0,
+      vrAttackArcPeakY:vrMode&&attackArrow.visible?
+        Number(attackArrowGeo.attributes.position.getY(attackArcSegments/2).toFixed(3)):null,
       vrTargetLockScale:vrMode&&vrTargetLock?
         Number((boardSlots.get(vrTargetLock.key)?.halo?.scale.x||1).toFixed(4)):null,
       vrSelectionBurstKey:vrMode?vrSelectionBurst?.key||null:null,
