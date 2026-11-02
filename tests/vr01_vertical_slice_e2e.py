@@ -3473,6 +3473,45 @@ try:
     assert 'error' not in stale_ray and stale_ray['rejected'] and (
       stale_ray['hovered'] is None),stale_ray
     assert snap()==baseline,'VR01GC stale raycast changed Phase21'
+    # VR01GD: a native card swapped between pointerdown and pointerup
+    # must not receive the original card's delegated release click.
+    stale_gesture=page.evaluate("""key => {
+      const stage=document.querySelector('#mrr-integrated-stage');
+      const canvas=stage?.querySelector('canvas');
+      const scene=MRRIntegrated.scene;
+      const card=document.querySelector('#arena [data-slot="'+key+
+        '"] .board-card .card-ui');
+      if(!stage||!canvas||!card)return {error:'missing public card'};
+      const point=scene.projectCard(key);
+      const original=card.getAttribute('data-mrr-public-card-id');
+      const name=card.querySelector('.card-name');
+      const originalName=name?.textContent;
+      const before=scene.state.vrGestureIdentityRejects;
+      const capture=stage.setPointerCapture;
+      stage.setPointerCapture=()=>{};
+      try{
+        canvas.dispatchEvent(new PointerEvent('pointerdown',{
+          bubbles:true,button:0,pointerId:992,
+          clientX:point.x,clientY:point.y}));
+        if(original)card.setAttribute('data-mrr-public-card-id',
+          'vr01gd-other-public-occupant');
+        else name.textContent=originalName+' other';
+        canvas.dispatchEvent(new PointerEvent('pointerup',{
+          bubbles:true,button:0,pointerId:992,
+          clientX:point.x,clientY:point.y}));
+      }finally{
+        stage.setPointerCapture=capture;
+        if(original)card.setAttribute('data-mrr-public-card-id',original);
+        else name.textContent=originalName;
+        scene.sync();
+      }
+      const after=scene.state;
+      return {rejected:after.vrGestureIdentityRejects>before,
+        dragCleared:!after.vrPointerDragging};
+    }""",opponent)
+    assert 'error' not in stale_gesture and stale_gesture['rejected'] and (
+      stale_gesture['dragCleared']),stale_gesture
+    assert snap()==baseline,'VR01GD stale pointer release changed Phase21'
     # VR01FL: an attribute update on a slot removed within the same
     # MutationObserver batch is not a visible Phase21 combat event.
     detached_fx=page.evaluate("""() => {

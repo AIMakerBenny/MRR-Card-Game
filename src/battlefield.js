@@ -1885,6 +1885,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let manualCamera=false;
   let drag=false,moved=false,lastX=0,lastY=0,startX=0,startY=0;
   let vrActivePointerId=null,vrInterruptedPointerGestures=0;
+  let vrPointerStartCard=null,vrGestureIdentityRejects=0;
   let vrForeignPointerEventsIgnored=0,vrPausedInputEventsIgnored=0;
   let vrLostPointerCaptures=0;
   function updateCamera(){
@@ -1904,6 +1905,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // VR01FF: a secondary pointer cannot steal an active PC gesture.
     if(vrMode&&drag){vrForeignPointerEventsIgnored++;return;}
     drag=true;moved=false;vrActivePointerId=e.pointerId;
+    // VR01GD: record only the public native card the user actually
+    // pressed. If that slot changes occupant before release, a delayed
+    // mouseup cannot act on the replacement through the visual bridge.
+    vrPointerStartCard=null;
+    if(vrMode){
+      const key=publicHit(e);
+      if(key){
+        const node=document.querySelector('#arena [data-slot="'+key+
+          '"] .board-card .card-ui');
+        const name=node?.querySelector('.card-name')?.textContent?.trim()||'';
+        if(name)vrPointerStartCard={key,
+          id:node.getAttribute('data-mrr-public-card-id')||null,name};
+      }
+    }
     startX=lastX=e.clientX;startY=lastY=e.clientY;
     mount.setPointerCapture?.(e.pointerId);
   }
@@ -1934,8 +1949,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     drag=false;vrActivePointerId=null;
     const picked=publicHit(e);
-    if(!moved&&picked){events.onPick?.(picked);sync();}
-    setHover(picked);
+    const origin=vrPointerStartCard;
+    vrPointerStartCard=null;
+    let staleGesture=false;
+    if(vrMode&&origin){
+      const card=document.querySelector('#arena [data-slot="'+origin.key+
+        '"] .board-card .card-ui');
+      const id=card?.getAttribute('data-mrr-public-card-id')||null;
+      const name=card?.querySelector('.card-name')?.textContent?.trim()||'';
+      staleGesture=origin.key!==picked||!name||
+        (origin.id?origin.id!==id:!!id||origin.name!==name);
+      if(staleGesture)vrGestureIdentityRejects++;
+    }
+    if(!staleGesture&&!moved&&picked){events.onPick?.(picked);sync();}
+    setHover(staleGesture?null:picked);
   }
   function leave(){if(!drag)setHover(null);}
   // Cancellation is never a card click, even if the pointer has not moved.
@@ -1943,7 +1970,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(vrMode&&drag&&e?.pointerId!==vrActivePointerId){
       vrForeignPointerEventsIgnored++;return;
     }
-    drag=false;moved=false;vrActivePointerId=null;setHover(null);
+    drag=false;moved=false;vrActivePointerId=null;
+    vrPointerStartCard=null;setHover(null);
   }
   function lostPointerCapture(e){
     // VR01FI: focus loss, OS gestures, or another surface stealing the
@@ -2430,7 +2458,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         mount.releasePointerCapture?.(vrActivePointerId);
       if(vrMode)vrInterruptedPointerGestures++;
     }
-    vrActivePointerId=null;
+    vrActivePointerId=null;vrPointerStartCard=null;
     // VR01FJ: a hidden or stopped canvas cannot keep an old visual
     // hover/aim lock. This only withdraws presentation; Phase21 controls,
     // selection and actual legal target classes remain untouched.
@@ -2514,6 +2542,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrStaleRaycastRejects:vrMode?vrStaleRaycastRejects:null,
       vrResumeFirstDelta:vrMode?vrResumeFirstDelta:null,
       vrPointerDragging:vrMode?drag:null,
+      vrGestureIdentityRejects:vrMode?vrGestureIdentityRejects:null,
       vrInterruptedPointerGestures:vrMode?vrInterruptedPointerGestures:null,
       vrForeignPointerEventsIgnored:vrMode?vrForeignPointerEventsIgnored:null,
       vrLostPointerCaptures:vrMode?vrLostPointerCaptures:null,
