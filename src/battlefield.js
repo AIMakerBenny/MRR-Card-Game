@@ -1888,6 +1888,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let drag=false,moved=false,lastX=0,lastY=0,startX=0,startY=0;
   let vrActivePointerId=null,vrInterruptedPointerGestures=0;
   let vrPointerStartCard=null,vrGestureIdentityRejects=0;
+  let vrPointerStartLegalSlot=null,vrVanishedLegalGestureRejects=0;
   let vrForeignPointerEventsIgnored=0,vrPausedInputEventsIgnored=0;
   let vrLostPointerCaptures=0;
   function updateCamera(){
@@ -1910,15 +1911,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // VR01GD: record only the public native card the user actually
     // pressed. If that slot changes occupant before release, a delayed
     // mouseup cannot act on the replacement through the visual bridge.
-    vrPointerStartCard=null;
+    vrPointerStartCard=null;vrPointerStartLegalSlot=null;
     if(vrMode){
       const key=publicHit(e);
       if(key){
-        const node=document.querySelector('#arena [data-slot="'+key+
-          '"] .board-card .card-ui');
+        const slot=document.querySelector('#arena [data-slot="'+key+'"]');
+        const node=slot?.querySelector('.board-card .card-ui');
         const name=node?.querySelector('.card-name')?.textContent?.trim()||'';
         if(name)vrPointerStartCard={key,
           id:node.getAttribute('data-mrr-public-card-id')||null,name};
+        // VR01GF: a pointer gesture begun on a currently legal empty
+        // native slot must not complete after the original game revokes
+        // that destination or occupies it with another card.
+        else if(slot?.classList.contains('legal'))
+          vrPointerStartLegalSlot=key;
       }
     }
     startX=lastX=e.clientX;startY=lastY=e.clientY;
@@ -1952,8 +1958,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     drag=false;vrActivePointerId=null;
     const picked=publicHit(e);
     const origin=vrPointerStartCard;
-    vrPointerStartCard=null;
+    const legalOrigin=vrPointerStartLegalSlot;
+    vrPointerStartCard=null;vrPointerStartLegalSlot=null;
     let staleGesture=false;
+    if(vrMode&&legalOrigin&&picked){
+      const slot=document.querySelector('#arena [data-slot="'+legalOrigin+'"]');
+      if(picked!==legalOrigin||!slot?.classList.contains('legal')||
+        slot.querySelector('.board-card .card-ui')){
+        vrVanishedLegalGestureRejects++;staleGesture=true;
+      }
+    }
     if(vrMode&&origin){
       const card=document.querySelector('#arena [data-slot="'+origin.key+
         '"] .board-card .card-ui');
@@ -1973,7 +1987,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrForeignPointerEventsIgnored++;return;
     }
     drag=false;moved=false;vrActivePointerId=null;
-    vrPointerStartCard=null;setHover(null);
+    vrPointerStartCard=null;vrPointerStartLegalSlot=null;setHover(null);
   }
   function lostPointerCapture(e){
     // VR01FI: focus loss, OS gestures, or another surface stealing the
@@ -2461,6 +2475,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(vrMode)vrInterruptedPointerGestures++;
     }
     vrActivePointerId=null;vrPointerStartCard=null;
+    vrPointerStartLegalSlot=null;
     // VR01FJ: a hidden or stopped canvas cannot keep an old visual
     // hover/aim lock. This only withdraws presentation; Phase21 controls,
     // selection and actual legal target classes remain untouched.
@@ -2545,6 +2560,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrResumeFirstDelta:vrMode?vrResumeFirstDelta:null,
       vrPointerDragging:vrMode?drag:null,
       vrGestureIdentityRejects:vrMode?vrGestureIdentityRejects:null,
+      vrVanishedLegalGestureRejects:vrMode?vrVanishedLegalGestureRejects:null,
       vrInterruptedPointerGestures:vrMode?vrInterruptedPointerGestures:null,
       vrForeignPointerEventsIgnored:vrMode?vrForeignPointerEventsIgnored:null,
       vrLostPointerCaptures:vrMode?vrLostPointerCaptures:null,

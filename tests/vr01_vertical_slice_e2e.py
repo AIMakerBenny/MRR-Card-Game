@@ -5051,6 +5051,39 @@ try:
     target_projection=page.evaluate('k=>MRRIntegrated.scene.projectSlot(k)',target)
     assert target_projection and 0<target_projection['x']<1920 and (
       0<target_projection['y']<1080),target_projection
+    # VR01GF: the exact native empty legal destination must be revoked
+    # immediately if its .legal class disappears mid-pointer gesture.
+    # Restore the original DOM class before Phase21 gets a real click.
+    revoked_legal=page.evaluate("""point => {
+      const stage=document.querySelector('#mrr-integrated-stage');
+      const canvas=stage?.querySelector('canvas');
+      const scene=MRRIntegrated.scene;
+      const source=document.querySelector('#arena .slot.legal');
+      if(!stage||!canvas||!source)return {error:'no legal slot'};
+      const key=source.dataset.slot;
+      const pos=scene.projectSlot(key);
+      const capture=stage.setPointerCapture;
+      const before=scene.state.vrVanishedLegalGestureRejects;
+      stage.setPointerCapture=()=>{};
+      try{
+        canvas.dispatchEvent(new PointerEvent('pointerdown',{
+          bubbles:true,button:0,pointerId:993,
+          clientX:pos.x,clientY:pos.y}));
+        source.classList.remove('legal');
+        canvas.dispatchEvent(new PointerEvent('pointerup',{
+          bubbles:true,button:0,pointerId:993,
+          clientX:pos.x,clientY:pos.y}));
+      }finally{
+        source.classList.add('legal');
+        stage.setPointerCapture=capture;
+        scene.sync();
+      }
+      return {rejected:scene.state.vrVanishedLegalGestureRejects>before,
+        clear:!scene.state.vrPointerDragging};
+    }""",target_projection)
+    assert 'error' not in revoked_legal and revoked_legal['rejected'] and (
+      revoked_legal['clear']),revoked_legal
+    assert snap()==prior_move,'VR01GF revoked legal gesture changed Phase21'
     page.mouse.click(target_projection['x'],target_projection['y'])
     page.wait_for_function("""pairs=>{
       const source=document.querySelector('#arena [data-slot="'+pairs[0]+'"]');
