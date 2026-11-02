@@ -1231,6 +1231,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   let cards=[],signature='',publicCardCount=0,lastSync=0;
   let vrPendingDeploy=null,vrDeployTransitions=0,vrReusedCards=0;
+  let vrPresentationCarryTransfers=0;
   let vrNeighborPairChecks=0,vrNeighborCacheRebuilds=0;
   let vrNeighborOccupancyKey='',vrNeighborCache=new Map();
   // A hand click only arms a presentation. Neither it nor this animation
@@ -1366,6 +1367,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // Preserve unchanged public 3D cards. Previously any new card replaced
       // every mesh and texture, making a crowded board visibly flicker.
       const reuse=new Map(),hitReactionCarry=new Map(),healthBarCarry=new Map();
+      const presentationCarry=new Map();
       const occupiedNext=new Set(list.filter(p=>!!p.name).map(p=>p.key));
       // Public HP/stat text can change after fx-hit and force a fresh
       // texture. Preserve the old card's visual-only physical reaction
@@ -1376,6 +1378,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         if(Number.isFinite(c.visualHealth))healthBarCarry.set(c.key,{
           id:c.publicId,name:c.publicName,value:c.visualHealth,
           trail:c.damageTrail,trailAt:c.damageTrailAt});
+        // VR01FR: a public stat or HP text refresh can rebuild the 3D
+        // face without replacing its actual native occupant. Preserve
+        // only visual interpolation data for the same public identity.
+        presentationCarry.set(c.key,{
+          id:c.publicId,name:c.publicName,
+          scale:c.visualScale,lift:c.visualLift,yaw:c.visualYaw,
+          pitch:c.visualPitch,contact:c.contactAmount,edge:c.edgeAmount,
+          corners:c.seatCornerAmount,
+          roughness:c.face.material.roughness,
+          metalness:c.face.material.metalness
+        });
       }
       if(vrMode)for(const p of list){
         const old=cardIndex.get(p.key);
@@ -1505,6 +1518,26 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           item.visualHealth=hpCarry.value;
           item.damageTrail=hpCarry.trail;
           item.damageTrailAt=hpCarry.trailAt;
+        }
+        const visual=vrMode?presentationCarry.get(p.key):null;
+        // Never transfer a preceding occupant's hover or selection FX
+        // onto a different public card in the same Phase21 native slot.
+        const samePublicIdentity=visual&&
+          (visual.id||p.cardId?
+            !!visual.id&&visual.id===p.cardId:
+            visual.name===p.name);
+        if(samePublicIdentity){
+          for(const [field,value] of [
+            ['visualScale',visual.scale],['visualLift',visual.lift],
+            ['visualYaw',visual.yaw],['visualPitch',visual.pitch],
+            ['contactAmount',visual.contact],['edgeAmount',visual.edge],
+            ['seatCornerAmount',visual.corners]
+          ])if(Number.isFinite(value))item[field]=value;
+          if(Number.isFinite(visual.roughness))
+            item.face.material.roughness=visual.roughness;
+          if(Number.isFinite(visual.metalness))
+            item.face.material.metalness=visual.metalness;
+          vrPresentationCarryTransfers++;
         }
         // Only newly confirmed, friendly, matching real cards can launch
         // from the last player hand click. Old cards never animate again.
@@ -2363,6 +2396,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrInspectionContactPickSafe:vrMode?
         cards.every(c=>!c.contactRing||!pickMeshes.includes(c.contactRing)):null,
       vrReusedCards:vrMode?vrReusedCards:null,vrDeployTransitions:vrMode?vrDeployTransitions:null,
+      vrPresentationCarryTransfers:vrMode?vrPresentationCarryTransfers:null,
       vrDeployActive:vrMode?cards.filter(c=>!!c.deploy).length:null,
       vrLiveCardTextures:vrMode?madeTextures.length:null,
       vrDisposedTextureCount:vrMode?vrDisposedTextureCount:null,

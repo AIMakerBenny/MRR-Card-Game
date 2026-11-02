@@ -3662,6 +3662,39 @@ try:
         s.vrSelectedSeatCornersOpacity<.64;
     }""",timeout=14000)
     assert snap()==baseline,'VR01FQ selected corners changed Phase21'
+    # VR01FR: force a presentational stats repaint for the same PUBLIC
+    # DOM occupant, then restore it within one JS task. This tests visual
+    # interpolation carry only and never calls the Phase21 engine.
+    # Real card identity and native gameSnapshot must remain unchanged.
+    refresh=page.evaluate("""key => {
+      const stage=MRRIntegrated.scene;
+      const node=document.querySelector('#arena [data-slot="'+key+
+        '"] .board-card .card-ui');
+      const stat=node?.querySelector('.card-stats, .card-kind, .cost-bubble');
+      if(!stat)return {found:false};
+      const before=stage.state;
+      const original=stat.textContent;
+      let during=null;
+      try{
+        stat.textContent=original+' ·';
+        stage.sync();
+        during=stage.state;
+      }finally{
+        stat.textContent=original;
+        stage.sync();
+      }
+      const after=stage.state;
+      return {found:true,
+        transferred:during.vrPresentationCarryTransfers-
+          before.vrPresentationCarryTransfers,
+        restored:after.publicCardCount===before.publicCardCount,
+        hovered:after.hoveredKey===key,
+        glintsSafe:after.vrInspectionContactPickSafe&&
+          after.vrEdgeGlintPickSafe&&after.vrSeatCornersPickSafe};
+    }""",opponent)
+    assert refresh['found'] and refresh['transferred']>=1 and (
+      refresh['restored'] and refresh['hovered'] and refresh['glintsSafe']),refresh
+    assert snap()==baseline,'VR01FR public visual repaint changed Phase21'
     # VR01DU: a curved 17-point THREE.js trajectory must appear only
     # while the REAL Phase21 attack-target remains hovered.
     page.wait_for_function("""() => {
