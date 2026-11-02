@@ -857,28 +857,43 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let peakLiveFxCount=0;
   // VR01EV: a native CSS FX is one transition onto a real slot, NOT an
   // arbitrary class change while that slot still has the same fx-* class.
-  let vrFxClassNoiseIgnored=0;
+  let vrFxClassNoiseIgnored=0,vrFxRisingEdges=0,vrFxBatchedTransitions=0;
   const recentFx=new Map();
   const effectColors={hit:0xffa96e,heal:0x7affbd,summon:0x69d8ef};
   const fxObserver=new MutationObserver(records=>{
     if(disposed)return;
+    // VR01EW: MutationObserver fires after a BATCH of class changes. Use
+    // the next change's oldValue as this change's post-state, not the
+    // final classList, which may already have lost a short native FX.
+    const nextClass=new WeakMap(),afterClass=new Map();
+    for(let i=records.length-1;i>=0;i--){
+      const record=records[i];
+      if(record.type!=='attributes'||record.attributeName!=='class')continue;
+      const node=record.target;
+      afterClass.set(record,nextClass.has(node)?
+        nextClass.get(node):(node.getAttribute('class')||''));
+      nextClass.set(node,record.oldValue||'');
+    }
     for(const record of records){
       if(record.type!=='attributes'||record.attributeName!=='class')continue;
       const node=record.target;
       if(!(node instanceof Element)||!node.matches('#arena [data-slot]'))continue;
       const key=node.getAttribute('data-slot');
       if(!boardSlots.has(key))continue;
+      const before=(record.oldValue||'').split(/\s+/);
+      const after=(afterClass.get(record)||'').split(/\s+/);
       for(const type of ['hit','heal','summon']){
-        if(!node.classList.contains('fx-'+type))continue;
-        // The attributeOldValue snapshot proves that THIS mutation
-        // introduced the actual Phase21 fx-* class. Ignore cosmetic
-        // hover, legal, selection or status changes to the same slot.
-        const previous=(record.oldValue||'').split(/\s+/);
-        if(previous.includes('fx-'+type)){
-          if(vrMode)vrFxClassNoiseIgnored++;
+        const fxClass='fx-'+type;
+        if(before.includes(fxClass)){
+          if(vrMode&&after.includes(fxClass))vrFxClassNoiseIgnored++;
           continue;
         }
-        // Even multiple DOM writes in a single native frame are one visible effect.
+        if(!after.includes(fxClass))continue;
+        if(vrMode){
+          vrFxRisingEdges++;
+          if(!node.classList.contains(fxClass))vrFxBatchedTransitions++;
+        }
+        // Even multiple DOM writes in a single native frame are one effect.
         const stamp=key+'|'+type,now=performance.now();
         if(now-(recentFx.get(stamp)||-9999)<95)continue;
         recentFx.set(stamp,now);
@@ -2059,6 +2074,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,peakLiveFxCount,
       fxSources:'native-slot-classes',cinematicRevision:49,
       vrFxClassNoiseIgnored:vrMode?vrFxClassNoiseIgnored:null,
+      vrFxRisingEdges:vrMode?vrFxRisingEdges:null,
+      vrFxBatchedTransitions:vrMode?vrFxBatchedTransitions:null,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       vrConfirmedProjectileStarted:vrMode?vrConfirmedProjectileStarted:null,
       vrConfirmedProjectileActive:vrMode?liveEffects.filter(f=>f.projectile?.mesh.visible).length:null,
