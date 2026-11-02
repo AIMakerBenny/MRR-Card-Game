@@ -280,6 +280,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const healthHealthyMat=material({color:0x76f0c6,emissive:0x17bd8c,emissiveIntensity:.78});
   const healthWarnMat=material({color:0xf7c46b,emissive:0xdb8a24,emissiveIntensity:.9});
   const healthDangerMat=material({color:0xff7771,emissive:0xe54444,emissiveIntensity:1});
+  // VR01EH: a delayed warm damage segment behind the real public-health
+  // fill. Shared geometry/material, never a clickable object or HP source.
+  const vrDamageTrailMat=vrMode?material({color:0xf8a36f,
+    emissive:0xbd4c24,emissiveIntensity:.72,roughness:.5}):null;
+  let vrDamageTrailsStarted=0;
   const readyMat=material({color:0x96e9ff,emissive:0x1875c2,emissiveIntensity:.7});
   const actedMat=material({color:0x708090,emissive:0x1f2c32,emissiveIntensity:.25});
   const wardMat=material({color:0xffe39e,emissive:0xf2ba53,emissiveIntensity:.75});
@@ -1201,7 +1206,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         if(c.hitReaction)hitReactionCarry.set(c.key,{
           id:c.publicId,name:c.publicName,reaction:c.hitReaction});
         if(Number.isFinite(c.visualHealth))healthBarCarry.set(c.key,{
-          id:c.publicId,name:c.publicName,value:c.visualHealth});
+          id:c.publicId,name:c.publicName,value:c.visualHealth,
+          trail:c.damageTrail,trailAt:c.damageTrailAt});
       }
       if(vrMode)for(const p of list){
         const old=cardIndex.get(p.key);
@@ -1259,6 +1265,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         hpBg.position.set(0,1.66,.2);group.add(hpBg);
         const hpFill=new THREE.Mesh(healthFillGeo,healthHealthyMat);
         hpFill.position.set(0,1.66,.265);group.add(hpFill);
+        let hpDamageTrail=null;
+        if(vrMode){
+          hpDamageTrail=new THREE.Mesh(healthFillGeo,vrDamageTrailMat);
+          hpDamageTrail.position.set(0,1.66,.245);
+          hpDamageTrail.visible=false;
+          group.add(hpDamageTrail);
+        }
         const statusDot=new THREE.Mesh(statusGeo,readyMat);
         statusDot.position.set(1.22,1.67,.26);group.add(statusDot);
         scene.add(group);
@@ -1274,14 +1287,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           // raycast list and no seat surface is ever part of pickMeshes.
           scene.add(seat);
         }
-        const item={key:p.key,group,face,frame,seat,slot,hpBg,hpFill,statusDot,
-          publicId:p.cardId,publicName:p.name,fingerprint:vrCardFingerprint(p)};
+        const item={key:p.key,group,face,frame,seat,slot,hpBg,hpFill,
+          hpDamageTrail,statusDot,publicId:p.cardId,publicName:p.name,
+          fingerprint:vrCardFingerprint(p)};
         const carry=vrMode?hitReactionCarry.get(p.key):null;
         if(carry&&(carry.id?carry.id===p.cardId:carry.name===p.name))
           item.hitReaction=carry.reaction;
         const hpCarry=vrMode?healthBarCarry.get(p.key):null;
-        if(hpCarry&&(hpCarry.id?hpCarry.id===p.cardId:hpCarry.name===p.name))
+        if(hpCarry&&(hpCarry.id?hpCarry.id===p.cardId:hpCarry.name===p.name)){
           item.visualHealth=hpCarry.value;
+          item.damageTrail=hpCarry.trail;
+          item.damageTrailAt=hpCarry.trailAt;
+        }
         // Only newly confirmed, friendly, matching real cards can launch
         // from the last player hand click. Old cards never animate again.
         if(vrMode&&slot.owner===0&&vrPendingDeploy&&
@@ -1337,6 +1354,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const current=Math.max(0,Math.min(1,p.hpRatio??0));
         if(vrMode){
           if(!Number.isFinite(item.visualHealth))item.visualHealth=current;
+          if(p.hasHealth&&item.visualHealth>current+.025&&
+            (!Number.isFinite(item.damageTrail)||item.damageTrail<item.visualHealth)){
+            // Only an already PUBLIC lower HP target can start the trail.
+            item.damageTrail=item.visualHealth;
+            item.damageTrailAt=performance.now();
+            vrDamageTrailsStarted++;
+          }
           if(Number.isFinite(item.healthTarget)&&
             Math.abs(item.healthTarget-current)>.002)vrHealthBarTransitions++;
           else if(!Number.isFinite(item.healthTarget)&&
@@ -1618,6 +1642,25 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const visible=Math.max(0,Math.min(1,c.visualHealth));
         c.hpFill.scale.x=Math.max(.001,visible);
         c.hpFill.position.x=-1.02*(1-visible);
+        if(c.hpDamageTrail){
+          const alive=Number.isFinite(c.damageTrail)&&c.hpFill.visible&&!frozen;
+          if(alive&&time-(c.damageTrailAt||0)>230){
+            const trailAlpha=1-Math.exp(-visualDelta/430);
+            c.damageTrail+=(c.healthTarget-c.damageTrail)*trailAlpha;
+          }
+          const trailing=alive&&c.damageTrail>visible+.01;
+          c.hpDamageTrail.visible=!!trailing;
+          if(trailing){
+            const length=Math.max(.001,Math.min(1,c.damageTrail));
+            c.hpDamageTrail.scale.x=length;
+            c.hpDamageTrail.position.x=-1.02*(1-length);
+          }
+          if(!trailing||time-(c.damageTrailAt||0)>3300){
+            c.hpDamageTrail.visible=false;
+            if(Number.isFinite(c.damageTrail)&&c.damageTrail<=visible+.01)
+              c.damageTrail=null;
+          }
+        }
       }
       // Native-confirmed impact gleams directly on the CURRENT real card
       // surface even when its public HP update forces a texture replacement.
@@ -1845,6 +1888,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         key:c.key,kind:c.publicStatusKind,
         scale:Number(c.statusDot.scale.x.toFixed(3))
       })):null,
+      vrDamageTrailsStarted:vrMode?vrDamageTrailsStarted:null,
+      vrDamageTrailVisible:vrMode?cards.filter(c=>c.hpDamageTrail?.visible).length:null,
+      vrDamageTrailPickSafe:vrMode?cards.every(c=>
+        !c.hpDamageTrail||!pickMeshes.includes(c.hpDamageTrail)):null,
       vrHealthBarTransitions:vrMode?vrHealthBarTransitions:null,
       vrPublicHealthVisual:vrMode?Object.fromEntries(cards.filter(c=>c.hpFill.visible)
         .map(c=>[c.key,{display:Number((c.visualHealth??0).toFixed(3)),
