@@ -408,7 +408,7 @@ try:
       page.wait_for_function("""index => {
         const cards=[...document.querySelectorAll('#vr-hand .vr-card')];
         const card=cards[index],face=card?.querySelector('.vr-card-face');
-        return !!card&&card.matches(':hover')&&
+        return !!card&&card.classList.contains('raised')&&
           Math.abs(parseFloat(card.style.getPropertyValue('--vr-tilt-x')))>0.2&&
           getComputedStyle(face).transform.startsWith('matrix3d(');
       }""",arg=inspected_index,timeout=10000)
