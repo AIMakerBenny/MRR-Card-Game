@@ -4128,6 +4128,10 @@ try:
         return {events:s.nativeCombatEvents,fx:s.fxReceived,
           confirmed:s.confirmedStrikes,projectiles:s.vrConfirmedProjectileStarted,
           window:s.vrStrikeConfirmWindow,frames:s.frames,
+          staged:s.vrStagedAttacks,timeouts:s.vrStrikeTimeouts,
+          unpaired:s.vrUnpairedNativeHits,
+          lastUnpaired:s.vrLastUnpairedHit,
+          pending:s.vrPendingStrike,
           attack:s.attackTargetCount,selected:s.selectedKey,
           nativeAudit:s.vrNativeFxAudit};
       }"""),flush=True)

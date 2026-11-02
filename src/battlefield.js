@@ -867,6 +867,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const impactLamp=new THREE.PointLight(0xffffff,0,17,2);
   impactLamp.position.set(0,2,0);scene.add(impactLamp);
   let pendingStrike=null,cinemaImpact=null,confirmedStrikes=0,cinematicFrameCount=0;
+  // VR01GT: preserve bounded public-input timing diagnostics without
+  // touching the original Phase21 combat execution.
+  let vrStagedAttacks=0,vrStrikeTimeouts=0,vrUnpairedNativeHits=0;
+  let vrLastUnpairedHit=null;
   // VR01EA: an afterimage belongs to a CONFIRMED native strike only.
   let vrConfirmedProjectileStarted=0;
   let vrHitReactions=0,vrLandingDustStarted=0;
@@ -892,6 +896,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   function stageAttack(sourceKey,targetKey){
     if(!boardSlots.has(sourceKey)||!boardSlots.has(targetKey)||sourceKey===targetKey)return false;
     pendingStrike={sourceKey,targetKey,at:performance.now()};
+    if(vrMode)vrStagedAttacks++;
     return true;
   }
   function cinematicLight(type,key,at){
@@ -902,7 +907,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     latestCombat={type,key,at};
   }
   function advanceCinematics(now){
-    if(pendingStrike&&now-pendingStrike.at>nativeStrikeWindow)pendingStrike=null;
+    if(pendingStrike&&now-pendingStrike.at>nativeStrikeWindow){
+      if(vrMode)vrStrikeTimeouts++;
+      pendingStrike=null;
+    }
     if(!cinemaImpact){impactLamp.intensity=0;return;}
     const p=(now-cinemaImpact.at)/(cinemaImpact.type==='hit'?540:880);
     if(p>=1){
@@ -1066,6 +1074,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // The beam is committed only when the original engine emits fx-hit.
     const strike=type==='hit'&&pendingStrike?.targetKey===key &&
       now-pendingStrike.at<nativeStrikeWindow?pendingStrike:null;
+    // The original game confirmed this hit, but the decorative staged
+    // source was absent, expired, or aimed at a different public slot.
+    // Record why no 3D projectile was attached; never invent a strike.
+    if(vrMode&&type==='hit'&&!strike){
+      vrUnpairedNativeHits++;
+      vrLastUnpairedHit={key,
+        stagedTarget:pendingStrike?.targetKey||null,
+        stagedAgeMs:pendingStrike?
+          Math.round(now-pendingStrike.at):null};
+    }
     let confirmedProjectile=null;
     if(strike){
       const source=boardSlots.get(strike.sourceKey),delta=new THREE.Vector3(source.x-spot.x,0,source.z-spot.z);
@@ -2653,6 +2671,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       vrConfirmedProjectileStarted:vrMode?vrConfirmedProjectileStarted:null,
       vrStrikeConfirmWindow:vrMode?nativeStrikeWindow:null,
+      vrStagedAttacks:vrMode?vrStagedAttacks:null,
+      vrStrikeTimeouts:vrMode?vrStrikeTimeouts:null,
+      vrUnpairedNativeHits:vrMode?vrUnpairedNativeHits:null,
+      vrLastUnpairedHit:vrMode?vrLastUnpairedHit:null,
+      vrPendingStrike:vrMode&&pendingStrike?{
+        sourceKey:pendingStrike.sourceKey,targetKey:pendingStrike.targetKey,
+        ageMs:Math.round(performance.now()-pendingStrike.at)
+      }:null,
       vrConfirmedProjectileActive:vrMode?liveEffects.filter(f=>f.projectile?.mesh.visible).length:null,
       vrProjectileGeometryShared:vrMode?liveEffects.every(f=>
         !f.projectile||f.projectile.mesh.geometry===vrProjectileGeo):null,
