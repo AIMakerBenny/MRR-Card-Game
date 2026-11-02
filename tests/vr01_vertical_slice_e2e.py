@@ -3955,8 +3955,24 @@ try:
     page.mouse.wheel(0,180)
     page.wait_for_function('MRRIntegrated.state.scene.vrCameraAuto===false',timeout=7000)
     assert snap()==dense_native,'Manual camera wheel must never affect game'
+    # VR01ER: a real return to 2D must free the old GPU renderer and
+    # each unique public texture exactly once, including the current cards.
+    page.evaluate("""() => {
+      window.__vr01erClosingScene=MRRIntegrated.scene;
+      window.__vr01erLiveTextures=MRRIntegrated.state.scene.vrLiveCardTextures;
+    }""")
     page.locator('#vr-return').click()
     assert not page.evaluate('MRRVR.status.open')
+    disposal=page.evaluate("""() => {
+      const old=window.__vr01erClosingScene;
+      const result={closed:!old.state.rendererAlive,
+        released:old.state.vrDisposedTextureCount,
+        expected:window.__vr01erLiveTextures};
+      delete window.__vr01erClosingScene;
+      delete window.__vr01erLiveTextures;
+      return result;
+    }""")
+    assert disposal['closed'] and disposal['released']>=disposal['expected'],disposal
     assert page.locator('#arena').is_visible()
     assert snap()==after,'2D return changed original engine snapshot'
     # VR01AK: 2D return must restore focus to the existing VR entry so a
