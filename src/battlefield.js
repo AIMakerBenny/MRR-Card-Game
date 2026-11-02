@@ -759,6 +759,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const impactLamp=new THREE.PointLight(0xffffff,0,17,2);
   impactLamp.position.set(0,2,0);scene.add(impactLamp);
   let pendingStrike=null,cinemaImpact=null,confirmedStrikes=0,cinematicFrameCount=0;
+  // VR01EA: an afterimage belongs to a CONFIRMED native strike only.
+  let vrConfirmedProjectileStarted=0;
   let vrHitReactions=0,vrLandingDustStarted=0;
   let vrImpactSpringPeak=0;
   // VR01DX: confirmed native hit FX may illuminate a CURRENT public face.
@@ -877,6 +879,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // The beam is committed only when the original engine emits fx-hit.
     const strike=type==='hit'&&pendingStrike?.targetKey===key &&
       now-pendingStrike.at<2800?pendingStrike:null;
+    let confirmedProjectile=null;
     if(strike){
       const source=boardSlots.get(strike.sourceKey),delta=new THREE.Vector3(source.x-spot.x,0,source.z-spot.z);
       const origin=new THREE.Vector3(delta.x,1.3,delta.z),end=new THREE.Vector3(0,1.3,0);
@@ -892,6 +895,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         group.userData.beams||=[];group.userData.beams.push(beam);
         group.userData.beamResources||=[];group.userData.beamResources.push(beamGeo,beamMat);
       }
+      if(vrMode){
+        // A small arc-travelling luminous remnant after the ACTUAL hit.
+        // Decorative only: no extra raycast mesh, combat or damage event.
+        const orbGeo=new THREE.IcosahedronGeometry(.24,1);
+        const orbMat=new THREE.MeshBasicMaterial({color:0xffe2ad,transparent:true,
+          opacity:.9,depthWrite:false,blending:THREE.AdditiveBlending});
+        const orb=new THREE.Mesh(orbGeo,orbMat);
+        orb.position.copy(origin);
+        group.add(orb);
+        group.userData.projectileResources=[orbGeo,orbMat];
+        confirmedProjectile={mesh:orb,from:origin.clone(),to:end.clone()};
+        vrConfirmedProjectileStarted++;
+      }
       confirmedStrikes++;pendingStrike=null;
     }
     // Soft additive volumetric core creates readable summon/heal silhouettes.
@@ -906,7 +922,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     group.userData.columnResources=[columnGeo,columnMat];
     const life=type==='summon'?1150:type==='heal'?1040:820;
     liveEffects.push({type,key,group,ring,sparkGeo,sparkMat,beacon,
-      velocity,born:now,life,resources:[ringGeo,ringMat,sparkGeo,sparkMat,beaconGeo,beaconMat,...(group.userData.beamResources||[]),...(group.userData.columnResources||[])]});
+      projectile:confirmedProjectile,velocity,born:now,life,
+      resources:[ringGeo,ringMat,sparkGeo,sparkMat,beaconGeo,beaconMat,
+        ...(group.userData.beamResources||[]),...(group.userData.columnResources||[]),
+        ...(group.userData.projectileResources||[])]});
     peakLiveFxCount=Math.max(peakLiveFxCount,liveEffects.length);
     effectsReceived[type]++;
     const combatEntry={type,key,name:document.querySelector('#arena [data-slot="'+key+'"] .card-name')?.textContent?.trim()||'',at:now,confirmedStrike:!!strike};
@@ -1035,6 +1054,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
       pos.needsUpdate=true;
       f.sparkMat.opacity=(1-p)*.9;
+      if(f.projectile){
+        const orb=f.projectile.mesh;
+        const t=Math.max(0,Math.min(1,(now-f.born)/420));
+        const from=f.projectile.from,to=f.projectile.to;
+        orb.position.set(from.x+(to.x-from.x)*t,
+          from.y+(to.y-from.y)*t+.8*Math.sin(Math.PI*t),
+          from.z+(to.z-from.z)*t);
+        orb.visible=t<1;
+        orb.scale.setScalar(1+.65*Math.sin(Math.PI*t));
+        orb.material.opacity=.9*(1-t);
+      }
       if(f.group.userData.beams)for(const beam of f.group.userData.beams){
         beam.material.opacity=Math.max(0,1-p)*(beam.geometry.parameters.radiusTop>.1?.30:.92);
         beam.scale.set(1+p*.22,1,1+p*.22);
@@ -1663,6 +1693,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,peakLiveFxCount,
       fxSources:'native-slot-classes',cinematicRevision:49,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
+      vrConfirmedProjectileStarted:vrMode?vrConfirmedProjectileStarted:null,
+      vrConfirmedProjectileActive:vrMode?liveEffects.filter(f=>f.projectile?.mesh.visible).length:null,
       realCombatQaRevision:50,nativeCombatEvents:nativeCombatEvents.slice(),
       visualArtRevision:51,pcArtRevision:tabletop?57:0,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
       vrAdaptiveCardScales:vrMode?Object.fromEntries(cards.map(c=>[c.key,Math.round((c.visualScale||1.30)*1000)/1000])):null,
