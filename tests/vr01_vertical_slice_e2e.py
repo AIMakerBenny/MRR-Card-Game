@@ -3544,11 +3544,23 @@ try:
       page.wait_for_function('MRRIntegrated.state.scene.vrHitReactions>=1',timeout=13000)
       # VR01DX: only the real native fx-hit can start the face glow. The
       # peak is cumulative so SwiftShader delays cannot hide a short flash.
-      page.wait_for_function("""() => {
-        const s=MRRIntegrated.state.scene;
-        return s.vrHitFaceFlashCount>=1&&s.vrHitFaceFlashPeak>.08&&
-          s.vrImpactSpringPeak>.08;
-      }""",timeout=13000)
+      try:
+        page.wait_for_function("""() => {
+          const s=MRRIntegrated.state.scene;
+          return s.vrHitFaceFlashCount>=1&&s.vrHitFaceFlashPeak>.08&&
+            s.vrImpactSpringPeak>.08;
+        }""",timeout=13000)
+      except Exception:
+        # Preserve the real failure while exposing the public-only scene
+        # state needed to diagnose slow SwiftShader and HP texture rebuilds.
+        print('VR01DX/DZ native hit visual diagnostic',page.evaluate("""() => {
+          const s=MRRIntegrated.state.scene;
+          return {frames:s.frames,fx:s.fxReceived,publicCards:s.publicCardCount,
+            hitReactions:s.vrHitReactions,flashCount:s.vrHitFaceFlashCount,
+            flashPeak:s.vrHitFaceFlashPeak,active:s.vrHitFaceFlashActive,
+            springPeak:s.vrImpactSpringPeak,confirmed:s.confirmedStrikes};
+        }"""),flush=True)
+        raise
     assert page.evaluate('MRRIntegrated.state.scene.vrHitReactions')>=0
     # VR01O: only the original native targeting state can retain a
     # lock-on after resolution; there must never be an orphaned VR target.
