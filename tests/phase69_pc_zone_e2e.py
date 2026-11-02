@@ -87,9 +87,38 @@ try:
             assert snap()==baseline,(w,h,'Viewport changed original game state')
             print('PHASE69 ZONE',w,h,'WebGL scene/hand/engine unchanged',flush=True)
         page.set_viewport_size({'width':1920,'height':1080})
-        page.locator('#hand .hand-slot').nth(affordable['i']).evaluate('e=>e.click()')
-        page.wait_for_function("""() => document.querySelectorAll(
-            '#arena .slot.legal').length>0""",timeout=13000)
+        # VR01FC: repeat the REAL visible hand gesture after the three
+        # viewport checks. Clicking a folded native hand by script is not
+        # representative of the integrated PC controls and gave an
+        # unexplained intermittent timeout on Actions run 41461816172.
+        tab=page.locator('#mrr-integrated-hand-tab')
+        assert tab.is_visible() and tab.is_enabled(),(
+            'Native Phase69 hand reveal is unavailable before placement')
+        tab.click()
+        assert tab.get_attribute('aria-expanded')=='true'
+        card=page.locator('#hand .hand-slot').nth(affordable['i'])
+        assert card.is_visible(),'Qualified native hand card is not visible'
+        card.click()
+        assert tab.get_attribute('aria-expanded')=='false',(
+            'Native hand fan did not fold after clicking the genuine card')
+        try:
+            page.wait_for_function("""() => document.querySelectorAll(
+                '#arena .slot.legal').length>0""",timeout=13000)
+        except Exception:
+            diagnostic=page.evaluate("""() => ({
+                handCards:document.querySelectorAll('#hand .hand-slot').length,
+                legal:document.querySelectorAll('#arena .slot.legal').length,
+                attackTargets:document.querySelectorAll('#arena .slot.attack-target').length,
+                selected:document.querySelectorAll('#arena .slot.selected-slot').length,
+                handOpen:document.getElementById('gameScreen')
+                    ?.classList.contains('mrr-integrated-hand-open'),
+                overlayHidden:!!document.querySelector('#overlay.hidden'),
+                handTabDisabled:document.querySelector('#mrr-integrated-hand-tab')?.disabled,
+                inspector:document.querySelector('#inspectBody')?.textContent?.trim().slice(0,180)
+            })""")
+            print('VR01FC Phase69 genuine native card click diagnostic',
+                diagnostic,flush=True)
+            raise
         target=page.locator('#arena .slot.legal').first.get_attribute('data-slot')
         assert target
         pt=page.evaluate('(key)=>MRRIntegrated.scene.projectSlot(key)',target)
