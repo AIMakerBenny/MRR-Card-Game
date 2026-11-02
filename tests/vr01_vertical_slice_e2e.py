@@ -3479,6 +3479,18 @@ try:
         s.vrAttackArcMoteCount===3&&s.vrAttackArcMotePickSafe===true;
     }""",timeout=14000)
     assert snap()==baseline,'VR01DU 3D aim preview changed Phase21 gameplay'
+    # VR01EY: identical real native selected/target slots must reuse the
+    # exact 17-point 3D path instead of reuploading it on every sync.
+    aim_cache=page.evaluate("""() => {
+      const stage=MRRIntegrated.scene,before=stage.state;
+      stage.sync();stage.sync();
+      const after=stage.state;
+      return {built:after.vrAimPathBuilds-before.vrAimPathBuilds,
+        reused:after.vrAimPathReuses-before.vrAimPathReuses,
+        key:after.vrAimPathKey,points:after.vrAttackArcSamples};
+    }""")
+    assert aim_cache['built']==0 and aim_cache['reused']>=2 and aim_cache['points']==17,aim_cache
+    assert snap()==baseline,'VR01EY native aim path caching changed gameplay'
     # VR01N: only a genuinely native target hover creates one bounded,
     # temporary lock-on accent; moving off clears it without touching
     # damage or inventing legal actions.
