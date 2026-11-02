@@ -1628,6 +1628,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // while using the untouched automatic tabletop preset.
   let manualCamera=false;
   let drag=false,moved=false,lastX=0,lastY=0,startX=0,startY=0;
+  let vrActivePointerId=null,vrInterruptedPointerGestures=0;
   function updateCamera(){
     const aspect=mount.clientWidth/Math.max(1,mount.clientHeight);
     const d=distance*(aspect<.75?1.6:aspect<1.1?1.22:1);
@@ -1640,7 +1641,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   function down(e){
     if(e.button!==0||e.target!==renderer.domElement)return;
-    drag=true;moved=false;
+    drag=true;moved=false;vrActivePointerId=e.pointerId;
     startX=lastX=e.clientX;startY=lastY=e.clientY;
     mount.setPointerCapture?.(e.pointerId);
   }
@@ -1660,14 +1661,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   function up(e){
     if(!drag)return;
-    drag=false;
+    drag=false;vrActivePointerId=null;
     const picked=publicHit(e);
     if(!moved&&picked){events.onPick?.(picked);sync();}
     setHover(picked);
   }
   function leave(){if(!drag)setHover(null);}
   // Cancellation is never a card click, even if the pointer has not moved.
-  function cancelPointer(){drag=false;moved=false;setHover(null);}
+  function cancelPointer(){drag=false;moved=false;vrActivePointerId=null;setHover(null);}
   function wheel(e){e.preventDefault();manualCamera=true;distance=Math.max(24,Math.min(47,distance+e.deltaY*.018));updateCamera();setHover(null);}
   mount.addEventListener('pointerdown',down);
   mount.addEventListener('pointermove',move);
@@ -2017,7 +2018,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       attributeOldValue:true,attributeFilter:['class']});
     running=true;lastDraw=0;lastVisualTime=0;raf=requestAnimationFrame(tick);
   }
-  function stop(){running=false;cancelAnimationFrame(raf);fxObserver.disconnect();
+  function stop(){
+    // VR01FB: a hidden or closed scene must not retain a half-completed
+    // pointer gesture. In particular, an old down event cannot produce
+    // a native card click after reopening the 3D canvas.
+    if(drag){
+      drag=false;moved=false;
+      if(vrActivePointerId!==null&&
+        mount.hasPointerCapture?.(vrActivePointerId))
+        mount.releasePointerCapture?.(vrActivePointerId);
+      if(vrMode)vrInterruptedPointerGestures++;
+    }
+    vrActivePointerId=null;
+    running=false;cancelAnimationFrame(raf);fxObserver.disconnect();
     lastDraw=0;lastVisualTime=0;
   }
   function setCameraPreset(preset){
@@ -2077,6 +2090,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrRenderResumes:vrMode?vrRenderResumes:null,
       vrProjectionSamples:vrMode?vrProjectionSamples:null,
       vrResumeFirstDelta:vrMode?vrResumeFirstDelta:null,
+      vrPointerDragging:vrMode?drag:null,
+      vrInterruptedPointerGestures:vrMode?vrInterruptedPointerGestures:null,
       vrCameraAuto:vrMode?!manualCamera:null,
       vrCrowdedComposition:vrMode&&cameraPreset==='tabletop'&&cards.length>=16,
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
