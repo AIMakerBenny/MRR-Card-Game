@@ -3525,7 +3525,8 @@ try:
       # peak is cumulative so SwiftShader delays cannot hide a short flash.
       page.wait_for_function("""() => {
         const s=MRRIntegrated.state.scene;
-        return s.vrHitFaceFlashCount>=1&&s.vrHitFaceFlashPeak>.08;
+        return s.vrHitFaceFlashCount>=1&&s.vrHitFaceFlashPeak>.08&&
+          s.vrImpactSpringPeak>.08;
       }""",timeout=13000)
     assert page.evaluate('MRRIntegrated.state.scene.vrHitReactions')>=0
     # VR01O: only the original native targeting state can retain a
