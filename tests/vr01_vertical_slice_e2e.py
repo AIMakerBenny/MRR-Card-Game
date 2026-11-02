@@ -3467,6 +3467,27 @@ try:
       const s=MRRIntegrated.state.scene;
       return s.vrPointerDragging===false&&s.vrInterruptedPointerGestures>=1;
     }"""),'VR01FB stop retained a stale active pointer drag'
+    # VR01FH: DOM events arriving while the native 3D view is
+    # stopped must never start a card click or adjust the camera.
+    paused_events=page.evaluate("""() => {
+      const canvas=document.querySelector('#mrr-integrated-stage canvas');
+      const before=MRRIntegrated.state.scene;
+      canvas.dispatchEvent(new PointerEvent('pointerdown',{
+        bubbles:true,button:0,pointerId:989,clientX:0,clientY:0}));
+      canvas.dispatchEvent(new PointerEvent('pointermove',{
+        bubbles:true,pointerId:989,clientX:3,clientY:4}));
+      canvas.dispatchEvent(new PointerEvent('pointerup',{
+        bubbles:true,button:0,pointerId:989,clientX:3,clientY:4}));
+      canvas.dispatchEvent(new WheelEvent('wheel',{
+        bubbles:true,cancelable:true,deltaY:250}));
+      const after=MRRIntegrated.state.scene;
+      return {ignored:after.vrPausedInputEventsIgnored-before.vrPausedInputEventsIgnored,
+        dragging:after.vrPointerDragging,distanceBefore:before.distance,
+        distanceAfter:after.distance};
+    }""")
+    assert paused_events['ignored']==4 and paused_events['dragging'] is False and (
+      paused_events['distanceBefore']==paused_events['distanceAfter']),paused_events
+    assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume
     page.evaluate('MRRIntegrated.scene.start()')
