@@ -872,6 +872,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let vrHitReactions=0,vrLandingDustStarted=0;
   let vrHealthBarTransitions=0;
   let vrImpactSpringPeak=0,vrHitRecoilRenderFrames=0;
+  let vrNativeHitEdgePeak=0;
   // VR01DX: confirmed native hit FX may illuminate a CURRENT public face.
   // A short-lived keyed event survives HP-text texture reconstruction, but
   // an unrelated replacement with a different public card ID cannot glow.
@@ -2095,6 +2096,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     for(const [i,c] of cards.entries()){
+      // VR01FV: exactly the same confirmed native hit flash that colors
+      // the public face may tint its existing Three.js frame edges.
+      // Neither aiming nor hovering invents a hit or changes a card stat.
+      const flash=vrMode?vrHitFaceFlash.get(c.key):null;
+      const validFlash=flash&&
+        (flash.publicId?flash.publicId===c.publicId:flash.name===c.publicName);
       // VR01FN: ease the card's physical contact light to the REAL native
       // hover/selection state. Each public mesh owns its own opacity, so
       // neighboring seats never flash together. Reduced motion is static.
@@ -2111,10 +2118,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // time-eased without modifying the shared frame material or art.
       if(c.edgeGlint){
         const focus=c.key===hoveredKey?1:c.key===selectedKey?.4:0;
+        const nativeImpact=validFlash?.95:0;
         const alpha=frozen?1:1-Math.exp(-visualDelta/125);
-        c.edgeAmount=(c.edgeAmount??0)+(focus-(c.edgeAmount??0))*alpha;
+        c.edgeAmount=(c.edgeAmount??0)+
+          (Math.max(focus,nativeImpact)-(c.edgeAmount??0))*alpha;
         c.edgeGlint.visible=c.edgeAmount>.015;
         c.edgeGlintMaterial.opacity=.44*c.edgeAmount;
+        c.edgeGlintMaterial.color.setHex(validFlash?0xffa476:
+          c.slot.owner===0?0xc5ffe8:0xffdfad);
+        if(validFlash)vrNativeHitEdgePeak=Math.max(
+          vrNativeHitEdgePeak,c.edgeGlintMaterial.opacity);
       }
       // VR01FQ: the four genuine 3D seat corners belong only to the
       // card selected by native Phase21. No speculative attack cue.
@@ -2164,9 +2177,6 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
       // Native-confirmed impact gleams directly on the CURRENT real card
       // surface even when its public HP update forces a texture replacement.
-      const flash=vrMode?vrHitFaceFlash.get(c.key):null;
-      const validFlash=flash&&
-        (flash.publicId?flash.publicId===c.publicId:flash.name===c.publicName);
       if(validFlash&&flash.firstShownAt===undefined)
         flash.firstShownAt=time;
       const flashAge=validFlash?Math.min(
@@ -2509,6 +2519,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrHitFaceFlashCount:vrMode?vrHitFaceFlashCount:null,
       vrHitWithoutPublicCard:vrMode?vrHitWithoutPublicCard:null,
       vrHitFaceFlashPeak:vrMode?Number(vrHitFaceFlashPeak.toFixed(4)):null,
+      vrNativeHitEdgePeak:vrMode?Number(vrNativeHitEdgePeak.toFixed(4)):null,
       vrHitFaceFlashActive:vrMode?vrHitFaceFlash.size:null,
       vrHitFaceRendered:vrMode?[...vrHitFaceFlash.values()].filter(f=>
         f.shownFrames>0).length:null,

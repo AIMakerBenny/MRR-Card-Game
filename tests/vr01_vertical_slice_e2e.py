@@ -3888,7 +3888,7 @@ try:
         page.wait_for_function("""() => {
           const s=MRRIntegrated.state.scene;
           return s.vrHitFaceFlashCount>=1&&s.vrHitFaceFlashPeak>.08&&
-            s.vrImpactSpringPeak>.08;
+            s.vrNativeHitEdgePeak>.08&&s.vrImpactSpringPeak>.08;
         }""",timeout=13000)
       except Exception:
         # Preserve the real failure while exposing the public-only scene
@@ -3897,7 +3897,8 @@ try:
           const s=MRRIntegrated.state.scene;
           return {frames:s.frames,fx:s.fxReceived,publicCards:s.publicCardCount,
             hitReactions:s.vrHitReactions,flashCount:s.vrHitFaceFlashCount,
-            flashPeak:s.vrHitFaceFlashPeak,active:s.vrHitFaceFlashActive,
+            flashPeak:s.vrHitFaceFlashPeak,edgePeak:s.vrNativeHitEdgePeak,
+            active:s.vrHitFaceFlashActive,
             rendered:s.vrHitFaceRendered,springPeak:s.vrImpactSpringPeak,
             recoilFrames:s.vrHitRecoilRenderFrames,
             confirmed:s.confirmedStrikes};
