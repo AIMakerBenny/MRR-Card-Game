@@ -429,7 +429,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // currently vacant slot marked .legal by the real Phase21 game renderer.
   // No per-slot meshes, invented legal targets or new input actions.
   const vrLandingGuide=vrMode?new THREE.Group():null;
-  let vrLandingGuideKey=null;
+  let vrLandingGuideKey=null,vrLandingGuideBorn=0,vrLandingGuideReveals=0;
   if(vrLandingGuide){
     const arc=new THREE.Mesh(
       geometry(new THREE.TorusGeometry(.83,.055,8,52,Math.PI*1.5)),
@@ -1365,7 +1365,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // VR01DV: only a REAL native legal, unoccupied destination can glow.
     // When aiming at an enemy or exiting targeting, the guide vanishes.
     const legalLanding=!!(vrMode&&hovered?.legal&&!hovered.name);
-    vrLandingGuideKey=legalLanding?hoveredKey:null;
+    const nextLandingKey=legalLanding?hoveredKey:null;
+    if(vrMode&&nextLandingKey&&nextLandingKey!==vrLandingGuideKey){
+      vrLandingGuideBorn=performance.now();
+      vrLandingGuideReveals++;
+    }
+    vrLandingGuideKey=nextLandingKey;
     if(vrLandingGuide){
       vrLandingGuide.visible=legalLanding;
       if(legalLanding){
@@ -1567,9 +1572,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         vrHitFaceFlash.delete(key);
     }
     if(vrLandingGuide?.visible){
-      // Lightweight ambient motion; reduced-motion keeps a steady beacon.
+      // VR01EG: give the TRUE native empty legal destination a short
+      // materializing arrival. All three meshes existed at scene creation.
+      const p=frozen?1:Math.max(0,Math.min(1,(time-vrLandingGuideBorn)/260));
+      const eased=1-Math.pow(1-p,3);
       vrLandingGuide.children[0].rotation.z=frozen?0:time*.0012;
-      vrLandingGuide.scale.setScalar(frozen?1:1+.045*Math.sin(time*.006));
+      vrLandingGuide.scale.setScalar(.90+.10*eased+
+        (frozen?0:.022*Math.sin(time*.006)));
+      vrLandingGuide.children[1].material.opacity=.32*eased;
+      vrLandingGuide.children[2].material.opacity=.13*eased;
       vrLandingGuide.position.y=.36+(frozen?0:.025*Math.sin(time*.005));
     }
     // VR01DY: follow only an existing, publicly rendered card. The single
@@ -1846,6 +1857,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrTargetLocks:vrMode?vrTargetLocks:null,
       vrTargetLockKey:vrMode?vrTargetLock?.key||null:null,
       vrLandingGuideKey:vrMode?vrLandingGuideKey:null,
+      vrLandingGuideReveals:vrMode?vrLandingGuideReveals:null,
+      vrLandingGuideScale:vrMode?Number(vrLandingGuide.scale.x.toFixed(3)):null,
+      vrLandingGuideLightOpacity:vrMode?Number(
+        vrLandingGuide.children[2].material.opacity.toFixed(3)):null,
       vrLandingGuideVisible:vrMode?vrLandingGuide.visible:null,
       vrLandingGuidePickSafe:vrMode?!pickMeshes.includes(vrLandingGuide.children[0])&&
         !pickMeshes.includes(vrLandingGuide.children[1])&&
