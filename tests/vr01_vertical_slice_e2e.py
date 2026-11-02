@@ -3570,10 +3570,18 @@ try:
     after=snap()
     assert after!=baseline
     page.wait_for_function("""() => window.__vr01evProbed===true &&
-      MRRIntegrated.state.scene.vrFxClassNoiseIgnored>=1""",timeout=13000)
+      MRRIntegrated.state.scene.vrFxClassNoiseIgnored>=1 &&
+      MRRIntegrated.state.scene.vrFxRisingEdges>=1""",timeout=13000)
     page.evaluate("""key => document.querySelector(
       '#arena [data-slot="'+key+'"]')?.classList.remove('vr01ev-cosmetic-probe')""",opponent)
     assert snap()==after,'VR01EV native FX class transition observer changed Phase21 state'
+    # VR01EW: only actual CSS rising edges may trigger 3D FX,
+    # including when multiple native slot mutations share one batch.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrFxRisingEdges>=s.fxReceived.hit&&
+        s.vrFxBatchedTransitions>=0;
+    }"""),'VR01EW FX transition accounting was inconsistent'
     # VR01DX: attack previews alone cannot generate a face-flash event.
     # Check the native event-backed count only after the actual HP change.
     assert page.evaluate('MRRIntegrated.state.scene.vrHitFaceFlashCount')>=0
