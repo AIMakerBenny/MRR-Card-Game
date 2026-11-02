@@ -3493,6 +3493,13 @@ try:
       return state.nativeOutcomes>=1&&state.outcomeHistory.some(
         event=>event.key===key&&event.type==='hit');
     }""",arg=opponent,timeout=14000)
+    # VR01EA: moving light only accompanies the recorded, confirmed
+    # Phase21 strike, never speculative hover or targeting.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.confirmedStrikes>=1&&s.vrConfirmedProjectileStarted>=1;
+    }""",timeout=14000)
+    assert snap()==after,'VR01EA confirmed projectile changed Phase21 HP'
     outcome=page.evaluate("""key=>{
       const vr=MRRVR.status,scene=MRRIntegrated.state.scene;
       return {events:vr.outcomeHistory.filter(e=>e.key===key&&e.type==='hit'),
