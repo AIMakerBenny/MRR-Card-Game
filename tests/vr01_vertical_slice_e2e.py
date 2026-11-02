@@ -3863,6 +3863,7 @@ try:
       const originalName=card.querySelector('.card-name')?.textContent?.trim();
       const nameNode=card.querySelector('.card-name');
       const before=stage.state.vrTargetLocks;
+      const oldCarryRejects=stage.state.vrIdentityCarryRejects;
       let revoked=null,bracketGone=false,sparksGone=false,arcGone=false;
       try{
         if(original)card.setAttribute('data-mrr-public-card-id',
@@ -3881,11 +3882,13 @@ try:
       }
       return {revoked,remaining:stage.state.vrTargetLockKey,
         bracketGone,sparksGone,arcGone,
+        carryRejected:stage.state.vrIdentityCarryRejects>oldCarryRejects,
         count:stage.state.vrTargetLocks,before};
     }""",opponent)
     assert 'error' not in stale_lock and stale_lock['revoked'] is None and (
       stale_lock['remaining'] is None and stale_lock['bracketGone'] and
       stale_lock['sparksGone'] and stale_lock['arcGone'] and
+      stale_lock['carryRejected'] and
       stale_lock['count']==stale_lock['before']),stale_lock
     assert snap()==baseline,'VR01FZ target identity guard modified Phase21'
     page.mouse.move(3,550)

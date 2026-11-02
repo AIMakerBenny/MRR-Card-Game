@@ -1265,7 +1265,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   let cards=[],signature='',publicCardCount=0,lastSync=0;
   let vrPendingDeploy=null,vrDeployTransitions=0,vrReusedCards=0;
-  let vrPresentationCarryTransfers=0;
+  let vrPresentationCarryTransfers=0,vrIdentityCarryRejects=0;
   let vrNeighborPairChecks=0,vrNeighborCacheRebuilds=0;
   let vrNeighborOccupancyKey='',vrNeighborCache=new Map();
   // A hand click only arms a presentation. Neither it nor this animation
@@ -1292,6 +1292,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let vrTargetLocks=0,vrTargetLock=null;
   let cardHealth=new Map(),healthIndicatorCount=0;
   let pickMeshes=slotPickMeshes.slice(),cardIndex=new Map();
+  // VR01GJ: one symmetric identity check for transient presentation.
+  // A visible ID cannot silently fall back to a matching card name when
+  // the original public card was replaced or the ID was withdrawn.
+  function vrSamePublicIdentity(idA,nameA,idB,nameB){
+    if(idA||idB)return !!idA&&!!idB&&idA===idB;
+    return !!nameA&&nameA===nameB;
+  }
   // VR01GE: a public ID must never silently degrade into a name-only
   // comparison when a live native element loses that ID. Centralize
   // the same strict identity rule for inspector, quick action and hits.
@@ -1300,9 +1307,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const realId=node.getAttribute('data-mrr-public-card-id')||null;
     const realName=node.querySelector('.card-name')?.textContent?.trim()||'';
     if(!realName)return false;
-    if(realId||item.publicId)
-      return !!realId&&!!item.publicId&&realId===item.publicId;
-    return realName===item.publicName;
+    return vrSamePublicIdentity(realId,realName,
+      item.publicId,item.publicName);
   }
   // VR01EU: card labels, selection and dense layout can project the same
   // public card many times. Reuse one temporary vector across synchronous
@@ -1583,10 +1589,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           hpDamageTrail,statusDot,publicId:p.cardId,publicName:p.name,
           fingerprint:vrCardFingerprint(p)};
         const carry=vrMode?hitReactionCarry.get(p.key):null;
-        if(carry&&(carry.id?carry.id===p.cardId:carry.name===p.name))
+        if(carry&&vrSamePublicIdentity(carry.id,carry.name,p.cardId,p.name))
           item.hitReaction=carry.reaction;
         const hpCarry=vrMode?healthBarCarry.get(p.key):null;
-        if(hpCarry&&(hpCarry.id?hpCarry.id===p.cardId:hpCarry.name===p.name)){
+        if(hpCarry&&vrSamePublicIdentity(hpCarry.id,hpCarry.name,
+          p.cardId,p.name)){
           item.visualHealth=hpCarry.value;
           item.damageTrail=hpCarry.trail;
           item.damageTrailAt=hpCarry.trailAt;
@@ -1595,9 +1602,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // Never transfer a preceding occupant's hover or selection FX
         // onto a different public card in the same Phase21 native slot.
         const samePublicIdentity=visual&&
-          (visual.id||p.cardId?
-            !!visual.id&&visual.id===p.cardId:
-            visual.name===p.name);
+          vrSamePublicIdentity(visual.id,visual.name,p.cardId,p.name);
+        if(visual&&!samePublicIdentity)vrIdentityCarryRejects++;
         if(samePublicIdentity){
           for(const [field,value] of [
             ['visualScale',visual.scale],['visualLift',visual.lift],
@@ -1683,7 +1689,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const p=transientByKey.get(key),item=cardIndex.get(key);
         vrTransientPublicComparisons++;
         if(!p||!item||
-          !(pending.id?pending.id===p.cardId:pending.name===p.name)){
+          !vrSamePublicIdentity(pending.id,pending.name,p.cardId,p.name)){
           vrPendingPublicHits.delete(key);continue;
         }
         if(item.deploy)continue;
@@ -1698,8 +1704,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const publicCard=transientByKey.get(key);
       vrTransientPublicComparisons++;
       if(!publicCard||
-        !(fx.publicId?fx.publicId===publicCard.cardId:
-          fx.name===publicCard.name))vrHitFaceFlash.delete(key);
+        !vrSamePublicIdentity(fx.publicId,fx.name,
+          publicCard.cardId,publicCard.name))vrHitFaceFlash.delete(key);
     }
     const nextSelectedKey=list.find(p=>p.selected)?.key||null;
     // VR01M: a grounded selection response starts ONLY on a native
@@ -2176,9 +2182,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // WebGL gets a chance to actually render it. Release the event after
       // six material updates plus a one-second visible lifetime, or after
       // a bounded orphan timeout when its public card has departed.
-      const stillPublic=cardIndex.has(key)&&
-        (fx.publicId?cardIndex.get(key).publicId===fx.publicId:
-          cardIndex.get(key).publicName===fx.name);
+      const active=cardIndex.get(key);
+      const stillPublic=active&&vrSamePublicIdentity(fx.publicId,fx.name,
+        active.publicId,active.publicName);
       if(!stillPublic&&time-fx.at>1600||
         fx.firstShownAt!==undefined&&fx.shownFrames>=6&&
           time-fx.firstShownAt>1100||
@@ -2238,8 +2244,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // the public face may tint its existing Three.js frame edges.
       // Neither aiming nor hovering invents a hit or changes a card stat.
       const flash=vrMode?vrHitFaceFlash.get(c.key):null;
-      const validFlash=flash&&
-        (flash.publicId?flash.publicId===c.publicId:flash.name===c.publicName);
+      const validFlash=flash&&vrSamePublicIdentity(
+        flash.publicId,flash.name,c.publicId,c.publicName);
       // VR01FX: a real public impact can illuminate the same occupied
       // seat that is already used for genuine card inspection. The
       // existing confirmed FX event is the ONLY authority for this pulse.
@@ -2644,6 +2650,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         cards.every(c=>!c.contactRing||!pickMeshes.includes(c.contactRing)):null,
       vrReusedCards:vrMode?vrReusedCards:null,vrDeployTransitions:vrMode?vrDeployTransitions:null,
       vrPresentationCarryTransfers:vrMode?vrPresentationCarryTransfers:null,
+      vrIdentityCarryRejects:vrMode?vrIdentityCarryRejects:null,
       vrDeployActive:vrMode?cards.filter(c=>!!c.deploy).length:null,
       vrLiveCardTextures:vrMode?madeTextures.length:null,
       vrDisposedTextureCount:vrMode?vrDisposedTextureCount:null,
@@ -2693,8 +2700,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           (!f.projectile||!f.projectile.mesh.visible)):null,
       vrHitFacePublicSafe:vrMode?[...vrHitFaceFlash].every(([key,fx])=>{
         const c=cardIndex.get(key);
-        return !!c&&(fx.publicId?fx.publicId===c.publicId:
-          fx.name===c.publicName);
+        return !!c&&vrSamePublicIdentity(fx.publicId,fx.name,
+          c.publicId,c.publicName);
       }):null,
       vrSelectionBursts:vrMode?vrSelectionBursts:null,
       vrTargetLocks:vrMode?vrTargetLocks:null,
