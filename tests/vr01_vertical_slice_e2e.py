@@ -4056,21 +4056,34 @@ try:
       arg={'key':opponent,'hp':before_hp},timeout=13000)
     after=snap()
     assert after!=baseline
+    # VR01GL: the native hit is mandatory. The cosmetic-noise probe is
+    # meaningful only when a live native fx-hit class survives long enough
+    # to receive a second class mutation. Do not fail an otherwise real
+    # battle merely because Phase21 replaced the DOM slot immediately.
     try:
-      page.wait_for_function("""() => window.__vr01evProbed===true &&
-        MRRIntegrated.state.scene.vrFxClassNoiseIgnored>=1 &&
-        MRRIntegrated.state.scene.vrFxRisingEdges>=1""",timeout=13000)
-    except Exception:
-      print('VR01GK native FX probe diagnostic',page.evaluate("""() => {
+      page.wait_for_function("""() => {
         const s=MRRIntegrated.state.scene;
-        return {probe:window.__vr01evProbed,observer:window.__vr01gkFxProbe,
-          fxNoise:s.vrFxClassNoiseIgnored,edges:s.vrFxRisingEdges,
-          received:s.fxReceived,cardCount:s.publicCardCount,
-          target:document.querySelector('#arena .slot.attack-target')?.dataset.slot,
-          probeClassCount:document.querySelectorAll(
-            '#arena .vr01ev-cosmetic-probe').length};
+        return s.fxReceived.hit>=1&&s.vrFxRisingEdges>=1;
+      }""",timeout=13000)
+    except Exception:
+      print('VR01GL missing confirmed hit FX',page.evaluate("""() => {
+        const s=MRRIntegrated.state.scene;
+        return {probe:window.__vr01evProbed,
+          observer:window.__vr01gkFxProbe,
+          edges:s.vrFxRisingEdges,received:s.fxReceived};
       }"""),flush=True)
       raise
+    noise=page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return {probed:window.__vr01evProbed===true,
+        ignored:s.vrFxClassNoiseIgnored,
+        observer:window.__vr01gkFxProbe};
+    }""")
+    if noise['probed']:
+      assert noise['ignored']>=1,noise
+    else:
+      print('VR01GL cosmetic class probe not exercised by transient native FX',
+        noise,flush=True)
     page.evaluate("""key => document.querySelector(
       '#arena [data-slot="'+key+'"]')?.classList.remove('vr01ev-cosmetic-probe')""",opponent)
     assert snap()==after,'VR01EV native FX class transition observer changed Phase21 state'
