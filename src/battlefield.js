@@ -821,6 +821,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // an unrelated replacement with a different public card ID cannot glow.
   const vrHitFaceFlash=new Map(),vrPendingPublicHits=new Map();
   let vrHitFaceFlashCount=0,vrHitFaceFlashPeak=0,vrDeferredHitApplied=0;
+  let vrTransientPublicIndexBuilds=0,vrTransientPublicComparisons=0;
   const vrLandingDust=[],vrDepartBursts=[];
   let vrDepartCount=0;
   let latestCombat=null;
@@ -1446,13 +1447,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         }
       }
     }
+    // VR01FA: both deferred impact and hit-face highlights reconcile
+    // against ONE immutable public DOM snapshot. It avoids separate slot
+    // scans and ensures identity checks are evaluated on the same frame.
+    const transientByKey=vrMode&&
+      (vrPendingPublicHits.size||vrHitFaceFlash.size)?
+      new Map(list.filter(p=>!!p.name).map(p=>[p.key,p])):null;
+    if(transientByKey)vrTransientPublicIndexBuilds++;
     // VR01EO: deferred native hits can arrive after a public DOM paint
     // without changing the card fingerprint. Reconcile every public sync,
     // not only on card construction. Never carry FX to another card ID.
     if(vrMode&&vrPendingPublicHits.size){
-      const snapshotByKey=new Map(list.filter(p=>!!p.name).map(p=>[p.key,p]));
       for(const [key,pending] of vrPendingPublicHits){
-        const p=snapshotByKey.get(key),item=cardIndex.get(key);
+        const p=transientByKey.get(key),item=cardIndex.get(key);
+        vrTransientPublicComparisons++;
         if(!p||!item||
           !(pending.id?pending.id===p.cardId:pending.name===p.name)){
           vrPendingPublicHits.delete(key);continue;
@@ -1464,18 +1472,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         vrHitReactions++;
       }
     }
-    // VR01EP: cap visual event lifetime and reject vacant/replaced
-    // public identities even when no Three.js card rebuild is needed.
-    if(vrMode){
-      const liveKeys=new Set(list.filter(p=>!!p.name).map(p=>p.key));
-      for(const [key,fx] of vrHitFaceFlash){
-        if(!liveKeys.has(key)){
-          vrHitFaceFlash.delete(key);continue;
-        }
-        const publicCard=list.find(p=>p.key===key);
-        if(!(fx.publicId?fx.publicId===publicCard.cardId:
+    // VR01FA: visual glow never persists on a removed/replaced card.
+    if(transientByKey)for(const [key,fx] of vrHitFaceFlash){
+      const publicCard=transientByKey.get(key);
+      vrTransientPublicComparisons++;
+      if(!publicCard||
+        !(fx.publicId?fx.publicId===publicCard.cardId:
           fx.name===publicCard.name))vrHitFaceFlash.delete(key);
-      }
     }
     const nextSelectedKey=list.find(p=>p.selected)?.key||null;
     // VR01M: a grounded selection response starts ONLY on a native
@@ -2126,6 +2129,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrDepartHaloActive:vrMode?vrDepartBursts.filter(f=>!!f.halo).length:null,
       vrHitReactions:vrMode?vrHitReactions:null,
       vrDeferredHitApplied:vrMode?vrDeferredHitApplied:null,
+      vrTransientPublicIndexBuilds:vrMode?vrTransientPublicIndexBuilds:null,
+      vrTransientPublicComparisons:vrMode?vrTransientPublicComparisons:null,
       vrPendingPublicHitCount:vrMode?vrPendingPublicHits.size:null,
       vrPendingPublicHitKeys:vrMode?[...vrPendingPublicHits.keys()]:null,
       vrStatusBeaconCount:vrMode?cards.filter(c=>c.statusDot.visible).length:null,
