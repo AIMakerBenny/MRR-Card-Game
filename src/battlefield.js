@@ -1679,11 +1679,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         vrPendingPublicHits.delete(key);
     }
     for(const [key,fx] of vrHitFaceFlash){
-      // A SwiftShader or texture re-upload stall can take longer than the
-      // original 460ms flash. Show at least four REAL rendered frames, with
-      // a strict upper bound for paused tabs and destroyed public cards.
-      if(time-fx.at>4000||(time-fx.at>900&&fx.shownFrames>=4))
-        vrHitFaceFlash.delete(key);
+      // VR01EN: do not expire a confirmed visual hit before slow software
+      // WebGL gets a chance to actually render it. Release the event after
+      // six material updates plus a one-second visible lifetime, or after
+      // a bounded orphan timeout when its public card has departed.
+      const stillPublic=cardIndex.has(key)&&
+        (fx.publicId?cardIndex.get(key).publicId===fx.publicId:
+          cardIndex.get(key).publicName===fx.name);
+      if(!stillPublic&&time-fx.at>1600||
+        fx.firstShownAt!==undefined&&fx.shownFrames>=6&&
+          time-fx.firstShownAt>1100||
+        time-fx.at>20000)vrHitFaceFlash.delete(key);
     }
     if(vrLandingGuide?.visible){
       // VR01EG: give the TRUE native empty legal destination a short
@@ -1757,9 +1763,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const flash=vrMode?vrHitFaceFlash.get(c.key):null;
       const validFlash=flash&&
         (flash.publicId?flash.publicId===c.publicId:flash.name===c.publicName);
+      if(validFlash&&flash.firstShownAt===undefined)
+        flash.firstShownAt=time;
       const flashAge=validFlash?Math.min(
-        Math.max(0,(time-flash.at)/900),
-        Math.min(1,flash.shownFrames/4)):1;
+        Math.max(0,(time-flash.firstShownAt)/1100),
+        Math.min(1,flash.shownFrames/6)):1;
       const intensity=validFlash&&!frozen&&flashAge>=0&&flashAge<1?
         .95*Math.pow(1-flashAge,2):0;
       if(validFlash)flash.shownFrames++;
@@ -1996,6 +2004,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrHitFaceFlashCount:vrMode?vrHitFaceFlashCount:null,
       vrHitFaceFlashPeak:vrMode?Number(vrHitFaceFlashPeak.toFixed(4)):null,
       vrHitFaceFlashActive:vrMode?vrHitFaceFlash.size:null,
+      vrHitFaceRendered:vrMode?[...vrHitFaceFlash.values()].filter(f=>
+        f.shownFrames>0).length:null,
       vrSelectionBursts:vrMode?vrSelectionBursts:null,
       vrTargetLocks:vrMode?vrTargetLocks:null,
       vrTargetLockKey:vrMode?vrTargetLock?.key||null:null,
