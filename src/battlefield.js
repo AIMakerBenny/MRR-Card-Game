@@ -1754,6 +1754,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // The authoritative Phase21 state ends the attack. No visual lock
     // or target halo may persist after native target classes disappear.
     if(!attackTargetCount)vrTargetLock=null;
+    // VR01GA: withdrawing a native lock must withdraw its last rendered
+    // 3D bracket and orbiting particles in the SAME public sync, without
+    // one stale WebGL frame pointing at a departed public card.
+    if(vrMode&&!vrTargetLock){
+      if(vrTargetBracket)vrTargetBracket.visible=false;
+      vrTargetBracketKey=null;
+      for(const spark of vrTargetSparks)spark.visible=false;
+    }
     const hovered=list.find(p=>p.key===hoveredKey);
     // VR01DV: only a REAL native legal, unoccupied destination can glow.
     // When aiming at an enemy or exiting targeting, the guide vanishes.
