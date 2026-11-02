@@ -1457,6 +1457,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     for(const [i,c] of cards.entries()){
       const hover=c.key===hoveredKey;
+      // VR01DW: the existing real Three.js card subtly turns toward an
+      // inspector. Only public native hover / selection keys can drive this
+      // easing. No mesh is recreated and original raycast faces still pick.
+      if(vrMode){
+        const targetYaw=c.deploy?0:hover?
+          (c.slot.owner===0?-.115:.115):
+          c.key===selectedKey?(c.slot.owner===0?-.043:.043):0;
+        const alpha=frozen?1:1-Math.exp(-visualDelta/130);
+        c.visualYaw=(c.visualYaw??0)+(targetYaw-(c.visualYaw??0))*alpha;
+        c.group.rotation.y=c.visualYaw;
+      }
       if(tabletop){
         // VR01-C: an occupied card gets larger when it has actual physical
         // room. Dense battles retain a non-overlapping normal scale; lone
@@ -1592,6 +1603,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrCameraAuto:vrMode?!manualCamera:null,
       vrCrowdedComposition:vrMode&&cameraPreset==='tabletop'&&cards.length>=16,
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
+      vrHoveredCardYaw:vrMode&&cardIndex.has(hoveredKey)?
+        Number(cardIndex.get(hoveredKey).group.rotation.y.toFixed(4)):null,
+      vrSelectedCardYaw:vrMode&&cardIndex.has(selectedKey)?
+        Number(cardIndex.get(selectedKey).group.rotation.y.toFixed(4)):null,
       nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,peakLiveFxCount,
       fxSources:'native-slot-classes',cinematicRevision:49,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
