@@ -1238,7 +1238,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // public card many times. Reuse one temporary vector across synchronous
   // project calls instead of allocating a THREE.Vector3 for every corner.
   const vrProjectionPoint=new THREE.Vector3();
-  let vrProjectionSamples=0,vrStalePreviewRejected=0;
+  let vrProjectionSamples=0,vrStalePreviewRejected=0,vrStaleCardQueriesRejected=0;
   function publicHit(e){
     const rect=renderer.domElement.getBoundingClientRect();
     if(rect.width<10||rect.height<10||e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)return null;
@@ -1309,7 +1309,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       stats:node?.querySelector('.card-stats')?.textContent?.trim()||'',
       cost:node?.querySelector('.cost-bubble')?.textContent?.trim()||''};
   }
-  function hasCard(key){return cardIndex.has(key);}
+  function hasCard(key){
+    const item=cardIndex.get(key);
+    if(!item)return false;
+    if(!vrMode)return true;
+    // VR01FM: quick actions and preview-pin buttons must never rely on
+    // a stale 3D mesh after native Phase21 replaced its actual occupant.
+    const real=document.querySelector('#arena [data-slot="'+key+'"] .board-card .card-ui');
+    const realId=real?.getAttribute('data-mrr-public-card-id')||null;
+    const realName=real?.querySelector('.card-name')?.textContent?.trim()||'';
+    const valid=!!realName&&(realId?
+      realId===item.publicId:realName===item.publicName);
+    if(!valid)vrStaleCardQueriesRejected++;
+    return valid;
+  }
   function projectSlot(key){
     const c=boardSlots.get(key);
     if(!c)return null;
@@ -2181,6 +2194,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrCanvasResizeSkips:vrMode?vrCanvasResizeSkips:null,
       vrProjectionSamples:vrMode?vrProjectionSamples:null,
       vrStalePreviewRejected:vrMode?vrStalePreviewRejected:null,
+      vrStaleCardQueriesRejected:vrMode?vrStaleCardQueriesRejected:null,
       vrResumeFirstDelta:vrMode?vrResumeFirstDelta:null,
       vrPointerDragging:vrMode?drag:null,
       vrInterruptedPointerGestures:vrMode?vrInterruptedPointerGestures:null,
