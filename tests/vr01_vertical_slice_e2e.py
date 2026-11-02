@@ -3419,7 +3419,26 @@ try:
     # VR01ET: a real stop/resume must not advance Phase21 input or leave
     # the 3D animation clock carrying a stale hidden-tab frame interval.
     before_resume=page.evaluate('MRRIntegrated.state.scene.frames')
+    # VR01FB: simulate only the pointer-down portion of a drag. The
+    # native engine never receives a click, attack or mouse-up.
+    armed=page.evaluate("""() => {
+      const stage=document.querySelector('#mrr-integrated-stage');
+      const canvas=stage.querySelector('canvas');
+      const capture=stage.setPointerCapture;
+      stage.setPointerCapture=()=>{};
+      try{
+        canvas.dispatchEvent(new PointerEvent('pointerdown',{
+          bubbles:true,button:0,pointerId:987,clientX:0,clientY:0
+        }));
+      }finally{stage.setPointerCapture=capture;}
+      return MRRIntegrated.state.scene.vrPointerDragging;
+    }""")
+    assert armed is True,'VR01FB test could not arm visual-only pointer drag'
     page.evaluate('MRRIntegrated.scene.stop()')
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrPointerDragging===false&&s.vrInterruptedPointerGestures>=1;
+    }"""),'VR01FB stop retained a stale active pointer drag'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume
     page.evaluate('MRRIntegrated.scene.start()')
