@@ -4059,6 +4059,31 @@ try:
     assert effects['pickable']==30+stress['originals']*2,effects
     page.wait_for_function('MRRIntegrated.state.scene.vrDepartActive===0',timeout=8000)
     assert snap()==dense_native,'Removing display-only stress fixture changed engine'
+    # VR01FD: a synthetic FX class on a vacant DISPLAY slot is not an
+    # actual public card. It must not illuminate the previously cached
+    # occupant or create native game damage; test only the visual adapter.
+    missing_hit=page.evaluate("""() => {
+      const empty=[...document.querySelectorAll('#arena .slot[data-slot]')]
+        .find(el=>!el.querySelector('.board-card .card-ui')&&
+          !el.classList.contains('fx-hit'));
+      if(!empty)return {error:'No publicly vacant native slot'};
+      const s=MRRIntegrated.state.scene;
+      const before={received:s.fxReceived.hit,flash:s.vrHitFaceFlashCount,
+        without:s.vrHitWithoutPublicCard};
+      empty.classList.add('fx-hit');
+      return {key:empty.dataset.slot,before};
+    }""")
+    assert 'error' not in missing_hit,missing_hit
+    page.wait_for_function("""b => {
+      const s=MRRIntegrated.state.scene;
+      return s.fxReceived.hit>b.received &&
+        s.vrHitWithoutPublicCard>b.without;
+    }""",arg=missing_hit['before'],timeout=9000)
+    assert page.evaluate('MRRIntegrated.state.scene.vrHitFaceFlashCount')==(
+      missing_hit['before']['flash']),'VR01FD orphan native slot produced card glow'
+    page.evaluate("""key => document.querySelector(
+      '#arena [data-slot="'+key+'"]')?.classList.remove('fx-hit')""",missing_hit['key'])
+    assert snap()==dense_native,'VR01FD visual-only empty slot mutated Phase21 engine'
     page.set_viewport_size({'width':1920,'height':1080})
     page.mouse.move(950,400)
     page.mouse.wheel(0,180)
