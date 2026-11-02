@@ -3400,6 +3400,14 @@ try:
       document.querySelector('#vr-aim-line')?.dataset.target===key &&
       !!document.querySelector('#vr-aim-line')?.getAttribute('d')""",
       arg=opponent,timeout=15000)
+    # VR01DY: a real Three.js local light follows only the publicly hovered
+    # card, never the private hand, and introduces no game-state changes.
+    page.wait_for_function("""key => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrFocusedCardKey===key&&
+        s.vrFocusedLightIntensity>10;
+    }""",arg=opponent,timeout=14000)
+    assert snap()==baseline,'VR01DY scene spotlight modified Phase21 state'
     # VR01DW: the genuine public card mesh pivots subtly toward the pointer
     # without rebuilding a card or changing Phase21 targeting or damage.
     page.wait_for_function("""() => {
