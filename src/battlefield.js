@@ -1537,6 +1537,23 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
             item.face.material.roughness=visual.roughness;
           if(Number.isFinite(visual.metalness))
             item.face.material.metalness=visual.metalness;
+          // VR01FS: transfer the already-eased light onto the NEW public
+          // rendering object immediately. Numeric interpolation alone is
+          // insufficient: the first WebGL frame otherwise shows dark
+          // materials despite preserved animation amounts.
+          if(item.contactRing&&Number.isFinite(item.contactAmount)){
+            item.contactRing.visible=item.contactAmount>.012;
+            item.contactRing.material.opacity=.68*item.contactAmount;
+            item.contactRing.scale.setScalar(.91+.09*item.contactAmount);
+          }
+          if(item.edgeGlint&&Number.isFinite(item.edgeAmount)){
+            item.edgeGlint.visible=item.edgeAmount>.015;
+            item.edgeGlintMaterial.opacity=.44*item.edgeAmount;
+          }
+          if(item.seatCorners&&Number.isFinite(item.seatCornerAmount)){
+            item.seatCorners.visible=item.seatCornerAmount>.012;
+            item.seatCornersMaterial.opacity=.62*item.seatCornerAmount;
+          }
           vrPresentationCarryTransfers++;
         }
         // Only newly confirmed, friendly, matching real cards can launch

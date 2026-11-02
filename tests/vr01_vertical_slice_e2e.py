@@ -3687,13 +3687,22 @@ try:
       return {found:true,
         transferred:during.vrPresentationCarryTransfers-
           before.vrPresentationCarryTransfers,
+        // VR01FS: no next RAF tick is required to relight a surviving
+        // public card's freshly created real Three.js materials.
+        contactContinues:before.vrInspectionHoveredContactOpacity>.2&&
+          Math.abs(during.vrInspectionHoveredContactOpacity-
+            before.vrInspectionHoveredContactOpacity)<.02,
+        edgeContinues:before.vrHoveredEdgeGlintOpacity>.1&&
+          Math.abs(during.vrHoveredEdgeGlintOpacity-
+            before.vrHoveredEdgeGlintOpacity)<.02,
         restored:after.publicCardCount===before.publicCardCount,
         hovered:after.hoveredKey===key,
         glintsSafe:after.vrInspectionContactPickSafe&&
           after.vrEdgeGlintPickSafe&&after.vrSeatCornersPickSafe};
     }""",opponent)
     assert refresh['found'] and refresh['transferred']>=1 and (
-      refresh['restored'] and refresh['hovered'] and refresh['glintsSafe']),refresh
+      refresh['restored'] and refresh['hovered'] and refresh['glintsSafe'] and
+      refresh['contactContinues'] and refresh['edgeContinues']),refresh
     assert snap()==baseline,'VR01FR public visual repaint changed Phase21'
     # VR01DU: a curved 17-point THREE.js trajectory must appear only
     # while the REAL Phase21 attack-target remains hovered.
