@@ -4070,14 +4070,16 @@ try:
         const s=MRRIntegrated.state.scene;
         return {probe:window.__vr01evProbed,
           observer:window.__vr01gkFxProbe,
-          edges:s.vrFxRisingEdges,received:s.fxReceived};
+          edges:s.vrFxRisingEdges,received:s.fxReceived,
+          nativeAudit:s.vrNativeFxAudit};
       }"""),flush=True)
       raise
     noise=page.evaluate("""() => {
       const s=MRRIntegrated.state.scene;
       return {probed:window.__vr01evProbed===true,
         ignored:s.vrFxClassNoiseIgnored,
-        observer:window.__vr01gkFxProbe};
+        observer:window.__vr01gkFxProbe,
+        audit:s.vrNativeFxAudit};
     }""")
     if noise['probed']:
       assert noise['ignored']>=1,noise

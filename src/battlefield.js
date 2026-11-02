@@ -923,6 +923,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // arbitrary class change while that slot still has the same fx-* class.
   let vrFxClassNoiseIgnored=0,vrFxRisingEdges=0,vrFxBatchedTransitions=0;
   let vrFxRapidNativeEdges=0,vrDetachedFxRecordsIgnored=0;
+  // VR01GM: low-cost forensic trace of genuine public native class
+  // transitions. Keep only the most recent eight events, and never read
+  // private Phase21 battle state or record a detached DOM card as a hit.
+  const vrNativeFxAudit=[];
   const recentFx=new Map();
   const effectColors={hit:0xffa96e,heal:0x7affbd,summon:0x69d8ef};
   const fxObserver=new MutationObserver(records=>{
@@ -964,6 +968,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         if(vrMode){
           vrFxRisingEdges++;
           if(!node.classList.contains(fxClass))vrFxBatchedTransitions++;
+          const card=node.querySelector('.board-card .card-ui');
+          vrNativeFxAudit.push({
+            key,type,id:card?.getAttribute('data-mrr-public-card-id')||null,
+            name:card?.querySelector('.card-name')?.textContent?.trim()||null,
+            classStillVisible:node.classList.contains(fxClass)
+          });
+          if(vrNativeFxAudit.length>8)vrNativeFxAudit.shift();
         }
         const stamp=key+'|'+type,now=performance.now();
         const previousAt=recentFx.get(stamp);
@@ -2622,6 +2633,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       fxSources:'native-slot-classes',cinematicRevision:49,
       vrFxClassNoiseIgnored:vrMode?vrFxClassNoiseIgnored:null,
       vrFxRisingEdges:vrMode?vrFxRisingEdges:null,
+      vrNativeFxAudit:vrMode?vrNativeFxAudit.map(x=>({...x})):null,
       vrFxBatchedTransitions:vrMode?vrFxBatchedTransitions:null,
       vrFxRapidNativeEdges:vrMode?vrFxRapidNativeEdges:null,
       vrDetachedFxRecordsIgnored:vrMode?vrDetachedFxRecordsIgnored:null,
