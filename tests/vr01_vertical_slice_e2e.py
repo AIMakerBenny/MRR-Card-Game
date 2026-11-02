@@ -31,6 +31,7 @@ try:
     gate_page=browser.new_page()
     try:
       gate_page.set_content(
+        '<div id="overlay" class="hidden"></div>'
         '<div id="gameScreen"><div class="mcw-top-controls"></div></div>')
       gate_page.add_script_tag(content=(
         ROOT/'src'/'integrated.js').read_text(encoding='utf-8'))
@@ -66,6 +67,7 @@ try:
     lifecycle_page=browser.new_page()
     try:
       lifecycle_page.set_content(
+        '<div id="overlay" class="hidden"></div>'
         '<div id="gameScreen"><div class="mcw-top-controls"></div></div>')
       lifecycle_page.add_script_tag(content=(
         ROOT/'src'/'integrated.js').read_text(encoding='utf-8'))
@@ -113,6 +115,51 @@ try:
       },('VR01DQ cancelled loader corrupted newer 3D open',pending_lifecycle)
     finally:
       lifecycle_page.close()
+    # VR01DR: the actual Phase21 privacy overlay is authoritative both
+    # at open request time and when a deferred Three.js import settles.
+    private_open_page=browser.new_page()
+    try:
+      private_open_page.set_content(
+        '<div id="overlay"></div>'
+        '<div id="gameScreen"><div class="mcw-top-controls"></div></div>')
+      private_open_page.add_script_tag(content=(
+        ROOT/'src'/'integrated.js').read_text(encoding='utf-8'))
+      private_open_gate=private_open_page.evaluate("""async () => {
+        const overlay=document.querySelector('#overlay');
+        let resolveLoad,loads=0;
+        MRRIntegratedUIInit(()=>{
+          loads++;
+          return new Promise(resolve=>{resolveLoad=resolve;});
+        });
+        const toggle=document.querySelector('#mrr-integrated-open');
+        const status=()=>({loads,disabled:toggle.disabled,
+          stage:!!document.querySelector('#mrr-integrated-stage'),
+          playing:MRRIntegrated.state.open});
+        toggle.click();
+        const beforePrivate=status();
+        overlay.classList.add('hidden');
+        toggle.click();
+        const whileLoading=status();
+        overlay.classList.remove('hidden');
+        resolveLoad({});
+        await Promise.resolve();await Promise.resolve();
+        const afterPrivate=status();
+        toggle.click();
+        const privateStillBlocked=status();
+        return {beforePrivate,whileLoading,afterPrivate,privateStillBlocked};
+      }""")
+      assert private_open_gate=={
+        'beforePrivate':{'loads':0,'disabled':False,
+          'stage':False,'playing':False},
+        'whileLoading':{'loads':1,'disabled':True,
+          'stage':False,'playing':False},
+        'afterPrivate':{'loads':1,'disabled':False,
+          'stage':False,'playing':False},
+        'privateStillBlocked':{'loads':1,'disabled':False,
+          'stage':False,'playing':False}
+      },('VR01DR private handoff permitted a deferred 3D open',private_open_gate)
+    finally:
+      private_open_page.close()
     def snap():
       return page.evaluate("""() => {
         const s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);
