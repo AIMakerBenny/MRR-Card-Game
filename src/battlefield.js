@@ -1093,10 +1093,30 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       fx.halo.material.opacity=.40*Math.pow(1-p,1.7);
     }
   }
-  function advanceEffects(now){
+  function advanceEffects(now,reducedMotion=false){
     for(let i=liveEffects.length-1;i>=0;i--){
       const f=liveEffects[i],p=Math.max(0,(now-f.born)/f.life);
       if(p>=1){removeFx(f);liveEffects.splice(i,1);continue;}
+      // VR01ES: respect system reduced-motion in the real PC battlefield.
+      // Keep the native FX event and its static colour cue, but never move
+      // sparks, beams, shockwaves or a projectile during this preference.
+      // Normal motion and the older Phase76 modal retain existing behavior.
+      if(reducedMotion){
+        const fade=1-p;
+        f.ring.scale.setScalar(.9);f.ring.material.opacity=.32*fade;
+        if(f.group.userData.column){
+          const column=f.group.userData.column;
+          column.material.opacity=.18*fade;
+          column.scale.set(1,1,1);
+        }
+        f.beacon.scale.setScalar(.7);
+        f.beacon.material.opacity=.26*fade;
+        f.sparkMat.opacity=0;
+        if(f.projectile)f.projectile.mesh.visible=false;
+        if(f.group.userData.beams)for(const beam of f.group.userData.beams)
+          beam.material.opacity=0;
+        continue;
+      }
       const ease=Math.sin(Math.PI*p);
       f.ring.scale.setScalar(.7+p*1.55);
       if(f.group.userData.column){
@@ -1914,7 +1934,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.group.position.y=1.76+(hover?.78:0)+(frozen?0:Math.sin(time*.0015+i*.67)*.045);
       }
     }
-    advanceEffects(time);
+    advanceEffects(time,vrMode&&frozen);
     if(vrMode){advanceVrLandingDust(time);advanceVrDeparture(time);}
     advanceCinematics(time);
     renderer.render(scene,camera);frames++;
@@ -2048,6 +2068,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrHitFaceFlashActive:vrMode?vrHitFaceFlash.size:null,
       vrHitFaceRendered:vrMode?[...vrHitFaceFlash.values()].filter(f=>
         f.shownFrames>0).length:null,
+      vrReducedMotionActive:vrMode?matchMedia('(prefers-reduced-motion: reduce)').matches:null,
+      vrReducedMotionFxStatic:vrMode&&matchMedia('(prefers-reduced-motion: reduce)').matches?
+        liveEffects.every(f=>f.sparkMat.opacity===0&&
+          (!f.projectile||!f.projectile.mesh.visible)):null,
       vrHitFacePublicSafe:vrMode?[...vrHitFaceFlash].every(([key,fx])=>{
         const c=cardIndex.get(key);
         return !!c&&(fx.publicId?fx.publicId===c.publicId:
