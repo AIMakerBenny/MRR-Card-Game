@@ -1635,7 +1635,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let manualCamera=false;
   let drag=false,moved=false,lastX=0,lastY=0,startX=0,startY=0;
   let vrActivePointerId=null,vrInterruptedPointerGestures=0;
-  let vrForeignPointerEventsIgnored=0;
+  let vrForeignPointerEventsIgnored=0,vrPausedInputEventsIgnored=0;
   function updateCamera(){
     const aspect=mount.clientWidth/Math.max(1,mount.clientHeight);
     const d=distance*(aspect<.75?1.6:aspect<1.1?1.22:1);
@@ -1647,6 +1647,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     camera.updateMatrixWorld(true);
   }
   function down(e){
+    // VR01FH: a stopped/hidden scene cannot arm a delegated native click.
+    if(vrMode&&(!running||disposed)){vrPausedInputEventsIgnored++;return;}
     if(e.button!==0||e.target!==renderer.domElement)return;
     // VR01FF: a secondary pointer cannot steal an active PC gesture.
     if(vrMode&&drag){vrForeignPointerEventsIgnored++;return;}
@@ -1655,6 +1657,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     mount.setPointerCapture?.(e.pointerId);
   }
   function move(e){
+    if(vrMode&&(!running||disposed)){vrPausedInputEventsIgnored++;return;}
     if(!drag){setHover(e.target===renderer.domElement?publicHit(e):null);return;}
     if(vrMode&&e.pointerId!==vrActivePointerId){
       vrForeignPointerEventsIgnored++;return;
@@ -1672,6 +1675,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     lastX=e.clientX;lastY=e.clientY;
   }
   function up(e){
+    if(vrMode&&(!running||disposed)){vrPausedInputEventsIgnored++;return;}
     if(!drag)return;
     // Only the pointer that started this drag may finish a native click.
     if(vrMode&&e.pointerId!==vrActivePointerId){
@@ -1690,7 +1694,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     drag=false;moved=false;vrActivePointerId=null;setHover(null);
   }
-  function wheel(e){e.preventDefault();manualCamera=true;distance=Math.max(24,Math.min(47,distance+e.deltaY*.018));updateCamera();setHover(null);}
+  function wheel(e){
+    e.preventDefault();
+    if(vrMode&&(!running||disposed)){vrPausedInputEventsIgnored++;return;}
+    manualCamera=true;
+    distance=Math.max(24,Math.min(47,distance+e.deltaY*.018));
+    updateCamera();setHover(null);
+  }
   mount.addEventListener('pointerdown',down);
   mount.addEventListener('pointermove',move);
   mount.addEventListener('pointerup',up);
@@ -2134,6 +2144,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrPointerDragging:vrMode?drag:null,
       vrInterruptedPointerGestures:vrMode?vrInterruptedPointerGestures:null,
       vrForeignPointerEventsIgnored:vrMode?vrForeignPointerEventsIgnored:null,
+      vrPausedInputEventsIgnored:vrMode?vrPausedInputEventsIgnored:null,
       vrCameraAuto:vrMode?!manualCamera:null,
       vrCrowdedComposition:vrMode&&cameraPreset==='tabletop'&&cards.length>=16,
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
