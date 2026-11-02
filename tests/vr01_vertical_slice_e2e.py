@@ -401,6 +401,39 @@ try:
       }""")
       assert tooltip_audit,('VR01BC publicly grounded hand tooltip mismatch',w,h)
       assert snap()==baseline,('VR01AW/AX inspection changed Phase21 state',w,h)
+      # VR01DT: actual Chromium pointer movement tilts only the inspected
+      # card face. Native selection/state and all neighboring cards stay intact.
+      inspected_index=page.locator('#vr-hand .vr-card').count()//2
+      page.locator('#vr-hand .vr-card').nth(inspected_index).hover(force=True)
+      page.wait_for_function("""index => {
+        const cards=[...document.querySelectorAll('#vr-hand .vr-card')];
+        const card=cards[index],face=card?.querySelector('.vr-card-face');
+        return !!card&&card.matches(':hover')&&
+          Math.abs(parseFloat(card.style.getPropertyValue('--vr-tilt-x')))>0.2&&
+          getComputedStyle(face).transform.startsWith('matrix3d(');
+      }""",arg=inspected_index,timeout=10000)
+      tilt_review=page.evaluate("""index => {
+        const cards=[...document.querySelectorAll('#vr-hand .vr-card')];
+        const card=cards[index],face=card.querySelector('.vr-card-face');
+        return {raised:card.classList.contains('raised'),
+          glint:getComputedStyle(face,'::after').backgroundImage,
+          neighbors:cards.filter(c=>c!==card).every(c=>
+            c.isConnected&&c.querySelector('.vr-card-face')?.isConnected),
+          originalCount:document.querySelectorAll('#hand .hand-slot').length,
+          clickAnchor:getComputedStyle(card).pointerEvents};
+      }""",inspected_index)
+      assert tilt_review['raised'] and tilt_review['neighbors'] and (
+        'radial-gradient' in tilt_review['glint'] and
+        tilt_review['originalCount']==page.locator('#vr-hand .vr-card').count() and
+        tilt_review['clickAnchor']=='auto'),(
+          'VR01DT 3D inspection lost its original card anchor',w,h,tilt_review)
+      assert snap()==baseline,'VR01DT pointer tilt modified Phase21 gameplay'
+      page.mouse.move(4,540)
+      page.wait_for_function("""() =>
+        [...document.querySelectorAll('#vr-hand .vr-card')].every(c=>
+          !c.style.getPropertyValue('--vr-tilt-x') &&
+          !c.style.getPropertyValue('--vr-glint-x'))""",timeout=10000)
+      assert snap()==baseline,'VR01DT hand exit modified Phase21 gameplay'
       visible_public=page.locator('#arena [data-slot] .board-card .card-ui').count()
       plaques=page.locator('#vr-public-plaques .vr-unit-plaque')
       assert plaques.count()==visible_public,(w,h,plaques.count(),visible_public)
