@@ -4836,6 +4836,7 @@ try:
       const s=MRRIntegrated.state.scene;
       return s.vrLandingGuideVisible===true&&
         s.vrLandingGuideKey===key&&s.vrLandingGuidePickSafe===true &&
+        s.vrLandingPillarCount===4&&s.vrLandingPillarsPickSafe===true&&
         s.vrLandingGuideReveals>=1&&
         s.vrLandingGuideScale>.96&&s.vrLandingGuideScale<1.04 &&
         s.vrLandingGuideLightOpacity>.11&&s.vrLandingGuideLightOpacity<=.13;
@@ -4852,7 +4853,8 @@ try:
     assert snap()==prior_move,'VR01AB hover exit changed native game'
     page.wait_for_function("""() => {
       const s=MRRIntegrated.state.scene;
-      return s.vrLandingGuideVisible===false&&s.vrLandingGuideKey===null;
+      return s.vrLandingGuideVisible===false&&s.vrLandingGuideKey===null&&
+        s.vrLandingPillarCount===0;
     }""",timeout=14000)
     assert snap()==prior_move,'VR01DV expired landing guide mutated engine'
     page.screenshot(path=str(ROOT/'tests/vr01z_native_move_aim_1920x1080.png'),

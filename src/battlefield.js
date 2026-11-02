@@ -486,6 +486,23 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     vrLandingGuide.add(arc,floorMark,lightColumn);
     vrLandingGuide.visible=false;scene.add(vrLandingGuide);
   }
+  // VR01FU: four slim real-world corner beacons rise from the original
+  // vacant .legal slot. One shared mesh shape/material, no extra slot
+  // selection surface and no assumption about permitted destinations.
+  const vrLandingPillars=[];
+  if(vrMode){
+    const postGeo=geometry(new THREE.CylinderGeometry(.025,.045,.62,7));
+    const postMat=new THREE.MeshBasicMaterial({
+      color:0xa9ffe8,transparent:true,opacity:.62,depthWrite:false,
+      blending:THREE.AdditiveBlending
+    });
+    madeMaterials.push(postMat);
+    for(const sx of [-1,1])for(const sz of [-1,1]){
+      const post=new THREE.Mesh(postGeo,postMat);
+      post.userData.cornerX=sx;post.userData.cornerZ=sz;
+      post.visible=false;scene.add(post);vrLandingPillars.push(post);
+    }
+  }
   // VR01EI: a single camera-visible 3D four-corner target bracket. The
   // authority remains Phase21's .attack-target class; this object is not
   // a raycast input surface and is not regenerated per opponent card.
@@ -2044,6 +2061,21 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrLandingGuide.children[2].material.opacity=.13*eased;
       vrLandingGuide.position.y=.36+(frozen?0:.025*Math.sin(time*.005));
     }
+    // VR01FU: the companion 3D posts follow ONLY the already validated
+    // legal empty hover. The four meshes are recycled across all slots.
+    for(const post of vrLandingPillars){
+      post.visible=!!vrLandingGuide?.visible;
+      if(!post.visible)continue;
+      const slot=boardSlots.get(vrLandingGuideKey);
+      if(!slot){post.visible=false;continue;}
+      const raw=frozen?1:Math.max(0,Math.min(1,
+        (time-vrLandingGuideBorn)/260));
+      const rise=1-Math.pow(1-raw,3);
+      post.scale.y=.05+.95*rise;
+      post.position.set(slot.x+post.userData.cornerX*.93,
+        .48+(post.scale.y-1)*.31,
+        slot.z+post.userData.cornerZ*.96);
+    }
     // VR01DY: follow only an existing, publicly rendered card. The single
     // point light eases as the pointer changes without re-creating materials.
     if(vrFocusLamp){
@@ -2307,6 +2339,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       attackArrow.visible=attackTip.visible=false;
       vrAimPathKey=null;
       if(vrTargetBracket)vrTargetBracket.visible=false;
+      for(const m of vrLandingPillars)m.visible=false;
       for(const m of vrTargetSparks)m.visible=false;
       vrTargetBracketKey=null;
     }
@@ -2513,6 +2546,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrLandingGuidePickSafe:vrMode?!pickMeshes.includes(vrLandingGuide.children[0])&&
         !pickMeshes.includes(vrLandingGuide.children[1])&&
         !pickMeshes.includes(vrLandingGuide.children[2]):null,
+      vrLandingPillarCount:vrMode?vrLandingPillars.filter(p=>p.visible).length:null,
+      vrLandingPillarsPickSafe:vrMode?vrLandingPillars.every(p=>
+        !pickMeshes.includes(p)):null,
       vrAttackArcMoteCount:vrMode?vrAttackMotes.filter(m=>m.visible).length:null,
       vrAttackArcMotePickSafe:vrMode?vrAttackMotes.every(m=>!pickMeshes.includes(m)):null,
       vrAimPathBuilds:vrMode?vrAimPathBuilds:null,
