@@ -3462,6 +3462,17 @@ try:
     }""")
     assert foreign['dragging'] is True and foreign['ignored']>=3,foreign
     assert snap()==baseline,'VR01FF foreign pointer events modified Phase21'
+    # VR01FI: losing pointer capture must also abandon the original
+    # pointer gesture without inventing a game click.
+    capture_lost=page.evaluate("""() => {
+      const stage=document.querySelector('#mrr-integrated-stage');
+      stage.dispatchEvent(new PointerEvent('lostpointercapture',{
+        bubbles:true,pointerId:987}));
+      const s=MRRIntegrated.state.scene;
+      return {dragging:s.vrPointerDragging,lost:s.vrLostPointerCaptures};
+    }""")
+    assert capture_lost['dragging'] is False and capture_lost['lost']>=1,capture_lost
+    assert snap()==baseline,'VR01FI lost pointer capture changed Phase21'
     page.evaluate('MRRIntegrated.scene.stop()')
     assert page.evaluate("""() => {
       const s=MRRIntegrated.state.scene;
