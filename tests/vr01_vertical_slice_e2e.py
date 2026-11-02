@@ -3955,6 +3955,17 @@ try:
     page.mouse.wheel(0,180)
     page.wait_for_function('MRRIntegrated.state.scene.vrCameraAuto===false',timeout=7000)
     assert snap()==dense_native,'Manual camera wheel must never affect game'
+    # VR01ES: static native FX presentation with the actual OS preference
+    # does not interfere with game state, card hover or 2D return.
+    page.emulate_media(reduced_motion='reduce')
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrReducedMotionActive===true&&
+        s.vrReducedMotionFxStatic===true&&
+        s.vrStatusBeacons.every(x=>x.scale===1);
+    }""",timeout=14000)
+    assert snap()==dense_native,'VR01ES reduced-motion modified native game'
+    page.emulate_media(reduced_motion='no-preference')
     # VR01ER: a real return to 2D must free the old GPU renderer and
     # each unique public texture exactly once, including the current cards.
     page.evaluate("""() => {
