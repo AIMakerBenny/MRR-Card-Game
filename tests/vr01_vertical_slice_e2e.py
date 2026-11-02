@@ -3459,8 +3459,8 @@ try:
       return s.vrTargetLockKey===key&&s.vrTargetLocks===1&&
         s.vrTargetLockScale>1.07&&s.vrTargetLockScale<1.5;
     }""",arg=opponent,timeout=14000)
-    # VR01EI: the lock has an actual 3D four-corner bracket only while
-    # the original engine says this public slot is attack-target.
+    # VR01EI / VR01EL: native-confirmed 3D target bracket, reusing
+    # the public arc state instead of querying the DOM per render frame.
     page.wait_for_function("""key => {
       const s=MRRIntegrated.state.scene;
       return s.vrTargetBracketKey===key&&
