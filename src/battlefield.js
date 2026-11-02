@@ -760,6 +760,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   impactLamp.position.set(0,2,0);scene.add(impactLamp);
   let pendingStrike=null,cinemaImpact=null,confirmedStrikes=0,cinematicFrameCount=0;
   let vrHitReactions=0,vrLandingDustStarted=0;
+  let vrImpactSpringPeak=0;
   // VR01DX: confirmed native hit FX may illuminate a CURRENT public face.
   // A short-lived keyed event survives HP-text texture reconstruction, but
   // an unrelated replacement with a different public card ID cannot glow.
@@ -1577,6 +1578,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
             c.group.position.x=c.slot.x+(impact?.dx||0)*recoil*.34;
             c.group.position.z=c.slot.z+(impact?.dz||0)*recoil*.34;
             c.group.rotation.z=(impact?.dx||0)*recoil*.10;
+            // VR01DZ: compress and pitch the real 3D card briefly after
+            // native fx-hit only. The Phase21 hitbox and health are untouched.
+            const spring=frozen?0:recoil;
+            c.group.rotation.x=-.74+spring*.08;
+            c.group.scale.multiplyScalar(1-spring*.055);
+            vrImpactSpringPeak=Math.max(vrImpactSpringPeak,spring);
           }
         }
       }else{
@@ -1670,6 +1677,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrDepartHaloStarted:vrMode?vrDepartHaloCount:null,
       vrDepartHaloActive:vrMode?vrDepartBursts.filter(f=>!!f.halo).length:null,
       vrHitReactions:vrMode?vrHitReactions:null,
+      vrImpactSpringPeak:vrMode?Number(vrImpactSpringPeak.toFixed(3)):null,
       vrHitFaceFlashCount:vrMode?vrHitFaceFlashCount:null,
       vrHitFaceFlashPeak:vrMode?Number(vrHitFaceFlashPeak.toFixed(4)):null,
       vrHitFaceFlashActive:vrMode?vrHitFaceFlash.size:null,
