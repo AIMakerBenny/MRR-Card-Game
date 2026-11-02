@@ -3432,6 +3432,28 @@ try:
     assert preview_guard['initial'] and preview_guard['absent'] and (
       preview_guard['restored'] and preview_guard['skipped']>=1),preview_guard
     assert snap()==baseline,'VR01FK detached public preview modified Phase21'
+    # VR01FL: an attribute update on a slot removed within the same
+    # MutationObserver batch is not a visible Phase21 combat event.
+    detached_fx=page.evaluate("""() => {
+      const arena=document.querySelector('#arena');
+      const source=arena.querySelector('.slot[data-slot]');
+      if(!source)return {error:'No native slot'};
+      const before=MRRIntegrated.state.scene;
+      const fake=source.cloneNode(false);
+      fake.classList.remove('fx-hit','fx-heal','fx-summon');
+      arena.append(fake);
+      fake.classList.add('fx-hit');
+      fake.remove();
+      return {received:before.fxReceived.hit,ignored:before.vrDetachedFxRecordsIgnored};
+    }""")
+    assert 'error' not in detached_fx,detached_fx
+    page.wait_for_function("""v => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrDetachedFxRecordsIgnored>v.ignored;
+    }""",arg=detached_fx,timeout=10000)
+    assert page.evaluate('MRRIntegrated.state.scene.fxReceived.hit')==(
+      detached_fx['received']),'VR01FL detached slot emitted fake combat FX'
+    assert snap()==baseline,'VR01FL synthetic removed slot changed Phase21'
     page.mouse.move(target['x'],target['y'])
     page.wait_for_function("""key=>MRRIntegrated.state.scene.hoveredKey===key &&
       document.querySelector('#vr-aim-line')?.dataset.target===key &&
