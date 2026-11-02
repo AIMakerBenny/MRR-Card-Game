@@ -28,7 +28,10 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Real Chromium VR01 desktop screenshots and native gameplay
         run: python tests/vr01_vertical_slice_e2e.py
+      # VR01GR: inspect real lethal combat even after the main VR01
+      # browser test fails. Failure remains a failure, never a green build.
       - name: VR01P real lethal combat, departure cleanup and reduced motion
+        if: ${{ success() || failure() }}
         run: python tests/vr01p_finish_e2e.py
       - name: Package desktop preview
         if: always()
