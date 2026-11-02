@@ -1685,12 +1685,26 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let frames=0,raf=0,running=false,disposed=false,lastDraw=0,lastVisualTime=0;
   let vrRenderStarts=0,vrRenderResumes=0,vrResumeFirstDelta=null;
   let vrResumeAwaitingFrame=false;
+  let vrCanvasWidth=0,vrCanvasHeight=0,vrCanvasDpr=0;
+  let vrCanvasResizes=0,vrCanvasResizeSkips=0;
   function resize(){
     if(disposed)return;
     const w=Math.max(250,mount.clientWidth||900),h=Math.max(240,mount.clientHeight||560);
+    const dpr=Math.min(devicePixelRatio||1,w<650?1:1.5);
+    // VR01FE: resize() is also called on every scene resume, even when
+    // neither the desktop viewport nor DPR changed. Avoid reuploading
+    // the WebGL drawing buffer and projection on those no-op requests.
+    // Actual PC viewport/DPR changes still perform the original resize.
+    if(vrMode&&vrCanvasWidth===w&&vrCanvasHeight===h&&vrCanvasDpr===dpr){
+      vrCanvasResizeSkips++;return;
+    }
     camera.aspect=w/h;camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(devicePixelRatio||1,w<650?1:1.5));
+    if(!vrMode||vrCanvasDpr!==dpr)renderer.setPixelRatio(dpr);
     renderer.setSize(w,h,false);updateCamera();
+    if(vrMode){
+      vrCanvasWidth=w;vrCanvasHeight=h;vrCanvasDpr=dpr;
+      vrCanvasResizes++;
+    }
   }
   function tick(time){
     if(!running||disposed)return;
@@ -2094,6 +2108,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       publicCardCount,cardMeshCount:cards.length,shadows:renderer.shadowMap.enabled,
       rendererAlive:renderer.domElement.isConnected,yaw,pitch,distance,
       vrRenderResumes:vrMode?vrRenderResumes:null,
+      vrCanvasResizes:vrMode?vrCanvasResizes:null,
+      vrCanvasResizeSkips:vrMode?vrCanvasResizeSkips:null,
       vrProjectionSamples:vrMode?vrProjectionSamples:null,
       vrResumeFirstDelta:vrMode?vrResumeFirstDelta:null,
       vrPointerDragging:vrMode?drag:null,
