@@ -418,6 +418,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   attackArrow.visible=false;scene.add(attackArrow);
   const attackTip=new THREE.Mesh(geometry(new THREE.ConeGeometry(.28,.69,10)),attackGlow);
   attackTip.visible=false;scene.add(attackTip);
+  // VR01EY: the native visual arc is a world-space path. Stat/HP
+  // refreshes with the same publicly selected and target slots should
+  // not re-upload identical GPU position buffers or recreate vectors.
+  let vrAimPathKey=null,vrAimPathBuilds=0,vrAimPathReuses=0;
+  const vrAimTangent=new THREE.Vector3(),vrAimAxis=new THREE.Vector3(0,1,0);
   // VR01EM: all confirmed strike afterimages share ONE geometry for this
   // scene. Only short-lived per-impact opacity materials need disposal.
   const vrProjectileGeo=vrMode?geometry(new THREE.IcosahedronGeometry(.24,1)):null;
@@ -1556,26 +1561,29 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(vrMode)vrTargetBracketPublicChecks++;
     attackArrow.visible=attackTip.visible=arrowVisible;
     if(arrowVisible){
-      const pos=attackArrowGeo.attributes.position;
-      for(let i=0;i<=attackArcSegments;i++){
-        const t=i/attackArcSegments;
-        const rise=vrMode?.98*Math.sin(Math.PI*t):0;
-        pos.setXYZ(i,source.x+(target.x-source.x)*t,
-          1.65+rise,source.z+(target.z-source.z)*t);
-      }
-      pos.needsUpdate=true;
-      // The original arrow tip still lands on the TRUE Phase21 target.
-      // Its tangent follows the 3D arc rather than faking an attack action.
-      const last=attackArcSegments-1;
-      const direction=new THREE.Vector3(
-        pos.getX(attackArcSegments)-pos.getX(last),
-        pos.getY(attackArcSegments)-pos.getY(last),
-        pos.getZ(attackArcSegments)-pos.getZ(last));
-      attackTip.position.set(target.x,1.66,target.z);
-      attackTip.rotation.set(0,0,0);
-      attackTip.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());
-      attackArrowGeo.computeBoundingSphere();
-    }
+      const pathKey=selectedKey+'>'+hoveredKey;
+      if(!vrMode||pathKey!==vrAimPathKey){
+        const pos=attackArrowGeo.attributes.position;
+        for(let i=0;i<=attackArcSegments;i++){
+          const t=i/attackArcSegments;
+          const rise=vrMode?.98*Math.sin(Math.PI*t):0;
+          pos.setXYZ(i,source.x+(target.x-source.x)*t,
+            1.65+rise,source.z+(target.z-source.z)*t);
+        }
+        pos.needsUpdate=true;
+        // The original arrow tip still lands on the TRUE native target.
+        const last=attackArcSegments-1;
+        vrAimTangent.set(
+          pos.getX(attackArcSegments)-pos.getX(last),
+          pos.getY(attackArcSegments)-pos.getY(last),
+          pos.getZ(attackArcSegments)-pos.getZ(last));
+        attackTip.position.set(target.x,1.66,target.z);
+        attackTip.rotation.set(0,0,0);
+        attackTip.quaternion.setFromUnitVectors(vrAimAxis,vrAimTangent.normalize());
+        attackArrowGeo.computeBoundingSphere();
+        if(vrMode){vrAimPathKey=pathKey;vrAimPathBuilds++;}
+      }else vrAimPathReuses++;
+    }else if(vrMode)vrAimPathKey=null;
     events.onState?.({selectedKey,hoveredKey,legalCount,attackTargetCount,publicCardCount});
     if((cardChanged||statusChanged)&&hoveredKey)setHover(hoveredKey,true);
   }
@@ -2159,6 +2167,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         !pickMeshes.includes(vrLandingGuide.children[2]):null,
       vrAttackArcMoteCount:vrMode?vrAttackMotes.filter(m=>m.visible).length:null,
       vrAttackArcMotePickSafe:vrMode?vrAttackMotes.every(m=>!pickMeshes.includes(m)):null,
+      vrAimPathBuilds:vrMode?vrAimPathBuilds:null,
+      vrAimPathReuses:vrMode?vrAimPathReuses:null,
+      vrAimPathKey:vrMode?vrAimPathKey:null,
       vrAttackArcVisible:vrMode?attackArrow.visible:null,
       vrAttackArcSamples:vrMode&&attackArrow.visible?attackArrowGeo.attributes.position.count:0,
       vrAttackArcPeakY:vrMode&&attackArrow.visible?
