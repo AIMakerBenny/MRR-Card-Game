@@ -3546,12 +3546,34 @@ try:
       });
       observer.observe(host,{childList:true});
     }""",opponent)
+    # VR01EV: on a REAL native fx-hit rising edge, attach an unrelated
+    # cosmetic class to the same DOM slot. It must not emit a second
+    # Three.js native hit. Never create an fx-hit or modify Phase21 state.
+    page.evaluate("""key => {
+      window.__vr01evProbed=null;
+      const slot=document.querySelector('#arena [data-slot="'+key+'"]');
+      const observer=new MutationObserver(records=>{
+        if(!records.some(r=>r.attributeName==='class'&&
+          !(r.oldValue||'').split(/\s+/).includes('fx-hit')&&
+          slot.classList.contains('fx-hit')))return;
+        observer.disconnect();
+        slot.classList.add('vr01ev-cosmetic-probe');
+        window.__vr01evProbed=true;
+      });
+      observer.observe(slot,{attributes:true,attributeOldValue:true,
+        attributeFilter:['class']});
+    }""",opponent)
     page.mouse.click(target['x'],target['y'])
     page.wait_for_function("""v=>{const [owner,row,col]=v.key.split(':');
       return (G.players[+owner][row][+col]?.hp||0)<v.hp}""",
       arg={'key':opponent,'hp':before_hp},timeout=13000)
     after=snap()
     assert after!=baseline
+    page.wait_for_function("""() => window.__vr01evProbed===true &&
+      MRRIntegrated.state.scene.vrFxClassNoiseIgnored>=1""",timeout=13000)
+    page.evaluate("""key => document.querySelector(
+      '#arena [data-slot="'+key+'"]')?.classList.remove('vr01ev-cosmetic-probe')""",opponent)
+    assert snap()==after,'VR01EV native FX class transition observer changed Phase21 state'
     # VR01DX: attack previews alone cannot generate a face-flash event.
     # Check the native event-backed count only after the actual HP change.
     assert page.evaluate('MRRIntegrated.state.scene.vrHitFaceFlashCount')>=0
