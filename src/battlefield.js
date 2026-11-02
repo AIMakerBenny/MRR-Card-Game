@@ -884,6 +884,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let vrDepartCount=0;
   let latestCombat=null;
   const nativeCombatEvents=[];
+  // VR01GS: the native game may emit its REAL CSS hit after slow
+  // software WebGL paints. Keep the staged visual source long enough
+  // for that native FX, but only a true native hit ever confirms it.
+  // Phase55 keeps the original 2.8-second limit.
+  const nativeStrikeWindow=vrMode?12000:2800;
   function stageAttack(sourceKey,targetKey){
     if(!boardSlots.has(sourceKey)||!boardSlots.has(targetKey)||sourceKey===targetKey)return false;
     pendingStrike={sourceKey,targetKey,at:performance.now()};
@@ -897,7 +902,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     latestCombat={type,key,at};
   }
   function advanceCinematics(now){
-    if(pendingStrike&&now-pendingStrike.at>2800)pendingStrike=null;
+    if(pendingStrike&&now-pendingStrike.at>nativeStrikeWindow)pendingStrike=null;
     if(!cinemaImpact){impactLamp.intensity=0;return;}
     const p=(now-cinemaImpact.at)/(cinemaImpact.type==='hit'?540:880);
     if(p>=1){
@@ -1060,7 +1065,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // Attack vectors originate from the player's actual delegated selection.
     // The beam is committed only when the original engine emits fx-hit.
     const strike=type==='hit'&&pendingStrike?.targetKey===key &&
-      now-pendingStrike.at<2800?pendingStrike:null;
+      now-pendingStrike.at<nativeStrikeWindow?pendingStrike:null;
     let confirmedProjectile=null;
     if(strike){
       const source=boardSlots.get(strike.sourceKey),delta=new THREE.Vector3(source.x-spot.x,0,source.z-spot.z);
@@ -2647,6 +2652,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrDetachedFxRecordsIgnored:vrMode?vrDetachedFxRecordsIgnored:null,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       vrConfirmedProjectileStarted:vrMode?vrConfirmedProjectileStarted:null,
+      vrStrikeConfirmWindow:vrMode?nativeStrikeWindow:null,
       vrConfirmedProjectileActive:vrMode?liveEffects.filter(f=>f.projectile?.mesh.visible).length:null,
       vrProjectileGeometryShared:vrMode?liveEffects.every(f=>
         !f.projectile||f.projectile.mesh.geometry===vrProjectileGeo):null,

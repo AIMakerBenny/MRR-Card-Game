@@ -4113,13 +4113,25 @@ try:
       return state.nativeOutcomes>=1&&state.outcomeHistory.some(
         event=>event.key===key&&event.type==='hit');
     }""",arg=opponent,timeout=14000)
-    # VR01EA: moving light only accompanies the recorded, confirmed
-    # Phase21 strike, never speculative hover or targeting.
-    page.wait_for_function("""() => {
-      const s=MRRIntegrated.state.scene;
-      return s.confirmedStrikes>=1&&s.vrConfirmedProjectileStarted>=1&&
-        s.vrProjectileGeometryShared===true&&s.vrProjectilePickSafe===true;
-    }""",timeout=14000)
+    # VR01GS: confirm the native hit remains the only authority for
+    # the projectile even on delayed SwiftShader render/DOM callbacks.
+    assert page.evaluate('MRRIntegrated.state.scene.vrStrikeConfirmWindow')==12000
+    try:
+      page.wait_for_function("""() => {
+        const s=MRRIntegrated.state.scene;
+        return s.confirmedStrikes>=1&&s.vrConfirmedProjectileStarted>=1&&
+          s.vrProjectileGeometryShared===true&&s.vrProjectilePickSafe===true;
+      }""",timeout=14000)
+    except Exception:
+      print('VR01GS native strike window diagnostic',page.evaluate("""() => {
+        const s=MRRIntegrated.state.scene;
+        return {events:s.nativeCombatEvents,fx:s.fxReceived,
+          confirmed:s.confirmedStrikes,projectiles:s.vrConfirmedProjectileStarted,
+          window:s.vrStrikeConfirmWindow,frames:s.frames,
+          attack:s.attackTargetCount,selected:s.selectedKey,
+          nativeAudit:s.vrNativeFxAudit};
+      }"""),flush=True)
+      raise
     assert snap()==after,'VR01EA confirmed projectile changed Phase21 HP'
     outcome=page.evaluate("""key=>{
       const vr=MRRVR.status,scene=MRRIntegrated.state.scene;
