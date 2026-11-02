@@ -810,8 +810,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01DX: confirmed native hit FX may illuminate a CURRENT public face.
   // A short-lived keyed event survives HP-text texture reconstruction, but
   // an unrelated replacement with a different public card ID cannot glow.
-  const vrHitFaceFlash=new Map();
-  let vrHitFaceFlashCount=0,vrHitFaceFlashPeak=0;
+  const vrHitFaceFlash=new Map(),vrPendingPublicHits=new Map();
+  let vrHitFaceFlashCount=0,vrHitFaceFlashPeak=0,vrDeferredHitApplied=0;
   const vrLandingDust=[],vrDepartBursts=[];
   let vrDepartCount=0;
   let latestCombat=null;
@@ -907,17 +907,29 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // The original Phase76 3D presentation is untouched.
     if(vrMode&&type==='hit'){
       const victim=cardIndex.get(key);
-      if(victim){
-        vrHitFaceFlash.set(key,{at:now,publicId:victim.publicId,
-          name:victim.publicName,shownFrames:0});
+      // VR01EK: the native renderer can replace public HP text before
+      // Three.js sync recreates its face. The CURRENT public DOM identity
+      // takes precedence; never use a stale slot occupant or hidden state.
+      const face=document.querySelector('#arena [data-slot="'+key+'"] .board-card .card-ui');
+      const nativeName=face?.querySelector('.card-name')?.textContent?.trim()||'';
+      const nativeId=face?.getAttribute('data-mrr-public-card-id')||null;
+      const sameCard=!!(victim&&(!nativeName||
+        (nativeId?nativeId===victim.publicId:nativeName===victim.publicName)));
+      const id=nativeId||(sameCard?victim.publicId:null);
+      const name=nativeName||(sameCard?victim.publicName:'');
+      if(name){
+        vrHitFaceFlash.set(key,{at:now,publicId:id,name,shownFrames:0});
         vrHitFaceFlashCount++;
       }
-      if(victim&&!victim.deploy){
-        const from=pendingStrike?.targetKey===key?boardSlots.get(pendingStrike.sourceKey):null;
-        const dx=spot.x-(from?.x??spot.x+.4),dz=spot.z-(from?.z??spot.z+1);
-        const length=Math.hypot(dx,dz)||1;
-        victim.hitReaction={born:now,dx:dx/length,dz:dz/length};
+      const from=pendingStrike?.targetKey===key?boardSlots.get(pendingStrike.sourceKey):null;
+      const dx=spot.x-(from?.x??spot.x+.4),dz=spot.z-(from?.z??spot.z+1);
+      const length=Math.hypot(dx,dz)||1;
+      const reaction={born:now,dx:dx/length,dz:dz/length,shownFrames:0};
+      if(sameCard&&!victim.deploy){
+        victim.hitReaction=reaction;
         vrHitReactions++;
+      }else if(name&&!victim?.deploy){
+        vrPendingPublicHits.set(key,{id,name,reaction});
       }
     }
     // Attack vectors originate from the player's actual delegated selection.
@@ -1258,6 +1270,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         if(!p.name)continue;
         const retained=reuse.get(p.key);
         if(retained){
+          const pending=vrMode?vrPendingPublicHits.get(p.key):null;
+          if(pending&&(pending.id?pending.id===p.cardId:pending.name===p.name)){
+            if(!retained.deploy){retained.hitReaction=pending.reaction;vrHitReactions++; }
+            vrPendingPublicHits.delete(p.key);vrDeferredHitApplied++;
+          }
           cards.push(retained);cardIndex.set(p.key,retained);
           pickMeshes.push(retained.frame,retained.face);publicCardCount++;
           continue;
@@ -1315,6 +1332,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const carry=vrMode?hitReactionCarry.get(p.key):null;
         if(carry&&(carry.id?carry.id===p.cardId:carry.name===p.name))
           item.hitReaction=carry.reaction;
+        const pending=vrMode?vrPendingPublicHits.get(p.key):null;
+        if(pending&&(pending.id?pending.id===p.cardId:pending.name===p.name)){
+          item.hitReaction=pending.reaction;
+          vrPendingPublicHits.delete(p.key);
+          vrDeferredHitApplied++;vrHitReactions++;
+        }
         const hpCarry=vrMode?healthBarCarry.get(p.key):null;
         if(hpCarry&&(hpCarry.id?hpCarry.id===p.cardId:hpCarry.name===p.name)){
           item.visualHealth=hpCarry.value;
@@ -1644,6 +1667,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           frozen?.85:.73+.12*(.5+.5*Math.sin(time*.006));
       }
     }
+    for(const [key,hit] of vrPendingPublicHits){
+      if(time-hit.reaction.born>4000||!document.querySelector(
+        '#arena [data-slot="'+key+'"] .board-card .card-ui'))
+        vrPendingPublicHits.delete(key);
+    }
     for(const [key,fx] of vrHitFaceFlash){
       // A SwiftShader or texture re-upload stall can take longer than the
       // original 460ms flash. Show at least four REAL rendered frames, with
@@ -1875,7 +1903,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     for(const fx of liveEffects.splice(0))removeFx(fx);
     for(const f of vrLandingDust.splice(0)){scene.remove(f.points);f.geo.dispose();f.mat.dispose();}
     for(const f of vrDepartBursts.splice(0))removeVrDeparture(f);
-    recentFx.clear();vrHitFaceFlash.clear();
+    recentFx.clear();vrHitFaceFlash.clear();vrPendingPublicHits.clear();
     pendingStrike=null;cinemaImpact=null;impactLamp.intensity=0;
     for(const c of cards){
       if(c.seat)scene.remove(c.seat);
@@ -1939,6 +1967,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrDepartHaloStarted:vrMode?vrDepartHaloCount:null,
       vrDepartHaloActive:vrMode?vrDepartBursts.filter(f=>!!f.halo).length:null,
       vrHitReactions:vrMode?vrHitReactions:null,
+      vrDeferredHitApplied:vrMode?vrDeferredHitApplied:null,
+      vrPendingPublicHitCount:vrMode?vrPendingPublicHits.size:null,
       vrStatusBeaconCount:vrMode?cards.filter(c=>c.statusDot.visible).length:null,
       vrStatusBeacons:vrMode?cards.filter(c=>c.statusDot.visible).map(c=>({
         key:c.key,kind:c.publicStatusKind,
