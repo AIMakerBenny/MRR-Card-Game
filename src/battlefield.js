@@ -33,6 +33,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   enemyLamp.position.set(0,3,-9.5);scene.add(enemyLamp);
   const friendlyLamp=new THREE.PointLight(tabletop?0xc5d0b0:0x51cdea,tabletop?50:95,29);
   friendlyLamp.position.set(0,3,9.5);scene.add(friendlyLamp);
+  // VR01DY: one shared real 3D spotlight for the public card currently
+  // inspected. It never touches picking, gameplay or the legacy 3D modal.
+  const vrFocusLamp=vrMode?new THREE.PointLight(0xffd3a0,0,8,2):null;
+  let vrFocusedCardKey=null;
+  if(vrFocusLamp){vrFocusLamp.castShadow=false;scene.add(vrFocusLamp);}
 
   const madeGeometry=[],madeMaterials=[],madeTextures=[];
   const material=(options,physical=false)=>{
@@ -1467,6 +1472,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrLandingGuide.scale.setScalar(frozen?1:1+.045*Math.sin(time*.006));
       vrLandingGuide.position.y=.36+(frozen?0:.025*Math.sin(time*.005));
     }
+    // VR01DY: follow only an existing, publicly rendered card. The single
+    // point light eases as the pointer changes without re-creating materials.
+    if(vrFocusLamp){
+      const focus=cardIndex.get(hoveredKey)||cardIndex.get(selectedKey)||null;
+      vrFocusedCardKey=focus?.key||null;
+      const strength=focus?(focus.key===hoveredKey?32:15):0;
+      const blend=frozen?1:1-Math.exp(-visualDelta/110);
+      vrFocusLamp.intensity+=(strength-vrFocusLamp.intensity)*blend;
+      if(focus){
+        vrFocusLamp.color.setHex(focus.slot.owner===0?0xb0ffe4:0xffd9b7);
+        vrFocusLamp.position.set(focus.slot.x,4.15,focus.slot.z+1.05);
+      }
+    }
     for(const [i,c] of cards.entries()){
       // Native-confirmed impact gleams directly on the CURRENT real card
       // surface even when its public HP update forces a texture replacement.
@@ -1629,6 +1647,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrCameraAuto:vrMode?!manualCamera:null,
       vrCrowdedComposition:vrMode&&cameraPreset==='tabletop'&&cards.length>=16,
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
+      vrFocusedCardKey:vrMode?vrFocusedCardKey:null,
+      vrFocusedLightIntensity:vrMode?Number(vrFocusLamp.intensity.toFixed(2)):null,
       vrHoveredCardYaw:vrMode&&cardIndex.has(hoveredKey)?
         Number(cardIndex.get(hoveredKey).group.rotation.y.toFixed(4)):null,
       vrSelectedCardYaw:vrMode&&cardIndex.has(selectedKey)?
