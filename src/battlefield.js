@@ -881,7 +881,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(vrMode&&type==='hit'){
       const victim=cardIndex.get(key);
       if(victim){
-        vrHitFaceFlash.set(key,{at:now,publicId:victim.publicId,name:victim.publicName});
+        vrHitFaceFlash.set(key,{at:now,publicId:victim.publicId,
+          name:victim.publicName,shownFrames:0});
         vrHitFaceFlashCount++;
       }
       if(victim&&!victim.deploy){
@@ -1529,7 +1530,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(vrMode&&vrSelectionBurst&&time-vrSelectionBurst.at>520)
       vrSelectionBurst=null;
     for(const [key,fx] of vrHitFaceFlash){
-      if(time-fx.at>460)vrHitFaceFlash.delete(key);
+      // A SwiftShader or texture re-upload stall can take longer than the
+      // original 460ms flash. Show at least four REAL rendered frames, with
+      // a strict upper bound for paused tabs and destroyed public cards.
+      if(time-fx.at>4000||(time-fx.at>900&&fx.shownFrames>=4))
+        vrHitFaceFlash.delete(key);
     }
     if(vrLandingGuide?.visible){
       // Lightweight ambient motion; reduced-motion keeps a steady beacon.
@@ -1561,9 +1566,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const flash=vrMode?vrHitFaceFlash.get(c.key):null;
       const validFlash=flash&&
         (flash.publicId?flash.publicId===c.publicId:flash.name===c.publicName);
-      const flashAge=validFlash?(time-flash.at)/460:1;
+      const flashAge=validFlash?Math.min(
+        Math.max(0,(time-flash.at)/900),
+        Math.min(1,flash.shownFrames/4)):1;
       const intensity=validFlash&&!frozen&&flashAge>=0&&flashAge<1?
         .95*Math.pow(1-flashAge,2):0;
+      if(validFlash)flash.shownFrames++;
       if(vrMode){
         c.face.material.emissive.setHex(0xff9565);
         c.face.material.emissiveIntensity=intensity;
@@ -1651,8 +1659,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           c.group.position.y=1.76+c.visualLift+(frozen?0:Math.sin(time*.0015+i*.67)*.025);
           if(vrMode){
             const impact=c.hitReaction;
-            const age=impact?(time-impact.born)/390:1;
-            if(impact&&age>=1)c.hitReaction=null;
+            // As with the hit face, software WebGL must be able to show
+            // several actual frames before this native-confirmed reaction ends.
+            const age=impact?Math.min(
+              Math.max(0,(time-impact.born)/720),
+              Math.min(1,(impact.shownFrames||0)/6)):1;
+            if(impact){
+              impact.shownFrames=(impact.shownFrames||0)+1;
+              if(age>=1||time-impact.born>4000)c.hitReaction=null;
+            }
             const recoil=impact&&age<1?Math.sin(Math.PI*Math.max(0,age))*(1-Math.max(0,age)*.35):0;
             c.group.position.x=c.slot.x+(impact?.dx||0)*recoil*.34;
             c.group.position.z=c.slot.z+(impact?.dz||0)*recoil*.34;
