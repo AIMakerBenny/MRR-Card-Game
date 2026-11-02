@@ -3730,10 +3730,17 @@ try:
           rowFaceOcclusion:occlusion,inspectedSameColumnPairs,
           maxRowFaceOcclusion:Math.max(0,...occlusion.map(v=>v.fraction)),
           smallerCards:Object.values(scales).filter(v=>v<=1.09).length,
+          neighborPairs:MRRIntegrated.state.scene.vrNeighborPairChecks,
+          nearColumn:MRRIntegrated.state.scene.vrNearColumnCards,
+          nearRow:MRRIntegrated.state.scene.vrNearRowCards,
           autoDistance:MRRIntegrated.state.scene.distance};
       }""")
       print('VR01-D DENSE',w,h,layout,flush=True)
       assert layout['cards']==count and layout['seats']==count and layout['textures']==count,(w,h,layout)
+      # VR01EJ: exactly one occupied-pair scan per changed public
+      # configuration, with existing dense card geometry still verified.
+      assert layout['neighborPairs']==count*(count-1)//2,(w,h,layout)
+      assert 0<=layout['nearColumn']<=count and 0<=layout['nearRow']<=count,(w,h,layout)
       # VR01Z QA stabilization: the perspective camera eases after resize,
       # whereas display-only public stat badges refresh periodically. A
       # single immediate sample can compare different camera frames.
