@@ -4127,6 +4127,28 @@ try:
         s.vrStatusBeacons.every(x=>x.scale===1);
     }""",timeout=14000)
     assert snap()==dense_native,'VR01ES reduced-motion modified native game'
+    # VR01FG: native public FX can still be visually acknowledged, but
+    # a real occupied card must not translate or tilt under OS Reduce Motion.
+    # Only presentation classes are changed; native Phase21 HP stays fixed.
+    reduced_hit=page.evaluate("""() => {
+      const slot=[...document.querySelectorAll('#arena .slot[data-slot]')]
+        .find(s=>s.querySelector('.board-card .card-ui'));
+      if(!slot)return {error:'No occupied native card for reduced-motion QA'};
+      slot.classList.remove('fx-hit');
+      const before=MRRIntegrated.state.scene.vrHitReactions;
+      slot.classList.add('fx-hit');
+      return {key:slot.dataset.slot,before};
+    }""")
+    assert 'error' not in reduced_hit,reduced_hit
+    page.wait_for_function("""v => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrHitReactions>v.before &&
+        s.vrReducedMotionRecoilSafe===true;
+    }""",arg=reduced_hit,timeout=14000)
+    page.evaluate("""key => document.querySelector(
+      '#arena [data-slot="'+key+'"]')?.classList.remove('fx-hit')""",
+      reduced_hit['key'])
+    assert snap()==dense_native,'VR01FG static hit feedback modified Phase21'
     page.emulate_media(reduced_motion='no-preference')
     # VR01ER: a real return to 2D must free the old GPU renderer and
     # each unique public texture exactly once, including the current cards.
