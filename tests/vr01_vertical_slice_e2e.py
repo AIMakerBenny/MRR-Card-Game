@@ -3448,6 +3448,20 @@ try:
       return MRRIntegrated.state.scene.vrPointerDragging;
     }""")
     assert armed is True,'VR01FB test could not arm visual-only pointer drag'
+    # VR01FF: a second pointer-up and pointer-cancel must not finish
+    # someone else's drag or synthesize a native card click.
+    foreign=page.evaluate("""() => {
+      const stage=document.querySelector('#mrr-integrated-stage');
+      const canvas=stage.querySelector('canvas');
+      for(const name of ['pointermove','pointerup','pointercancel'])
+        canvas.dispatchEvent(new PointerEvent(name,{
+          bubbles:true,button:0,pointerId:988,clientX:3,clientY:3
+        }));
+      const s=MRRIntegrated.state.scene;
+      return {dragging:s.vrPointerDragging,ignored:s.vrForeignPointerEventsIgnored};
+    }""")
+    assert foreign['dragging'] is True and foreign['ignored']>=3,foreign
+    assert snap()==baseline,'VR01FF foreign pointer events modified Phase21'
     page.evaluate('MRRIntegrated.scene.stop()')
     assert page.evaluate("""() => {
       const s=MRRIntegrated.state.scene;
