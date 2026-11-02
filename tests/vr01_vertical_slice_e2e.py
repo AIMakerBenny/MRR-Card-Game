@@ -4384,8 +4384,8 @@ try:
         getComputedStyle(line).pointerEvents==='none';
     }""",arg=hovered_target,timeout=16000)
     assert snap()==prior_move,'VR01AB hover preview changed native game'
-    # VR01DV: physically anchored landing guide only on the genuine,
-    # empty .legal slot. Decorative geometry cannot join native raycasts.
+    # VR01DV / VR01EG: physically anchored landing guide materializes only
+    # on the genuine empty .legal slot; it never joins native raycasts.
     page.wait_for_function("""key=>{
       const s=MRRIntegrated.state.scene;
       return s.vrLandingGuideVisible===true&&
