@@ -1231,7 +1231,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // public card many times. Reuse one temporary vector across synchronous
   // project calls instead of allocating a THREE.Vector3 for every corner.
   const vrProjectionPoint=new THREE.Vector3();
-  let vrProjectionSamples=0;
+  let vrProjectionSamples=0,vrStalePreviewRejected=0;
   function publicHit(e){
     const rect=renderer.domElement.getBoundingClientRect();
     if(rect.width<10||rect.height<10||e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)return null;
@@ -1279,12 +1279,23 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   function getCardPreview(key){
     const item=cardIndex.get(key);
     if(!item)return null;
+    // VR01FK: a native card can leave or be replaced BEFORE our next
+    // timed public sync. Never return the departed mesh's cached preview
+    // to an inspector now pointing at an empty or different public slot.
+    const node=document.querySelector('#arena [data-slot="'+key+'"] .board-card .card-ui');
+    if(vrMode){
+      const realId=node?.getAttribute('data-mrr-public-card-id')||null;
+      const realName=node?.querySelector('.card-name')?.textContent?.trim()||'';
+      if(!realName||(realId?realId!==item.publicId:
+          realName!==item.publicName)){
+        vrStalePreviewRejected++;return null;
+      }
+    }
     if(!item.previewUrl){
       const canvas=item.face.material.map?.image;
       if(!(canvas instanceof HTMLCanvasElement))return null;
       item.previewUrl=canvas.toDataURL('image/png');
     }
-    const node=document.querySelector('#arena [data-slot="'+key+'"] .card-ui');
     return {key,artData:item.previewUrl,
       name:node?.querySelector('.card-name')?.textContent?.trim()||'',
       kind:node?.querySelector('.card-kind')?.textContent?.trim()||'',
@@ -2162,6 +2173,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrCanvasResizes:vrMode?vrCanvasResizes:null,
       vrCanvasResizeSkips:vrMode?vrCanvasResizeSkips:null,
       vrProjectionSamples:vrMode?vrProjectionSamples:null,
+      vrStalePreviewRejected:vrMode?vrStalePreviewRejected:null,
       vrResumeFirstDelta:vrMode?vrResumeFirstDelta:null,
       vrPointerDragging:vrMode?drag:null,
       vrInterruptedPointerGestures:vrMode?vrInterruptedPointerGestures:null,
