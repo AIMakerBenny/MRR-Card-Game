@@ -3586,7 +3586,8 @@ try:
           return {frames:s.frames,fx:s.fxReceived,publicCards:s.publicCardCount,
             hitReactions:s.vrHitReactions,flashCount:s.vrHitFaceFlashCount,
             flashPeak:s.vrHitFaceFlashPeak,active:s.vrHitFaceFlashActive,
-            springPeak:s.vrImpactSpringPeak,confirmed:s.confirmedStrikes};
+            rendered:s.vrHitFaceRendered,springPeak:s.vrImpactSpringPeak,
+            confirmed:s.confirmedStrikes};
         }"""),flush=True)
         raise
     assert page.evaluate('MRRIntegrated.state.scene.vrHitReactions')>=0
