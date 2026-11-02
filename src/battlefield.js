@@ -1346,9 +1346,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           item.hpFill.scale.x=Math.max(.001,current);
           item.hpFill.position.x=-1.02*(1-current);
         }
-        item.statusDot.material=/보호|방호/.test(p.stateChip)?wardMat:
-          /행동 완료|대기/.test(p.stateChip)?actedMat:readyMat;
+        const ward=/보호|방호/.test(p.stateChip);
+        const spent=/행동 완료|대기/.test(p.stateChip);
+        item.statusDot.material=ward?wardMat:spent?actedMat:readyMat;
         item.statusDot.visible=!!p.stateChip;
+        if(vrMode)item.publicStatusKind=ward?'ward':spent?'spent':'ready';
         if(p.hasHealth){
           healthIndicatorCount++;
           cardHealth.set(p.key,{ratio:p.hpRatio,state:p.stateChip,color:p.hpRatio<=.33?'danger':p.hpRatio<=.66?'warning':'healthy'});
@@ -1589,6 +1591,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     for(const [i,c] of cards.entries()){
+      // VR01EF: a true public status dot softly breathes only when ready
+      // or protected. Spent units remain still, and reduced motion is static.
+      // This scales the EXISTING indicator, never a click or rule surface.
+      if(vrMode){
+        const active=c.statusDot.visible&&c.publicStatusKind!=='spent';
+        const period=c.publicStatusKind==='ward'?.005:.0037;
+        const pulse=active&&!frozen?.9+.22*(.5+.5*Math.sin(time*period+i*.77)):1;
+        c.statusDot.scale.setScalar(pulse);
+      }
       if(vrMode&&Number.isFinite(c.healthTarget)){
         const alpha=frozen?1:1-Math.exp(-visualDelta/220);
         c.visualHealth+=(c.healthTarget-c.visualHealth)*alpha;
@@ -1818,6 +1829,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrDepartHaloStarted:vrMode?vrDepartHaloCount:null,
       vrDepartHaloActive:vrMode?vrDepartBursts.filter(f=>!!f.halo).length:null,
       vrHitReactions:vrMode?vrHitReactions:null,
+      vrStatusBeaconCount:vrMode?cards.filter(c=>c.statusDot.visible).length:null,
+      vrStatusBeacons:vrMode?cards.filter(c=>c.statusDot.visible).map(c=>({
+        key:c.key,kind:c.publicStatusKind,
+        scale:Number(c.statusDot.scale.x.toFixed(3))
+      })):null,
       vrHealthBarTransitions:vrMode?vrHealthBarTransitions:null,
       vrPublicHealthVisual:vrMode?Object.fromEntries(cards.filter(c=>c.hpFill.visible)
         .map(c=>[c.key,{display:Number((c.visualHealth??0).toFixed(3)),
