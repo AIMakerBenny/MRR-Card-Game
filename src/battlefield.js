@@ -1623,6 +1623,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   mount.addEventListener('pointerleave',leave);
   mount.addEventListener('wheel',wheel,{passive:false});
   let frames=0,raf=0,running=false,disposed=false,lastDraw=0,lastVisualTime=0;
+  let vrRenderStarts=0,vrRenderResumes=0,vrResumeFirstDelta=null;
+  let vrResumeAwaitingFrame=false;
   function resize(){
     if(disposed)return;
     const w=Math.max(250,mount.clientWidth||900),h=Math.max(240,mount.clientHeight||560);
@@ -1637,6 +1639,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(time-lastDraw<interval)return;
     lastDraw=time;
     const visualDelta=lastVisualTime?Math.max(1,Math.min(220,time-lastVisualTime)):32;
+    // VR01ET: first frame after restarting a hidden/stopped scene uses
+    // the normal animation delta rather than the elapsed background gap.
+    if(vrResumeAwaitingFrame){
+      vrResumeFirstDelta=visualDelta;
+      vrResumeAwaitingFrame=false;
+    }
     lastVisualTime=time;
     if(time-lastSync>220){lastSync=time;sync();}
     const frozen=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1940,11 +1948,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     renderer.render(scene,camera);frames++;
   }
   function start(){if(disposed)return;resize();sync();if(running)return;
+    // VR01ET: every fresh run starts from a clean RAF clock. A stopped
+    // scene must never fast-forward hover, health or card spring easing.
+    if(vrMode){
+      vrRenderStarts++;
+      if(vrRenderStarts>1){vrRenderResumes++;vrResumeAwaitingFrame=true;}
+    }
     const arena=document.querySelector('#arena');
     if(arena)fxObserver.observe(arena,{subtree:true,attributes:true,attributeFilter:['class']});
-    running=true;lastDraw=0;raf=requestAnimationFrame(tick);
+    running=true;lastDraw=0;lastVisualTime=0;raf=requestAnimationFrame(tick);
   }
-  function stop(){running=false;cancelAnimationFrame(raf);fxObserver.disconnect();}
+  function stop(){running=false;cancelAnimationFrame(raf);fxObserver.disconnect();
+    lastDraw=0;lastVisualTime=0;
+  }
   function setCameraPreset(preset){
     const target=preset==='selected'?(selectedKey||hoveredKey):null;
     if(preset==='selected'&&!target)return false;
@@ -1999,6 +2015,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     get state(){return {revision:49,projection:camera.type,frames,slotCount:boardSlots.size,
       publicCardCount,cardMeshCount:cards.length,shadows:renderer.shadowMap.enabled,
       rendererAlive:renderer.domElement.isConnected,yaw,pitch,distance,
+      vrRenderResumes:vrMode?vrRenderResumes:null,
+      vrResumeFirstDelta:vrMode?vrResumeFirstDelta:null,
       vrCameraAuto:vrMode?!manualCamera:null,
       vrCrowdedComposition:vrMode&&cameraPreset==='tabletop'&&cards.length>=16,
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
