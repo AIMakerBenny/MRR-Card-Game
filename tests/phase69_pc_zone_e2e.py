@@ -98,7 +98,32 @@ try:
         assert tab.get_attribute('aria-expanded')=='true'
         card=page.locator('#hand .hand-slot').nth(affordable['i'])
         assert card.is_visible(),'Qualified native hand card is not visible'
-        card.click()
+        # VR01GO: the original Phase21 hand is a genuine overlapping fan.
+        # Playwright's default CENTER click can hit the neighboring card's
+        # SVG even though the desired card is visible and enabled. Find a
+        # physically exposed pixel belonging to this exact native card,
+        # then issue a real mouse click there, not a synthetic DOM click.
+        def exposed_point():
+            return page.evaluate("""idx => {
+              const card=document.querySelectorAll('#hand .hand-slot')[idx];
+              if(!card)return null;
+              const r=card.getBoundingClientRect();
+              for(const yy of [.5,.28,.72,.12,.88])
+                for(const xx of [.02,.07,.15,.25,.4,.6,.75,.88,.98]){
+                  const x=r.left+r.width*xx,y=r.top+r.height*yy;
+                  if(x<0||y<0||x>=innerWidth||y>=innerHeight)continue;
+                  if(document.elementFromPoint(x,y)?.closest('.hand-slot')===card)
+                    return {x,y,probeX:xx,probeY:yy};
+                }
+              return null;
+            }""",affordable['i'])
+        point=exposed_point()
+        assert point,('Native hand fan fully obscures intended card',
+                      affordable,page.locator('#hand .hand-slot').count())
+        page.mouse.move(point['x'],point['y'])
+        point=exposed_point()
+        assert point,('Hover animation obscured native card',affordable)
+        page.mouse.click(point['x'],point['y'])
         assert tab.get_attribute('aria-expanded')=='false',(
             'Native hand fan did not fold after clicking the genuine card')
         try:
