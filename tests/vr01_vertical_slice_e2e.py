@@ -3591,6 +3591,9 @@ try:
         }"""),flush=True)
         raise
     assert page.evaluate('MRRIntegrated.state.scene.vrHitReactions')>=0
+    # VR01EP: active visual-only hit flashes must never be associated
+    # with a missing or replaced public card after native sync.
+    assert page.evaluate('MRRIntegrated.state.scene.vrHitFacePublicSafe') is True
     # VR01EK: a native-confirmed hit may queue through public HP re-render,
     # but the queue must never outlive the real 3D public occupant.
     assert page.evaluate("""() => {
