@@ -403,6 +403,30 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   attackArrow.visible=false;scene.add(attackArrow);
   const attackTip=new THREE.Mesh(geometry(new THREE.ConeGeometry(.28,.69,10)),attackGlow);
   attackTip.visible=false;scene.add(attackTip);
+  // VR01DV: one reusable, non-pickable 3D landing guide. It follows only a
+  // currently vacant slot marked .legal by the real Phase21 game renderer.
+  // No per-slot meshes, invented legal targets or new input actions.
+  const vrLandingGuide=vrMode?new THREE.Group():null;
+  let vrLandingGuideKey=null;
+  if(vrLandingGuide){
+    const arc=new THREE.Mesh(
+      geometry(new THREE.TorusGeometry(.83,.055,8,52,Math.PI*1.5)),
+      material({color:0xb9ffeb,emissive:0x45d9b3,emissiveIntensity:1.25,
+        metalness:.1,roughness:.34,transparent:true,opacity:.94,depthWrite:false}));
+    arc.rotation.x=-Math.PI/2;arc.position.y=.13;
+    const floorMark=new THREE.Mesh(
+      geometry(new THREE.RingGeometry(.29,.72,48)),
+      material({color:0x71dbc0,emissive:0x258b78,emissiveIntensity:.8,
+        transparent:true,opacity:.32,side:THREE.DoubleSide,depthWrite:false}));
+    floorMark.rotation.x=-Math.PI/2;floorMark.position.y=.11;
+    const lightColumn=new THREE.Mesh(
+      geometry(new THREE.CylinderGeometry(.53,.78,1.08,32,1,true)),
+      material({color:0x75d6c5,emissive:0x237c70,emissiveIntensity:.6,
+        transparent:true,opacity:.13,side:THREE.DoubleSide,depthWrite:false}));
+    lightColumn.position.y=.62;
+    vrLandingGuide.add(arc,floorMark,lightColumn);
+    vrLandingGuide.visible=false;scene.add(vrLandingGuide);
+  }
   const center=new THREE.Mesh(geometry(new THREE.BoxGeometry(21,.035,.1)),tabletop?parchmentInk:gold);
   center.position.y=.19;scene.add(center);
   const seal=new THREE.Mesh(geometry(new THREE.TorusGeometry(1.06,.055,8,80)),tabletop?parchmentInk:bronze);
@@ -1245,6 +1269,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // or target halo may persist after native target classes disappear.
     if(!attackTargetCount)vrTargetLock=null;
     const hovered=list.find(p=>p.key===hoveredKey);
+    // VR01DV: only a REAL native legal, unoccupied destination can glow.
+    // When aiming at an enemy or exiting targeting, the guide vanishes.
+    const legalLanding=!!(vrMode&&hovered?.legal&&!hovered.name);
+    vrLandingGuideKey=legalLanding?hoveredKey:null;
+    if(vrLandingGuide){
+      vrLandingGuide.visible=legalLanding;
+      if(legalLanding){
+        const site=boardSlots.get(hoveredKey);
+        vrLandingGuide.position.set(site.x,.36,site.z);
+      }
+    }
     const source=boardSlots.get(selectedKey),target=boardSlots.get(hoveredKey);
     const arrowVisible=!!(source&&target&&hovered?.attackTarget);
     attackArrow.visible=attackTip.visible=arrowVisible;
@@ -1414,6 +1449,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     if(vrMode&&vrSelectionBurst&&time-vrSelectionBurst.at>520)
       vrSelectionBurst=null;
+    if(vrLandingGuide?.visible){
+      // Lightweight ambient motion; reduced-motion keeps a steady beacon.
+      vrLandingGuide.children[0].rotation.z=frozen?0:time*.0012;
+      vrLandingGuide.scale.setScalar(frozen?1:1+.045*Math.sin(time*.006));
+      vrLandingGuide.position.y=.36+(frozen?0:.025*Math.sin(time*.005));
+    }
     for(const [i,c] of cards.entries()){
       const hover=c.key===hoveredKey;
       if(tabletop){
@@ -1571,6 +1612,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrSelectionBursts:vrMode?vrSelectionBursts:null,
       vrTargetLocks:vrMode?vrTargetLocks:null,
       vrTargetLockKey:vrMode?vrTargetLock?.key||null:null,
+      vrLandingGuideKey:vrMode?vrLandingGuideKey:null,
+      vrLandingGuideVisible:vrMode?vrLandingGuide.visible:null,
+      vrLandingGuidePickSafe:vrMode?!pickMeshes.includes(vrLandingGuide.children[0])&&
+        !pickMeshes.includes(vrLandingGuide.children[1])&&
+        !pickMeshes.includes(vrLandingGuide.children[2]):null,
       vrAttackArcVisible:vrMode?attackArrow.visible:null,
       vrAttackArcSamples:vrMode&&attackArrow.visible?attackArrowGeo.attributes.position.count:0,
       vrAttackArcPeakY:vrMode&&attackArrow.visible?
