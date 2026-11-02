@@ -3424,7 +3424,8 @@ try:
     page.wait_for_function("""() => {
       const s=MRRIntegrated.state.scene;
       return s.vrAttackArcVisible===true&&s.vrAttackArcSamples===17 &&
-        s.vrAttackArcPeakY>2.5&&s.vrAttackArcPeakY<2.9;
+        s.vrAttackArcPeakY>2.5&&s.vrAttackArcPeakY<2.9 &&
+        s.vrAttackArcMoteCount===3&&s.vrAttackArcMotePickSafe===true;
     }""",timeout=14000)
     assert snap()==baseline,'VR01DU 3D aim preview changed Phase21 gameplay'
     # VR01N: only a genuinely native target hover creates one bounded,
@@ -3441,6 +3442,8 @@ try:
     assert page.evaluate('MRRIntegrated.state.scene.vrTargetLocks')==1
     assert page.evaluate('MRRIntegrated.state.scene.vrAttackArcVisible') is False,(
       'VR01DU off-target aim arc was not hidden')
+    page.wait_for_function('MRRIntegrated.state.scene.vrAttackArcMoteCount===0',
+      timeout=14000)
     assert snap()==baseline,'Changing the cursor changed Phase21 gameplay'
     page.mouse.move(target['x'],target['y'])
     page.wait_for_function("""key=>{
