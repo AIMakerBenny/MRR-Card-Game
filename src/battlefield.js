@@ -2026,6 +2026,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const alpha=frozen?1:1-Math.exp(-visualDelta/130);
         c.visualYaw=(c.visualYaw??0)+(targetYaw-(c.visualYaw??0))*alpha;
         c.group.rotation.y=c.visualYaw;
+        // VR01FO: small face-forward pitch follows REAL public hover or
+        // selection. It never tilts the entire board or changes picking.
+        // Reduced motion retains the original static card inclination.
+        const targetPitch=frozen||c.deploy?0:hover?.043:
+          c.key===selectedKey?.014:0;
+        c.visualPitch=(c.visualPitch??0)+
+          (targetPitch-(c.visualPitch??0))*alpha;
       }
       if(tabletop){
         // VR01-C: an occupied card gets larger when it has actual physical
@@ -2108,7 +2115,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
             // VR01DZ: compress and pitch the real 3D card briefly after
             // native fx-hit only. The Phase21 hitbox and health are untouched.
             const spring=frozen?0:recoil;
-            c.group.rotation.x=-.74+spring*.08;
+            c.group.rotation.x=-.74+(c.visualPitch||0)+spring*.08;
             c.group.scale.multiplyScalar(1-spring*.055);
             vrImpactSpringPeak=Math.max(vrImpactSpringPeak,spring);
           }
@@ -2248,6 +2255,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         Number(cardIndex.get(hoveredKey).group.rotation.y.toFixed(4)):null,
       vrSelectedCardYaw:vrMode&&cardIndex.has(selectedKey)?
         Number(cardIndex.get(selectedKey).group.rotation.y.toFixed(4)):null,
+      vrHoveredCardPitch:vrMode&&cardIndex.has(hoveredKey)?
+        Number(((cardIndex.get(hoveredKey).visualPitch)||0).toFixed(4)):null,
       nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,peakLiveFxCount,
       fxSources:'native-slot-classes',cinematicRevision:49,
       vrFxClassNoiseIgnored:vrMode?vrFxClassNoiseIgnored:null,

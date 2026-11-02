@@ -3636,6 +3636,14 @@ try:
         Math.abs(s.vrHoveredCardYaw)<.15;
     }""",timeout=12000)
     assert snap()==baseline,'VR01DW public mesh tilt changed native gameplay'
+    # VR01FO: the hovered public card eases slightly toward the viewer
+    # without rotating the board or changing the native game state.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.hoveredKey&&s.vrHoveredCardPitch>.027&&
+        s.vrHoveredCardPitch<.055;
+    }""",timeout=14000)
+    assert snap()==baseline,'VR01FO pitch changed native gameplay'
     # VR01DU: a curved 17-point THREE.js trajectory must appear only
     # while the REAL Phase21 attack-target remains hovered.
     page.wait_for_function("""() => {
