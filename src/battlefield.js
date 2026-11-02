@@ -267,6 +267,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     emissive:0x174947,emissiveIntensity:.33}):null;
   const vrSeatEnemy=vrMode?material({color:0xc49a79,metalness:.48,roughness:.39,
     emissive:0x56342d,emissiveIntensity:.32}):null;
+  // VR01FN: a real Three.js contact glint grounds a hovered or selected
+  // PUBLIC card on its occupied seat. Shared geometry, unique fade material,
+  // no raycast surfaces, fabricated targets or changes to the native board.
+  const vrInspectionContactGeo=vrMode?
+    geometry(new THREE.RingGeometry(1.12,1.24,52)):null;
   const cardGeometry=geometry(new THREE.BoxGeometry(tabletop?2.22:2.08,2.84,.22));
   const cardFaceGeometry=geometry(new THREE.PlaneGeometry(tabletop?2.10:1.96,2.71));
   // Phase57: dimensional gilt trims are scenery, not selectable meshes.
@@ -1365,6 +1370,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // Remove the real old mesh IMMEDIATELY. The ephemeral particles
         // are non-pickable, bounded, and never counted as occupied cards.
         scene.remove(c.group);if(c.seat)scene.remove(c.seat);
+        if(c.contactRing)c.contactRing.material.dispose();
         if(c.face.material.map){
           const tex=c.face.material.map;tex.userData.artDisposed=true;tex.dispose();
           if(vrMode){
@@ -1420,7 +1426,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const statusDot=new THREE.Mesh(statusGeo,readyMat);
         statusDot.position.set(1.22,1.67,.26);group.add(statusDot);
         scene.add(group);
-        let seat=null;
+        let seat=null,contactRing=null;
         if(vrMode){
           seat=new THREE.Group();
           seat.position.set(slot.x,.25,slot.z);
@@ -1428,11 +1434,21 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           rim.position.y=-.035;seat.add(rim);
           const bed=new THREE.Mesh(vrSeatSurface,vrSeatBase);
           bed.position.y=.017;bed.receiveShadow=true;seat.add(bed);
+          const glintMat=new THREE.MeshBasicMaterial({
+            color:slot.owner===0?0xa1f9d6:0xffc997,transparent:true,
+            opacity:0,depthWrite:false,side:THREE.DoubleSide,
+            blending:THREE.AdditiveBlending
+          });
+          contactRing=new THREE.Mesh(vrInspectionContactGeo,glintMat);
+          contactRing.rotation.x=-Math.PI/2;
+          contactRing.position.y=.105;
+          contactRing.visible=false;
+          seat.add(contactRing);
           // Position is decorative: card clicks still hit the pre-existing
           // raycast list and no seat surface is ever part of pickMeshes.
           scene.add(seat);
         }
-        const item={key:p.key,group,face,frame,seat,slot,hpBg,hpFill,
+        const item={key:p.key,group,face,frame,seat,contactRing,slot,hpBg,hpFill,
           hpDamageTrail,statusDot,publicId:p.cardId,publicName:p.name,
           fingerprint:vrCardFingerprint(p)};
         const carry=vrMode?hitReactionCarry.get(p.key):null;
@@ -1923,6 +1939,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     for(const [i,c] of cards.entries()){
+      // VR01FN: ease the card's physical contact light to the REAL native
+      // hover/selection state. Each public mesh owns its own opacity, so
+      // neighboring seats never flash together. Reduced motion is static.
+      if(c.contactRing){
+        const target=c.key===hoveredKey?1:c.key===selectedKey?.48:0;
+        const alpha=frozen?1:1-Math.exp(-visualDelta/160);
+        c.contactAmount=(c.contactAmount??0)+
+          (target-(c.contactAmount??0))*alpha;
+        c.contactRing.visible=c.contactAmount>.012;
+        c.contactRing.material.opacity=.68*c.contactAmount;
+        c.contactRing.scale.setScalar(.91+.09*c.contactAmount);
+      }
       // VR01EF: a true public status dot softly breathes only when ready
       // or protected. Spent units remain still, and reduced motion is static.
       // This scales the EXISTING indicator, never a click or rule surface.
@@ -2168,6 +2196,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const uniqueTextures=new Set([...madeTextures,...tabletopTextures]);
     for(const c of cards){
       if(c.seat)scene.remove(c.seat);
+      if(c.contactRing)c.contactRing.material.dispose();
       const tex=c.face.material.map;
       if(tex){tex.userData.artDisposed=true;uniqueTextures.add(tex);}
       c.face.material.dispose();
@@ -2242,6 +2271,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrNearColumnCards:vrMode?cards.filter(c=>c.vrNearColumn).length:null,
       vrNearRowCards:vrMode?cards.filter(c=>c.vrNearRow).length:null,
       vrOccupiedSeats:vrMode?cards.filter(c=>!!c.seat).length:null,
+      vrInspectionContactCount:vrMode?cards.filter(c=>!!c.contactRing).length:null,
+      vrInspectionContactActiveKeys:vrMode?
+        cards.filter(c=>c.contactRing?.visible).map(c=>c.key):null,
+      vrInspectionHoveredContactOpacity:vrMode&&cardIndex.get(hoveredKey)?.contactRing?
+        Number(cardIndex.get(hoveredKey).contactRing.material.opacity.toFixed(3)):null,
+      vrInspectionContactPickSafe:vrMode?
+        cards.every(c=>!c.contactRing||!pickMeshes.includes(c.contactRing)):null,
       vrReusedCards:vrMode?vrReusedCards:null,vrDeployTransitions:vrMode?vrDeployTransitions:null,
       vrDeployActive:vrMode?cards.filter(c=>!!c.deploy).length:null,
       vrLiveCardTextures:vrMode?madeTextures.length:null,

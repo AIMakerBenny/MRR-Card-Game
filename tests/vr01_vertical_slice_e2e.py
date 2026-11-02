@@ -3583,6 +3583,17 @@ try:
     lock_count=page.evaluate('MRRIntegrated.state.scene.vrTargetLocks')
     assert lock_count>=2,lock_count
     assert snap()==baseline,'VR01FJ real mouse reacquisition mutated Phase21'
+    # VR01FN: the existing public target card gains a gently eased 3D
+    # seat-contact glint. It is never raycastable, and every occupied
+    # native public card has exactly one glint, no matter the viewport.
+    page.wait_for_function("""key => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrInspectionContactCount===s.publicCardCount &&
+        s.vrInspectionContactPickSafe===true &&
+        s.vrInspectionContactActiveKeys.includes(key) &&
+        s.vrInspectionHoveredContactOpacity>.28;
+    }""",arg=opponent,timeout=16000)
+    assert snap()==baseline,'VR01FN inspection contact glint changed Phase21'
     # VR01EF: real public status chips drive the existing Three.js
     # readiness or ward indicator, not hidden hand or AI state.
     page.wait_for_function("""() => {
