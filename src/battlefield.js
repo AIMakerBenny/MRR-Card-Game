@@ -1693,11 +1693,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // VR01FZ: a target glow belongs to an actual PUBLIC occupant,
     // not merely a reusable native board slot. HP or stat updates keep
     // it; a replaced card ID/name or revoked attack class retires it.
-    if(vrMode&&vrTargetLock&&!list.some(p=>
+    if(vrMode&&vrTargetLock&&(
+      vrTargetLock.sourceKey!==selectedKey||
+      !list.some(p=>
       p.key===vrTargetLock.key&&p.attackTarget&&p.name&&
       (vrTargetLock.id?
         p.cardId===vrTargetLock.id:
-        !p.cardId&&p.name===vrTargetLock.name)))
+        !p.cardId&&p.name===vrTargetLock.name))))
       vrTargetLock=null;
     // VR01P: a departed card must not leave hover light or its inspector
     // attached to an empty, non-actionable slot. Legal empty slots remain.
@@ -1837,7 +1839,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const id=publicCard?.getAttribute('data-mrr-public-card-id')||null;
       const name=publicCard?.querySelector('.card-name')?.textContent?.trim()||'';
       if(name){
-        vrTargetLock={key,id,name,at:performance.now()};
+        vrTargetLock={key,id,name,sourceKey:selectedKey,
+          at:performance.now()};
         vrTargetLocks++;
       }
     }

@@ -3804,6 +3804,39 @@ try:
     }""",arg={'key':opponent,'count':lock_count},timeout=15000)
     assert snap()==baseline,'Hovering native aim cue changed game state'
     page.screenshot(path=str(ROOT/'tests/vr01_attack_lockon_1920x1080.png'),animations='disabled')
+    # VR01GB: when the genuine native selected source changes, even if
+    # the opponent slot remains marked attack-target, the old preview
+    # lock must not be reused as though its origin were unchanged.
+    source_guard=page.evaluate("""() => {
+      const scene=MRRIntegrated.scene;
+      const slot=document.querySelector('#arena [data-slot].selected-slot');
+      if(!slot)return {error:'missing selected public source'};
+      const prior=scene.state;
+      let cancelled=null,hidden=false;
+      try{
+        slot.classList.remove('selected-slot');
+        scene.sync();
+        const during=scene.state;
+        cancelled=during.vrTargetLockKey===null;
+        hidden=during.vrTargetBracketCount===0&&
+          during.vrTargetSparkCount===0;
+      }finally{
+        slot.classList.add('selected-slot');
+        scene.sync();
+      }
+      const restored=scene.state;
+      return {cancelled,hidden,notReacquired:restored.vrTargetLockKey===null,
+        lockCountUnchanged:restored.vrTargetLocks===prior.vrTargetLocks};
+    }""")
+    assert 'error' not in source_guard and all(source_guard.values()),source_guard
+    assert snap()==baseline,'VR01GB selected-source guard changed Phase21'
+    page.mouse.move(3,550)
+    page.mouse.move(target['x'],target['y'])
+    page.wait_for_function("""key => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrTargetLockKey===key&&s.vrTargetLocks>=3;
+    }""",arg=opponent,timeout=15000)
+    assert snap()==baseline,'VR01GB target reacquisition changed game state'
     # Capture VR01S feedback at the actual native FX DOM insertion, not
     # seconds afterward when its short-lived badge may have expired.
     page.evaluate("""key=>{
