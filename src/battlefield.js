@@ -1819,7 +1819,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     const source=boardSlots.get(selectedKey),target=boardSlots.get(hoveredKey);
-    const arrowVisible=!!(source&&target&&hovered?.attackTarget);
+    // VR01GI: a revoked native target lock must revoke the same 3D aim
+    // trajectory immediately. The .attack-target class alone may still
+    // exist for one public paint after the selected card changes identity.
+    // Keep the legacy battlefield unchanged outside the VR01 PC mode.
+    const arrowVisible=!!(source&&target&&hovered?.attackTarget&&
+      (!vrMode||vrTargetLock?.key===hoveredKey));
     if(vrMode)vrTargetBracketPublicChecks++;
     attackArrow.visible=attackTip.visible=arrowVisible;
     // VR01FY: native target withdrawal also immediately removes the

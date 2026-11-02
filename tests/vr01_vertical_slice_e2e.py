@@ -3863,7 +3863,7 @@ try:
       const originalName=card.querySelector('.card-name')?.textContent?.trim();
       const nameNode=card.querySelector('.card-name');
       const before=stage.state.vrTargetLocks;
-      let revoked=null,bracketGone=false,sparksGone=false;
+      let revoked=null,bracketGone=false,sparksGone=false,arcGone=false;
       try{
         if(original)card.setAttribute('data-mrr-public-card-id',
           'vr01fz-temporary-public-identity');
@@ -3873,17 +3873,19 @@ try:
         bracketGone=stage.state.vrTargetBracketKey===null&&
           stage.state.vrTargetBracketCount===0;
         sparksGone=stage.state.vrTargetSparkCount===0;
+        arcGone=!stage.state.vrAttackArcVisible;
       }finally{
         if(original)card.setAttribute('data-mrr-public-card-id',original);
         else nameNode.textContent=originalName;
         stage.sync();
       }
       return {revoked,remaining:stage.state.vrTargetLockKey,
-        bracketGone,sparksGone,count:stage.state.vrTargetLocks,before};
+        bracketGone,sparksGone,arcGone,
+        count:stage.state.vrTargetLocks,before};
     }""",opponent)
     assert 'error' not in stale_lock and stale_lock['revoked'] is None and (
       stale_lock['remaining'] is None and stale_lock['bracketGone'] and
-      stale_lock['sparksGone'] and
+      stale_lock['sparksGone'] and stale_lock['arcGone'] and
       stale_lock['count']==stale_lock['before']),stale_lock
     assert snap()==baseline,'VR01FZ target identity guard modified Phase21'
     page.mouse.move(3,550)
@@ -3956,7 +3958,7 @@ try:
       const slot=document.querySelector('#arena [data-slot].selected-slot');
       if(!slot)return {error:'missing selected public source'};
       const prior=scene.state;
-      let cancelled=null,hidden=false;
+      let cancelled=null,hidden=false,arcGone=false;
       try{
         slot.classList.remove('selected-slot');
         scene.sync();
@@ -3964,12 +3966,14 @@ try:
         cancelled=during.vrTargetLockKey===null;
         hidden=during.vrTargetBracketCount===0&&
           during.vrTargetSparkCount===0;
+        arcGone=!during.vrAttackArcVisible;
       }finally{
         slot.classList.add('selected-slot');
         scene.sync();
       }
       const restored=scene.state;
-      return {cancelled,hidden,notReacquired:restored.vrTargetLockKey===null,
+      return {cancelled,hidden,arcGone,
+        notReacquired:restored.vrTargetLockKey===null,
         lockCountUnchanged:restored.vrTargetLocks===prior.vrTargetLocks};
     }""")
     assert 'error' not in source_guard and all(source_guard.values()),source_guard
