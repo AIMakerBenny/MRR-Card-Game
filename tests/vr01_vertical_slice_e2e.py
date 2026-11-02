@@ -3464,7 +3464,8 @@ try:
     page.wait_for_function("""key => {
       const s=MRRIntegrated.state.scene;
       return s.vrTargetBracketKey===key&&
-        s.vrTargetBracketCount===8&&s.vrTargetBracketPickSafe===true;
+        s.vrTargetBracketCount===8&&s.vrTargetBracketPickSafe===true&&
+        s.vrTargetBracketPublicChecks>=1;
     }""",arg=opponent,timeout=14000)
     assert snap()==baseline,'VR01EI visual target bracket modified native game'
     page.mouse.move(3,550)
