@@ -855,6 +855,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // Observe only real native fx-* class transitions, never compute damage or healing.
   const liveEffects=[],effectsReceived={hit:0,heal:0,summon:0};
   let peakLiveFxCount=0;
+  // VR01EV: a native CSS FX is one transition onto a real slot, NOT an
+  // arbitrary class change while that slot still has the same fx-* class.
+  let vrFxClassNoiseIgnored=0;
   const recentFx=new Map();
   const effectColors={hit:0xffa96e,heal:0x7affbd,summon:0x69d8ef};
   const fxObserver=new MutationObserver(records=>{
@@ -867,6 +870,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(!boardSlots.has(key))continue;
       for(const type of ['hit','heal','summon']){
         if(!node.classList.contains('fx-'+type))continue;
+        // The attributeOldValue snapshot proves that THIS mutation
+        // introduced the actual Phase21 fx-* class. Ignore cosmetic
+        // hover, legal, selection or status changes to the same slot.
+        const previous=(record.oldValue||'').split(/\s+/);
+        if(previous.includes('fx-'+type)){
+          if(vrMode)vrFxClassNoiseIgnored++;
+          continue;
+        }
         // Even multiple DOM writes in a single native frame are one visible effect.
         const stamp=key+'|'+type,now=performance.now();
         if(now-(recentFx.get(stamp)||-9999)<95)continue;
@@ -1963,7 +1974,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(vrRenderStarts>1){vrRenderResumes++;vrResumeAwaitingFrame=true;}
     }
     const arena=document.querySelector('#arena');
-    if(arena)fxObserver.observe(arena,{subtree:true,attributes:true,attributeFilter:['class']});
+    if(arena)fxObserver.observe(arena,{subtree:true,attributes:true,
+      attributeOldValue:true,attributeFilter:['class']});
     running=true;lastDraw=0;lastVisualTime=0;raf=requestAnimationFrame(tick);
   }
   function stop(){running=false;cancelAnimationFrame(raf);fxObserver.disconnect();
@@ -2046,6 +2058,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         Number(cardIndex.get(selectedKey).group.rotation.y.toFixed(4)):null,
       nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,peakLiveFxCount,
       fxSources:'native-slot-classes',cinematicRevision:49,
+      vrFxClassNoiseIgnored:vrMode?vrFxClassNoiseIgnored:null,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
       vrConfirmedProjectileStarted:vrMode?vrConfirmedProjectileStarted:null,
       vrConfirmedProjectileActive:vrMode?liveEffects.filter(f=>f.projectile?.mesh.visible).length:null,
