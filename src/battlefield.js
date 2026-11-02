@@ -1118,6 +1118,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   let cards=[],signature='',publicCardCount=0,lastSync=0;
   let vrPendingDeploy=null,vrDeployTransitions=0,vrReusedCards=0;
+  let vrNeighborPairChecks=0,vrNeighborCacheRebuilds=0;
   // A hand click only arms a presentation. Neither it nor this animation
   // creates a unit: the public Phase21 board must confirm placement first.
   function armDeployment(request){
@@ -1334,6 +1335,22 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         }
         cards.push(item);cardIndex.set(p.key,item);
         pickMeshes.push(frame,face);publicCardCount++;
+      }
+      // VR01EJ: calculate adjacent occupied rows and columns only on
+      // changed public board occupancy. No repeated O(N^2) card searches
+      // in each rendered frame; position thresholds stay identical.
+      if(vrMode){
+        vrNeighborPairChecks=0;
+        vrNeighborCacheRebuilds++;
+        for(const c of cards){c.vrNearColumn=false;c.vrNearRow=false;}
+        for(let i=0;i<cards.length;i++)for(let j=i+1;j<cards.length;j++){
+          const a=cards[i],b=cards[j];
+          vrNeighborPairChecks++;
+          if(Math.abs(a.slot.x-b.slot.x)<.65&&Math.abs(a.slot.z-b.slot.z)<3.05)
+            a.vrNearColumn=b.vrNearColumn=true;
+          if(Math.abs(a.slot.x-b.slot.x)<3.43&&Math.abs(a.slot.z-b.slot.z)<.65)
+            a.vrNearRow=b.vrNearRow=true;
+        }
       }
     }
     const nextSelectedKey=list.find(p=>p.selected)?.key||null;
@@ -1748,12 +1765,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // radial neighbor. Card HEIGHT is the limiting dimension when
         // adjacent native rows share a column; a 1.42 face can cover most
         // of the face behind it even though native slot clicks still work.
-        const sameColumnRow=vrMode&&cards.some(other=>other!==c&&
-          Math.abs(other.slot.x-c.slot.x)<.65&&
-          Math.abs(other.slot.z-c.slot.z)<3.05);
-        const sameRowNeighbor=vrMode&&cards.some(other=>other!==c&&
-          Math.abs(other.slot.x-c.slot.x)<3.43&&
-          Math.abs(other.slot.z-c.slot.z)<.65);
+        const sameColumnRow=vrMode&&c.vrNearColumn;
+        const sameRowNeighbor=vrMode&&c.vrNearRow;
         const dense=vrMode&&cards.length>=16;
         const adaptive=vrMode&&cameraPreset==='tabletop'?
           sameColumnRow?(dense?.96:1.04):
@@ -1911,6 +1924,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       realCombatQaRevision:50,nativeCombatEvents:nativeCombatEvents.slice(),
       visualArtRevision:51,pcArtRevision:tabletop?57:0,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
       vrAdaptiveCardScales:vrMode?Object.fromEntries(cards.map(c=>[c.key,Math.round((c.visualScale||1.30)*1000)/1000])):null,
+      vrNeighborPairChecks:vrMode?vrNeighborPairChecks:null,
+      vrNeighborCacheRebuilds:vrMode?vrNeighborCacheRebuilds:null,
+      vrNearColumnCards:vrMode?cards.filter(c=>c.vrNearColumn).length:null,
+      vrNearRowCards:vrMode?cards.filter(c=>c.vrNearRow).length:null,
       vrOccupiedSeats:vrMode?cards.filter(c=>!!c.seat).length:null,
       vrReusedCards:vrMode?vrReusedCards:null,vrDeployTransitions:vrMode?vrDeployTransitions:null,
       vrDeployActive:vrMode?cards.filter(c=>!!c.deploy).length:null,
