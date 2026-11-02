@@ -44,6 +44,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
 
   const madeGeometry=[],madeMaterials=[],madeTextures=[];
+  let vrDisposedTextureCount=0;
   const material=(options,physical=false)=>{
     const m=physical?new THREE.MeshPhysicalMaterial(options):new THREE.MeshStandardMaterial(options);
     madeMaterials.push(m);return m;
@@ -1951,14 +1952,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     for(const f of vrDepartBursts.splice(0))removeVrDeparture(f);
     recentFx.clear();vrHitFaceFlash.clear();vrPendingPublicHits.clear();
     pendingStrike=null;cinemaImpact=null;impactLamp.intensity=0;
+    // VR01ER: one unique texture disposal per real WebGL resource.
+    // A current card texture is also in madeTextures, so disposing via
+    // each card AND that array double-disposed identical GPU handles.
+    // Keep the art-disposed guard for asynchronous image onload callbacks.
+    const uniqueTextures=new Set([...madeTextures,...tabletopTextures]);
     for(const c of cards){
       if(c.seat)scene.remove(c.seat);
-      c.face.material.map.userData.artDisposed=true;c.face.material.map.dispose();c.face.material.dispose();
+      const tex=c.face.material.map;
+      if(tex){tex.userData.artDisposed=true;uniqueTextures.add(tex);}
+      c.face.material.dispose();
     }
     cards=[];for(const g of madeGeometry)g.dispose();
     for(const m of madeMaterials)m.dispose();
-    for(const t of madeTextures)t.dispose();
-    for(const t of tabletopTextures)t.dispose();
+    for(const t of uniqueTextures){t.dispose();vrDisposedTextureCount++;}
     mount.removeEventListener('pointerdown',down);
     mount.removeEventListener('pointermove',move);
     mount.removeEventListener('pointerup',up);
@@ -2011,6 +2018,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrReusedCards:vrMode?vrReusedCards:null,vrDeployTransitions:vrMode?vrDeployTransitions:null,
       vrDeployActive:vrMode?cards.filter(c=>!!c.deploy).length:null,
       vrLiveCardTextures:vrMode?madeTextures.length:null,
+      vrDisposedTextureCount:vrMode?vrDisposedTextureCount:null,
       vrLandingDustStarted:vrMode?vrLandingDustStarted:null,
       vrLandingDustActive:vrMode?vrLandingDust.length:null,
       vrDepartStarted:vrMode?vrDepartCount:null,
