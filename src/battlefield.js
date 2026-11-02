@@ -821,6 +821,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // an unrelated replacement with a different public card ID cannot glow.
   const vrHitFaceFlash=new Map(),vrPendingPublicHits=new Map();
   let vrHitFaceFlashCount=0,vrHitFaceFlashPeak=0,vrDeferredHitApplied=0;
+  let vrHitWithoutPublicCard=0;
   let vrTransientPublicIndexBuilds=0,vrTransientPublicComparisons=0;
   const vrLandingDust=[],vrDepartBursts=[];
   let vrDepartCount=0;
@@ -957,10 +958,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const face=document.querySelector('#arena [data-slot="'+key+'"] .board-card .card-ui');
       const nativeName=face?.querySelector('.card-name')?.textContent?.trim()||'';
       const nativeId=face?.getAttribute('data-mrr-public-card-id')||null;
-      const sameCard=!!(victim&&(!nativeName||
-        (nativeId?nativeId===victim.publicId:nativeName===victim.publicName)));
+      // VR01FD: a missing real public face is NOT evidence that the old
+      // Three.js mesh is still this slot's occupant. Destruction or native
+      // removal may precede the MutationObserver callback. Never light a
+      // departed card using its stale cached name or identity.
+      const sameCard=!!(victim&&nativeName&&
+        (nativeId?nativeId===victim.publicId:nativeName===victim.publicName));
       const id=nativeId||(sameCard?victim.publicId:null);
-      const name=nativeName||(sameCard?victim.publicName:'');
+      const name=nativeName;
+      if(!name)vrHitWithoutPublicCard++;
       if(name){
         vrHitFaceFlash.set(key,{at:now,publicId:id,name,shownFrames:0});
         vrHitFaceFlashCount++;
@@ -2164,6 +2170,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrImpactSpringPeak:vrMode?Number(vrImpactSpringPeak.toFixed(3)):null,
       vrHitRecoilRenderFrames:vrMode?vrHitRecoilRenderFrames:null,
       vrHitFaceFlashCount:vrMode?vrHitFaceFlashCount:null,
+      vrHitWithoutPublicCard:vrMode?vrHitWithoutPublicCard:null,
       vrHitFaceFlashPeak:vrMode?Number(vrHitFaceFlashPeak.toFixed(4)):null,
       vrHitFaceFlashActive:vrMode?vrHitFaceFlash.size:null,
       vrHitFaceRendered:vrMode?[...vrHitFaceFlash.values()].filter(f=>
