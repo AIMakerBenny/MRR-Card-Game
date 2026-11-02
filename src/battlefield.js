@@ -1135,6 +1135,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let cards=[],signature='',publicCardCount=0,lastSync=0;
   let vrPendingDeploy=null,vrDeployTransitions=0,vrReusedCards=0;
   let vrNeighborPairChecks=0,vrNeighborCacheRebuilds=0;
+  let vrNeighborOccupancyKey='',vrNeighborCache=new Map();
   // A hand click only arms a presentation. Neither it nor this animation
   // creates a unit: the public Phase21 board must confirm placement first.
   function armDeployment(request){
@@ -1352,20 +1353,28 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         cards.push(item);cardIndex.set(p.key,item);
         pickMeshes.push(frame,face);publicCardCount++;
       }
-      // VR01EJ: calculate adjacent occupied rows and columns only on
-      // changed public board occupancy. No repeated O(N^2) card searches
-      // in each rendered frame; position thresholds stay identical.
+      // VR01EQ: public HP/stat texture updates must not rescan unchanged
+      // occupied slots. Rebuild the exact VR01EJ neighbor graph only on
+      // genuine native occupancy changes, then restore cached mesh flags.
       if(vrMode){
-        vrNeighborPairChecks=0;
-        vrNeighborCacheRebuilds++;
-        for(const c of cards){c.vrNearColumn=false;c.vrNearRow=false;}
-        for(let i=0;i<cards.length;i++)for(let j=i+1;j<cards.length;j++){
-          const a=cards[i],b=cards[j];
-          vrNeighborPairChecks++;
-          if(Math.abs(a.slot.x-b.slot.x)<.65&&Math.abs(a.slot.z-b.slot.z)<3.05)
-            a.vrNearColumn=b.vrNearColumn=true;
-          if(Math.abs(a.slot.x-b.slot.x)<3.43&&Math.abs(a.slot.z-b.slot.z)<.65)
-            a.vrNearRow=b.vrNearRow=true;
+        const occupancy=cards.map(c=>c.key).sort().join('|');
+        if(occupancy!==vrNeighborOccupancyKey){
+          vrNeighborOccupancyKey=occupancy;
+          vrNeighborCache=new Map(cards.map(c=>[c.key,{column:false,row:false}]));
+          vrNeighborPairChecks=0;vrNeighborCacheRebuilds++;
+          for(let i=0;i<cards.length;i++)for(let j=i+1;j<cards.length;j++){
+            const a=cards[i],b=cards[j];
+            vrNeighborPairChecks++;
+            if(Math.abs(a.slot.x-b.slot.x)<.65&&Math.abs(a.slot.z-b.slot.z)<3.05)
+              vrNeighborCache.get(a.key).column=vrNeighborCache.get(b.key).column=true;
+            if(Math.abs(a.slot.x-b.slot.x)<3.43&&Math.abs(a.slot.z-b.slot.z)<.65)
+              vrNeighborCache.get(a.key).row=vrNeighborCache.get(b.key).row=true;
+          }
+        }
+        for(const c of cards){
+          const near=vrNeighborCache.get(c.key);
+          c.vrNearColumn=near?.column||false;
+          c.vrNearRow=near?.row||false;
         }
       }
     }
@@ -1995,6 +2004,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrAdaptiveCardScales:vrMode?Object.fromEntries(cards.map(c=>[c.key,Math.round((c.visualScale||1.30)*1000)/1000])):null,
       vrNeighborPairChecks:vrMode?vrNeighborPairChecks:null,
       vrNeighborCacheRebuilds:vrMode?vrNeighborCacheRebuilds:null,
+      vrNeighborCacheSize:vrMode?vrNeighborCache.size:null,
       vrNearColumnCards:vrMode?cards.filter(c=>c.vrNearColumn).length:null,
       vrNearRowCards:vrMode?cards.filter(c=>c.vrNearRow).length:null,
       vrOccupiedSeats:vrMode?cards.filter(c=>!!c.seat).length:null,
