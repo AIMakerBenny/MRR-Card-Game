@@ -5,6 +5,15 @@
       currentIdentity=null,currentArtData=null,currentCaption='',pointerOnCanvas=false;
   const q=(selector,parent=document)=>parent.querySelector(selector);
   function dispose(){frame?.remove();frame=picture=caption=null;currentKey=currentIdentity=currentArtData=null;currentCaption='';pointerOnCanvas=false;}
+  // VR01JS: canvas pointer-exit, window deactivation and tab hiding
+  // withdraw the visual inspector immediately without touching Phase21.
+  // A pointermove event is not guaranteed when the mouse leaves a canvas.
+  function clearFocus(){
+    pointerOnCanvas=false;
+    if(frame)frame.hidden=true;
+    currentKey=currentIdentity=currentArtData=null;
+    currentCaption='';
+  }
   function create(){
     const shell=q('#mrr-vr-shell');if(!shell)return;
     frame=document.createElement('aside');frame.id='mrr-vr-card-focus';
@@ -96,6 +105,16 @@
     pointerOnCanvas=!!event.target.matches?.('#mrr-integrated-stage canvas');
     if(frame)render();
   },{passive:true});
+  document.addEventListener('pointerout',event=>{
+    if(event.target.matches?.('#mrr-integrated-stage canvas')){
+      // Other canvases or overlays must never retain a stale card hover.
+      clearFocus();
+    }
+  },{passive:true});
+  window.addEventListener('blur',clearFocus);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden)clearFocus();
+  });
   window.addEventListener('resize',render);
   // Low frequency reconciliation covers camera movement without reading private state.
   window.setInterval(render,400);
