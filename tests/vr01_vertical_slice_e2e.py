@@ -1425,9 +1425,12 @@ try:
         card.classList.add('raised');
         card.style.setProperty('--vr-tilt-x','2deg');
         card.style.setProperty('--vr-glint-x','80%');
-        return true;
+        // VR01LV: also verify a keyboard-focused mirror cannot remain
+        // active behind the original information panel.
+        card.focus({preventScroll:true});
+        return document.activeElement===card;
       }""")
-      assert prior_hover,'VR01LR native-panel hover test lacks visible hand'
+      assert prior_hover,'VR01LV native-panel focus fixture unavailable'
       opened=page.evaluate("""args => {
         const control=document.getElementById(args.control);
         if(!control||control.disabled||control.hidden)return false;
@@ -1435,12 +1438,25 @@ try:
         return document.getElementById('gameScreen')?.classList.contains(args.panel);
       }""",{'control':control_id,'panel':panel_class})
       assert opened,('native panel did not open',control_id)
-      page.wait_for_function("""() =>
-        [...document.querySelectorAll('#vr-hand .vr-card')].every(card=>
-          !card.classList.contains('raised')&&
-          !card.style.getPropertyValue('--vr-tilt-x')&&
-          !card.style.getPropertyValue('--vr-glint-x'))
-      """,timeout=12000)
+      page.wait_for_function("""() => {
+        const root=document.getElementById('gameScreen');
+        const hand=document.getElementById('vr-hand');
+        if(!root||!hand)return false;
+        // VR01LV: native modal blocks pointer input and dismisses focus,
+        // even if a real mouse or keyboard was already inspecting a card.
+        const covered=root.classList.contains('mrr-integrated-inspector-open')||
+          root.classList.contains('mrr-integrated-rail-open');
+        return covered&&!hand.contains(document.activeElement)&&
+          [...hand.querySelectorAll('.vr-card')].every(card=>{
+            const face=card.querySelector('.vr-card-face');
+            return !!face&&!card.classList.contains('raised')&&
+              !card.style.getPropertyValue('--vr-tilt-x')&&
+              !card.style.getPropertyValue('--vr-glint-x')&&
+              getComputedStyle(card).pointerEvents==='none'&&
+              !getComputedStyle(face).transform.startsWith('matrix3d(')&&
+              getComputedStyle(face,'::after').display==='none';
+          });
+      }""",timeout=12000)
       page.wait_for_function("""panel => {
         const host=document.getElementById('gameScreen');
         const focus=document.getElementById('mrr-vr-card-focus');
