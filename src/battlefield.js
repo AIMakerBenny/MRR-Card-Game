@@ -1999,6 +1999,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01HE: only a gesture that BEGINS on the same native board slot
   // may end in a delegated click. Empty/outside press is never a click.
   let vrPointerStartKey=null,vrInvalidOriginGestureRejects=0;
+  // VR01HI: the native slot must be actionable AT pointerdown, not
+  // merely after a delayed pointerup when an empty seat becomes legal.
+  let vrPointerStartActionable=false,vrNonactionableOriginRejects=0;
   let vrUntrackedReleaseDrags=0,vrNonPrimaryReleaseRejects=0;
   let vrForeignPointerEventsIgnored=0,vrPausedInputEventsIgnored=0;
   let vrLostPointerCaptures=0;
@@ -2023,7 +2026,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // pressed. If that slot changes occupant before release, a delayed
     // mouseup cannot act on the replacement through the visual bridge.
     vrPointerStartCard=null;vrPointerStartLegalSlot=null;
-    vrPointerStartKey=null;
+    vrPointerStartKey=null;vrPointerStartActionable=false;
     if(vrMode){
       const key=publicHit(e);
       vrPointerStartKey=key;
@@ -2031,6 +2034,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const slot=document.querySelector('#arena [data-slot="'+key+'"]');
         const node=slot?.querySelector('.board-card .card-ui');
         const name=node?.querySelector('.card-name')?.textContent?.trim()||'';
+        vrPointerStartActionable=!!(name||slot?.classList.contains('legal'));
         if(name)vrPointerStartCard={key,
           id:node.getAttribute('data-mrr-public-card-id')||null,name};
         // VR01GF: a pointer gesture begun on a currently legal empty
@@ -2084,12 +2088,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const picked=publicHit(e);
     const origin=vrPointerStartCard;
     const legalOrigin=vrPointerStartLegalSlot;
-    const startKey=vrPointerStartKey;
+    const startKey=vrPointerStartKey,wasActionable=vrPointerStartActionable;
     vrPointerStartCard=null;vrPointerStartLegalSlot=null;
-    vrPointerStartKey=null;
+    vrPointerStartKey=null;vrPointerStartActionable=false;
     let staleGesture=false;
     if(vrMode&&(!startKey||startKey!==picked)){
       vrInvalidOriginGestureRejects++;staleGesture=true;
+    }
+    if(vrMode&&startKey&&!wasActionable){
+      vrNonactionableOriginRejects++;staleGesture=true;
     }
     // VR01HC: a captured gesture may release OFF the canvas even if
     // it started on a valid native empty legal slot. A null 3D pick
@@ -2122,7 +2129,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     drag=false;moved=false;vrActivePointerId=null;
     vrPointerStartCard=null;vrPointerStartLegalSlot=null;
-    vrPointerStartKey=null;setHover(null);
+    vrPointerStartKey=null;vrPointerStartActionable=false;setHover(null);
   }
   function lostPointerCapture(e){
     // VR01FI: focus loss, OS gestures, or another surface stealing the
@@ -2619,6 +2626,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     vrActivePointerId=null;vrPointerStartCard=null;
     vrPointerStartLegalSlot=null;vrPointerStartKey=null;
+    vrPointerStartActionable=false;
     // VR01FJ: a hidden or stopped canvas cannot keep an old visual
     // hover/aim lock. This only withdraws presentation; Phase21 controls,
     // selection and actual legal target classes remain untouched.
@@ -2709,6 +2717,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrGestureIdentityRejects:vrMode?vrGestureIdentityRejects:null,
       vrVanishedLegalGestureRejects:vrMode?vrVanishedLegalGestureRejects:null,
       vrInvalidOriginGestureRejects:vrMode?vrInvalidOriginGestureRejects:null,
+      vrNonactionableOriginRejects:vrMode?vrNonactionableOriginRejects:null,
+      vrPointerStartActionable:vrMode?vrPointerStartActionable:null,
       vrUntrackedReleaseDrags:vrMode?vrUntrackedReleaseDrags:null,
       vrNonPrimaryReleaseRejects:vrMode?vrNonPrimaryReleaseRejects:null,
       vrPointerStartKey:vrMode?vrPointerStartKey:null,
