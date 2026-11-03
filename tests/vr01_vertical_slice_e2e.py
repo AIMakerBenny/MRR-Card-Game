@@ -3810,6 +3810,14 @@ try:
       return s.vrInspectionContactActiveKeys.length===0 &&
         s.vrInspectionContactPickSafe===true;
     }"""),'VR01IK paused stage retained public ground light'
+    # VR01IL: 3D seat-corner selection lines are decorative, even
+    # while native Phase21 keeps its true selected card unchanged.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrVisibleSeatCornersCount===0 &&
+        s.vrSelectedSeatCornersOpacity===0 &&
+        s.vrSeatCornersPickSafe===true;
+    }"""),'VR01IL paused selection corner light still visible'
     assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume,(
@@ -3847,6 +3855,14 @@ try:
         s.vrHoveredEdgeGlintOpacity>.22;
     }""",arg=opponent,timeout=14000)
     assert snap()==baseline,'VR01IJ resumed frame changed Phase21'
+    # VR01IL: after resume the existing real selected native card
+    # reacquires its seat corners, with no synthetic selection click.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return !!s.selectedKey&&s.vrVisibleSeatCornersCount>=1 &&
+        s.vrSelectedSeatCornersOpacity>.30;
+    }""",timeout=14000)
+    assert snap()==baseline,'VR01IL selection corners changed Phase21'
     # VR01FN: the existing public target card gains a gently eased 3D
     # seat-contact glint. It is never raycastable, and every occupied
     # native public card has exactly one glint, no matter the viewport.

@@ -2966,6 +2966,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.contactRing.material.color.setHex(
           c.slot.owner===0?0xa1f9d6:0xffc997);
       }
+      // VR01IL: the eight noninteractive 3D seat-corner segments
+      // are another independently eased visual selection highlight.
+      // Clear them while hidden without altering native selectedKey;
+      // the genuine selection can relight them after the next start.
+      for(const c of cards)if(c.seatCorners){
+        c.seatCorners.visible=false;c.seatCornerAmount=0;
+        c.seatCornersMaterial.opacity=0;
+      }
       // A stopped scene has no inspection beam. The original lighting
       // smoothly reacquires public focus on the next genuine RAF frame.
       if(vrFocusLamp){vrFocusLamp.intensity=0;vrFocusedCardKey=null;}
@@ -3129,6 +3137,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         Number(cardIndex.get(selectedKey).edgeGlintMaterial.opacity.toFixed(3)):null,
       vrSelectedSeatCornersOpacity:vrMode&&cardIndex.get(selectedKey)?.seatCorners?
         Number(cardIndex.get(selectedKey).seatCornersMaterial.opacity.toFixed(3)):null,
+      vrVisibleSeatCornersCount:vrMode?cards.filter(c=>c.seatCorners?.visible).length:null,
       vrSeatCornersPickSafe:vrMode?cards.every(c=>
         !c.seatCorners||!pickMeshes.includes(c.seatCorners)):null,
       nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,peakLiveFxCount,
