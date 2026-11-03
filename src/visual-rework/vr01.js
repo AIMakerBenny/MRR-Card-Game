@@ -1102,6 +1102,12 @@ async function openUI(focusOnEntry=false){
     // VR01LD: real Phase21 privacy/scene transition wins even during
     // the asynchronous native Three.js import and WebGL initialization.
     if(!stillCurrent())throw Error('Native game scene changed during 3D launch');
+    // VR01LI: the original Phase76 adapter restores this button when
+    // its asynchronous loader fails or is cancelled. If its view never
+    // became open, an enabled button means no native load is in flight.
+    // Exit now instead of leaving a 35-second dead waiting overlay.
+    if(!window.MRRIntegrated?.state.open&&!nativeEntry.disabled)
+      throw Error('Native 3D initialization ended without an open battlefield');
     if(performance.now()-start>35000)throw Error('WebGL initialization unavailable');
     await new Promise(done=>setTimeout(done,160));
   }
