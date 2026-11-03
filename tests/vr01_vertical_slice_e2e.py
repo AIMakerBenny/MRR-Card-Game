@@ -3816,6 +3816,19 @@ try:
         s.vrInspectionHoveredContactOpacity>.28;
     }""",arg=opponent,timeout=16000)
     assert snap()==baseline,'VR01FN inspection contact glint changed Phase21'
+    # VR01HM: every true public card has a shared-texture contact shadow.
+    # Hover lift broadens/softens its real 3D seat shadow without any
+    # raycast target, private-hand read, or native gameplay mutation.
+    page.wait_for_function("""key => {
+      const s=MRRIntegrated.state.scene,sh=s.vrHoveredSeatShadow;
+      return s.hoveredKey===key &&
+        s.vrSeatShadowCount===s.publicCardCount &&
+        s.vrSeatShadowPickSafe===true &&
+        sh?.visible===true && sh.lift>.19 &&
+        sh.scale>1 && sh.scale<1.22 &&
+        sh.opacity>.27 && sh.opacity<.50;
+    }""",arg=opponent,timeout=16000)
+    assert snap()==baseline,'VR01HM 3D seat shadow modified Phase21'
     # VR01EF: real public status chips drive the existing Three.js
     # readiness or ward indicator, not hidden hand or AI state.
     page.wait_for_function("""() => {

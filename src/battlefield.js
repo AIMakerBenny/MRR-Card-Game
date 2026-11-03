@@ -272,6 +272,24 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // no raycast surfaces, fabricated targets or changes to the native board.
   const vrInspectionContactGeo=vrMode?
     geometry(new THREE.RingGeometry(1.12,1.24,52)):null;
+  // VR01HM: one reusable radial texture and geometry supply a soft physical
+  // shadow beneath each genuinely PUBLIC 3D card. It spreads and fades as
+  // that card rises for inspection; it cannot intercept native slot clicks.
+  const vrLiftShadowGeo=vrMode?
+    geometry(new THREE.PlaneGeometry(3.35,3.65)):null;
+  const vrLiftShadowMap=vrMode?(()=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=canvas.height=128;
+    const ctx=canvas.getContext('2d');
+    const radial=ctx.createRadialGradient(64,64,3,64,64,63);
+    radial.addColorStop(0,'rgba(0,0,0,.78)');
+    radial.addColorStop(.42,'rgba(0,0,0,.52)');
+    radial.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=radial;ctx.fillRect(0,0,128,128);
+    const texture=new THREE.CanvasTexture(canvas);
+    tabletopTextures.push(texture);
+    return texture;
+  })():null;
   // VR01FP: shared, slim 3D frame-edge highlights appear only while a
   // REAL public card is inspected. Never cover its illustration or pick face.
   const vrEdgeGlintGeo=vrMode?
@@ -1517,6 +1535,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const r=renderer.domElement.getBoundingClientRect();
     return {x:r.left+(point.x+1)*r.width/2,y:r.top+(1-point.y)*r.height/2};
   }
+  function updateVrLiftShadow(card){
+    if(!card.seatShadow)return;
+    // Use only the already-eased VISUAL lift, never an inferred game event.
+    // The same public ID keeps this lift when its art/HP texture is repainted.
+    const spread=Math.max(0,Math.min(1,(card.visualLift||0)/.86));
+    card.seatShadow.visible=!card.deploy;
+    card.seatShadow.scale.setScalar(.94+.26*spread);
+    card.seatShadowMaterial.opacity=.53-.22*spread;
+  }
   function sync(){
     const list=publicSnapshot();
     const nextStatusSignature=JSON.stringify(list.map(p=>[p.key,p.selected,p.legal,p.attackTarget,p.hasHealth,p.hpRatio,p.stateChip]));
@@ -1564,6 +1591,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // are non-pickable, bounded, and never counted as occupied cards.
         scene.remove(c.group);if(c.seat)scene.remove(c.seat);
         if(c.contactRing)c.contactRing.material.dispose();
+        if(c.seatShadowMaterial)c.seatShadowMaterial.dispose();
         if(c.edgeGlintMaterial)c.edgeGlintMaterial.dispose();
         if(c.seatCornersMaterial)c.seatCornersMaterial.dispose();
         if(c.face.material.map){
@@ -1637,7 +1665,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const statusDot=new THREE.Mesh(statusGeo,readyMat);
         statusDot.position.set(1.22,1.67,.26);group.add(statusDot);
         scene.add(group);
-        let seat=null,contactRing=null,seatCorners=null,seatCornersMaterial=null;
+        let seat=null,contactRing=null,seatShadow=null,seatShadowMaterial=null,
+          seatCorners=null,seatCornersMaterial=null;
         if(vrMode){
           seat=new THREE.Group();
           seat.position.set(slot.x,.25,slot.z);
@@ -1645,6 +1674,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           rim.position.y=-.035;seat.add(rim);
           const bed=new THREE.Mesh(vrSeatSurface,vrSeatBase);
           bed.position.y=.017;bed.receiveShadow=true;seat.add(bed);
+          // Slightly above the seat bed and below the existing focus ring.
+          // The cached alpha map costs one texture regardless of card count.
+          seatShadowMaterial=new THREE.MeshBasicMaterial({
+            map:vrLiftShadowMap,transparent:true,opacity:.53,
+            depthWrite:false,side:THREE.DoubleSide
+          });
+          seatShadow=new THREE.Mesh(vrLiftShadowGeo,seatShadowMaterial);
+          seatShadow.rotation.x=-Math.PI/2;
+          seatShadow.position.y=.094;
+          seat.add(seatShadow);
           const glintMat=new THREE.MeshBasicMaterial({
             color:slot.owner===0?0xa1f9d6:0xffc997,transparent:true,
             opacity:0,depthWrite:false,side:THREE.DoubleSide,
@@ -1669,6 +1708,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           scene.add(seat);
         }
         const item={key:p.key,group,face,frame,seat,contactRing,
+          seatShadow,seatShadowMaterial,
           edgeGlint,edgeGlintMaterial,seatCorners,seatCornersMaterial,slot,hpBg,hpFill,
           hpDamageTrail,statusDot,publicId:p.cardId,publicName:p.name,
           fingerprint:vrCardFingerprint(p)};
@@ -1730,6 +1770,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           }
           vrPendingDeploy=null;
         }
+        updateVrLiftShadow(item);
         cards.push(item);cardIndex.set(p.key,item);
         pickMeshes.push(frame,face);publicCardCount++;
       }
@@ -2551,6 +2592,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const blend=frozen?1:1-Math.exp(-visualDelta/115);
         c.visualScale=(c.visualScale??1.30)+(targetScale-(c.visualScale??1.30))*blend;
         c.visualLift=(c.visualLift??0)+(targetLift-(c.visualLift??0))*blend;
+        if(vrMode)updateVrLiftShadow(c);
         if(vrMode&&c.deploy){
           const raw=Math.max(0,Math.min(1,(performance.now()-c.deploy.started)/720));
           const ease=1-Math.pow(1-raw,3);
@@ -2698,6 +2740,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     for(const c of cards){
       if(c.seat)scene.remove(c.seat);
       if(c.contactRing)c.contactRing.material.dispose();
+      if(c.seatShadowMaterial)c.seatShadowMaterial.dispose();
       if(c.edgeGlintMaterial)c.edgeGlintMaterial.dispose();
       if(c.seatCornersMaterial)c.seatCornersMaterial.dispose();
       const tex=c.face.material.map;
@@ -2813,6 +2856,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrNearRowCards:vrMode?cards.filter(c=>c.vrNearRow).length:null,
       vrOccupiedSeats:vrMode?cards.filter(c=>!!c.seat).length:null,
       vrInspectionContactCount:vrMode?cards.filter(c=>!!c.contactRing).length:null,
+      vrSeatShadowCount:vrMode?cards.filter(c=>!!c.seatShadow).length:null,
+      vrSeatShadowPickSafe:vrMode?cards.every(c=>
+        !c.seatShadow||!pickMeshes.includes(c.seatShadow)):null,
+      vrHoveredSeatShadow:vrMode&&cardIndex.get(hoveredKey)?.seatShadow?{
+        visible:cardIndex.get(hoveredKey).seatShadow.visible,
+        opacity:Number(cardIndex.get(hoveredKey).seatShadowMaterial.opacity.toFixed(3)),
+        scale:Number(cardIndex.get(hoveredKey).seatShadow.scale.x.toFixed(3)),
+        lift:Number((cardIndex.get(hoveredKey).visualLift||0).toFixed(3))
+      }:null,
       vrInspectionContactActiveKeys:vrMode?
         cards.filter(c=>c.contactRing?.visible).map(c=>c.key):null,
       vrInspectionHoveredContactOpacity:vrMode&&cardIndex.get(hoveredKey)?.contactRing?
