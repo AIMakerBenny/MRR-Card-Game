@@ -2993,6 +2993,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.seatCorners.visible=false;c.seatCornerAmount=0;
         c.seatCornersMaterial.opacity=0;
       }
+      // VR01IU: native ready/ward/spent status remains genuinely
+      // visible, but its cosmetic idle breathing must not freeze at a
+      // random enlarged scale when the 3D battle is stopped.
+      for(const c of cards)if(c.statusDot)
+        c.statusDot.scale.setScalar(1);
       // A stopped scene has no inspection beam. The original lighting
       // smoothly reacquires public focus on the next genuine RAF frame.
       if(vrFocusLamp){

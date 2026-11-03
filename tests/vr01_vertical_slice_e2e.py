@@ -3861,6 +3861,12 @@ try:
       return !!s.selectedKey&&s.vrSelectionBurstKey===null&&
         s.vrSelectionRingScale===1;
     }"""),'VR01IT stopped selection retained previous pulse'
+    # VR01IU: the real public readiness/ward glyph remains present,
+    # but none of the visual-only idle breathing is frozen mid-pulse.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrStatusBeacons.every(x=>x.scale===1);
+    }"""),'VR01IU paused public status icon kept animated scale'
     assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume,(
