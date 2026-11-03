@@ -1418,6 +1418,57 @@ try:
         const focus=document.getElementById('mrr-vr-card-focus');
         return host?.classList.contains(panel)&&!!focus&&focus.hidden;
       }""",arg=panel_class,timeout=12000)
+      # VR01LN: the REAL Phase76 inspector/supply surface takes
+      # priority over mirrored hand, keyboard tips, and footer commands.
+      # Even direct synthetic clicks must never reach native Phase21.
+      page.wait_for_function("""() => {
+        const panel=document.getElementById('gameScreen');
+        const shell=document.getElementById('mrr-vr-shell');
+        const end=document.getElementById('vr-end-turn');
+        const cancel=document.getElementById('vr-cancel');
+        return !!panel&&!!shell&&
+          (panel.classList.contains('mrr-integrated-inspector-open')||
+           panel.classList.contains('mrr-integrated-rail-open'))&&
+          shell.classList.contains('vr-hand-hotkeys-paused')&&
+          !!end&&end.disabled&&(!cancel||cancel.hidden||cancel.disabled)&&
+          [...shell.querySelectorAll('#vr-hand .vr-card')].every(c=>
+            !c.hasAttribute('aria-keyshortcuts')&&!c.hasAttribute('title'));
+      }""",timeout=12000)
+      panel_action_guard=page.evaluate("""() => {
+        const targets={
+          hand:document.querySelector('#hand .hand-slot'),
+          end:document.querySelector('#endTurn'),
+          cancel:document.querySelector('#inspectBody button[data-cancel-action]')
+        };
+        const mirror=document.querySelector('#vr-hand .vr-card');
+        const vrEnd=document.getElementById('vr-end-turn');
+        const vrCancel=document.getElementById('vr-cancel');
+        if(!targets.hand||!targets.end||!mirror||!vrEnd)return null;
+        const originals=Object.entries(targets).filter(([,node])=>!!node)
+          .map(([name,node])=>({
+            name,node,wasOwn:Object.prototype.hasOwnProperty.call(node,'click'),
+            click:node.click
+          }));
+        const calls={hand:0,end:0,cancel:0};
+        try{
+          for(const item of originals)
+            item.node.click=()=>{calls[item.name]++;};
+          mirror.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+          vrEnd.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+          vrCancel?.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+          return {calls,mirrorAlive:mirror.isConnected};
+        }finally{
+          for(const item of originals){
+            if(item.wasOwn)item.node.click=item.click;
+            else delete item.node.click;
+          }
+        }
+      }""")
+      assert panel_action_guard and panel_action_guard['mirrorAlive'] and (
+        all(value==0 for value in panel_action_guard['calls'].values())),(
+        'VR01LN info panel allowed background native action',
+        control_id,panel_action_guard)
+      assert snap()==baseline,('VR01LN native panel changed gameplay',control_id)
       assert snap()==baseline,('VR01KL panel open mutated gameplay',control_id)
       page.evaluate("""control => {
         document.getElementById(control)?.click();
