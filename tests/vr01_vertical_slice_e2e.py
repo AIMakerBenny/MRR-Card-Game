@@ -3968,6 +3968,17 @@ try:
         s.vrAttackArcMoteCount===3&&s.vrAttackArcMotePickSafe===true;
     }""",timeout=14000)
     assert snap()==baseline,'VR01DU 3D aim preview changed Phase21 gameplay'
+    # VR01HP: real native attack-target lock, NOT a speculative mouse
+    # gesture, reveals one non-interactive 3D floor acquisition halo.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrTargetLockKey===s.hoveredKey &&
+        s.vrTargetFloorHaloVisible===true &&
+        s.vrTargetFloorHaloPickSafe===true &&
+        s.vrTargetFloorHaloOpacity>.19 &&
+        s.vrTargetFloorHaloOpacity<=.251;
+    }""",timeout=14000)
+    assert snap()==baseline,'VR01HP target floor halo changed Phase21'
     # VR01EY: identical real native selected/target slots must reuse the
     # exact 17-point 3D path instead of reuploading it on every sync.
     aim_cache=page.evaluate("""() => {

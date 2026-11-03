@@ -547,6 +547,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     vrTargetBracket.visible=false;
     scene.add(vrTargetBracket);
   }
+  // VR01HP: a quiet world-space floor halo appears ONLY while the real
+  // Phase21 attack-target lock remains valid. Shared GPU resources, no
+  // clickable mesh, invented damage, extra DOM queries or private hand.
+  const vrTargetFloorHalo=vrMode?new THREE.Mesh(
+    geometry(new THREE.RingGeometry(.72,.83,48)),
+    material({color:0xffc98c,transparent:true,opacity:.22,
+      depthWrite:false,side:THREE.DoubleSide,
+      blending:THREE.AdditiveBlending})):null;
+  if(vrTargetFloorHalo){
+    vrTargetFloorHalo.rotation.x=-Math.PI/2;
+    vrTargetFloorHalo.visible=false;scene.add(vrTargetFloorHalo);
+  }
   // VR01FT: two restrained world-space motes accompany only an actual
   // Phase21 attack-target lock. They are NOT bracket children, keeping
   // its eight tested corner meshes and original raycaster unchanged.
@@ -1940,6 +1952,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // one stale WebGL frame pointing at a departed public card.
     if(vrMode&&!vrTargetLock){
       if(vrTargetBracket)vrTargetBracket.visible=false;
+      if(vrTargetFloorHalo)vrTargetFloorHalo.visible=false;
       vrTargetBracketKey=null;
       for(const spark of vrTargetSparks)spark.visible=false;
     }
@@ -2339,11 +2352,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const isNative=!!(lock&&selectedKey&&attackTargetCount&&
         attackArrow.visible&&hoveredKey===lock.key&&cardIndex.has(lock.key));
       vrTargetBracket.visible=isNative;
+      if(vrTargetFloorHalo)vrTargetFloorHalo.visible=isNative;
       vrTargetBracketKey=isNative?lock.key:null;
       if(isNative){
         const slot=boardSlots.get(lock.key);
         vrTargetBracket.position.set(slot.x,.53,slot.z);
         const progress=frozen?1:Math.max(0,Math.min(1,(time-lock.at)/340));
+        // Seat-local acquisition eases once, never claims an actual hit.
+        if(vrTargetFloorHalo){
+          vrTargetFloorHalo.position.set(slot.x,.405,slot.z);
+          vrTargetFloorHalo.scale.setScalar(frozen?1:1.10-.10*progress);
+          vrTargetFloorHalo.material.opacity=.15+.10*progress;
+        }
         vrTargetBracket.scale.setScalar(1.14-.14*(1-Math.pow(1-progress,3)));
         vrTargetBracket.children[0].material.opacity=
           frozen?.85:.73+.12*(.5+.5*Math.sin(time*.006));
@@ -2716,6 +2736,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       attackArrow.visible=attackTip.visible=false;
       vrAimPathKey=null;
       if(vrTargetBracket)vrTargetBracket.visible=false;
+      if(vrTargetFloorHalo)vrTargetFloorHalo.visible=false;
       for(const m of vrLandingPillars)m.visible=false;
       for(const m of vrTargetSparks)m.visible=false;
       vrTargetBracketKey=null;
@@ -2961,6 +2982,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrTargetBracketCount:vrMode&&vrTargetBracket?.visible?vrTargetBracket.children.length:0,
       vrTargetBracketPickSafe:vrMode?vrTargetBracket.children.every(c=>
         !pickMeshes.includes(c)):null,
+      vrTargetFloorHaloVisible:vrMode?vrTargetFloorHalo.visible:null,
+      vrTargetFloorHaloPickSafe:vrMode?!pickMeshes.includes(vrTargetFloorHalo):null,
+      vrTargetFloorHaloOpacity:vrMode?
+        Number(vrTargetFloorHalo.material.opacity.toFixed(3)):null,
       vrTargetSparkCount:vrMode?vrTargetSparks.filter(m=>m.visible).length:null,
       vrTargetSparksPickSafe:vrMode?vrTargetSparks.every(m=>
         !pickMeshes.includes(m)):null,
