@@ -5537,6 +5537,37 @@ try:
     assert snap()==prior_move,'VR01DV placement beacon mutated native gameplay'
     page.screenshot(path=str(ROOT/'tests/vr01ab_native_move_hover_1920x1080.png'),
       animations='disabled')
+    # VR01IO: stop the 3D scene while an ACTUAL native legal empty
+    # destination is illuminated. It must instantly retire the guide,
+    # without changing the original Phase21 move or selected unit.
+    paused_landing=page.evaluate("""() => {
+      const stage=MRRIntegrated.scene;
+      const before=stage.state;
+      stage.stop();
+      const paused=stage.state;
+      stage.start();
+      return {
+        illuminated:before.vrLandingGuideVisible===true&&
+          before.vrLandingPillarCount===4,
+        withdrawn:paused.vrLandingGuideVisible===false&&
+          paused.vrLandingGuideKey===null&&paused.vrLandingPillarCount===0,
+        reveals:before.vrLandingGuideReveals,
+        afterStartHidden:stage.state.vrLandingGuideVisible===false
+      };
+    }""")
+    assert paused_landing['illuminated'] and (
+      paused_landing['withdrawn'] and paused_landing['afterStartHidden']),paused_landing
+    assert snap()==prior_move,'VR01IO pausing landing preview mutated Phase21'
+    page.mouse.move(4,540)
+    page.mouse.move(hovered_point['x'],hovered_point['y'])
+    page.wait_for_function("""v => {
+      const s=MRRIntegrated.state.scene;
+      return s.hoveredKey===v.key&&s.vrLandingGuideVisible===true&&
+        s.vrLandingGuideKey===v.key&&s.vrLandingPillarCount===4&&
+        s.vrLandingGuideReveals>v.previous;
+    }""",arg={'key':hovered_target,
+      'previous':paused_landing['reveals']},timeout=16000)
+    assert snap()==prior_move,'VR01IO resumed landing preview mutated Phase21'
     page.mouse.move(4,540)
     page.wait_for_function("""() => {
       const line=document.querySelector('#vr-aim-line');

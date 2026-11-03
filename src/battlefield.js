@@ -2987,6 +2987,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // native attack itself. Stop all three immediately, because
       // there may be no next RAF to advance their visibility state.
       for(const mote of vrAttackMotes)mote.visible=false;
+      // VR01IO: a real legal destination may be highlighted when
+      // its canvas is closed. Withdraw the 3D landing beacon and its
+      // cached slot at the same stop boundary; only a fresh public
+      // pointer hover can reacquire it after resume.
+      if(vrLandingGuide)vrLandingGuide.visible=false;
+      vrLandingGuideKey=null;
       for(const m of vrLandingPillars)m.visible=false;
       for(const m of vrTargetSparks)m.visible=false;
       vrTargetBracketKey=null;
