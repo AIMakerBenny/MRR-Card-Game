@@ -650,7 +650,11 @@ function reconcileConfirmedOutcomes(){
     // VR01JL: only the same identity that received native FX can
     // supply a numerical change. FX remains authoritative even when
     // the card's public HP was not readable, so display text feedback.
-    const exact=samePublicOccupant(changed,event)&&
+    // VR01JM: an old confirmed FX must not borrow an unrelated
+    // later public HP transition, even for the same card.
+    const exact=!!changed&&Number.isFinite(event.at)&&
+      Math.abs(event.at-changed.at)<=1800&&
+      samePublicOccupant(changed,event)&&
       ((heal&&diff>0)||(!heal&&diff<0));
     // A confirmed FX with no verified public change is only an impact,
     // never a fabricated numerical damage/heal amount.
@@ -660,6 +664,9 @@ function reconcileConfirmedOutcomes(){
     node.dataset.amount=exact?String(Math.abs(diff)):'';
     node.setAttribute('aria-label',heal?'회복 결과 '+msg:'피격 결과 '+msg);
     if(!positionConfirmedOutcome(node,event.key,scene))continue;
+    // One public HP transition may be paired with only ONE native FX.
+    // Subsequent FX still have their actual event-backed nonnumeric badge.
+    if(exact)recentHpChanges.delete(event.key);
     if(matchMedia('(prefers-reduced-motion: reduce)').matches)node.classList.add('vr-no-motion');
     host.append(node);outcomeNodes.push({node,key:event.key,at:now});
     lastOutcome={key:event.key,type:event.type,amount:exact?Math.abs(diff):null,label:msg};
