@@ -3007,6 +3007,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.hpDamageTrail.visible=false;
         c.damageTrail=null;c.damageTrailAt=0;
       }
+      // VR01IW: native hits already resolved by Phase21 remain
+      // authoritative. Unfinished 3D recoil, face flash and deferred
+      // cosmetic hit markers must not replay into another visual
+      // interaction after the scene has been hidden.
+      vrHitFaceFlash.clear();vrPendingPublicHits.clear();
+      for(const c of cards)if(c.hitReaction){
+        c.hitReaction=null;
+        if(!c.deploy){
+          c.group.position.x=c.slot.x;c.group.position.z=c.slot.z;
+          c.group.rotation.z=c.visualRoll||0;
+          c.group.rotation.x=-.74+(c.visualPitch||0);
+          c.group.scale.setScalar(c.visualScale||1);
+        }
+      }
       // A stopped scene has no inspection beam. The original lighting
       // smoothly reacquires public focus on the next genuine RAF frame.
       if(vrFocusLamp){

@@ -3874,6 +3874,15 @@ try:
       return s.vrDamageTrailVisible===0 &&
         s.vrDamageTrailPickSafe===true;
     }"""),'VR01IV paused HP afterimage did not retire'
+    # VR01IW: stop must never leave a previously confirmed native-hit
+    # animation pending for the next battle. Real native HP and strike
+    # history are preserved and remain guarded by the snapshot check.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrActiveHitReactions===0&&
+        s.vrHitFaceFlashActive===0&&
+        s.vrPendingPublicHitCount===0;
+    }"""),'VR01IW stopped battle retained a stale hit reaction'
     assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume,(
