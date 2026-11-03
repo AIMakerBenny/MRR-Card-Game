@@ -401,6 +401,36 @@ try:
       }""")
       assert tooltip_audit,('VR01BC publicly grounded hand tooltip mismatch',w,h)
       assert snap()==baseline,('VR01AW/AX inspection changed Phase21 state',w,h)
+      # VR01KP: even a queued 3D hand click must not forward into
+      # Phase21 while a REAL native slot is already targeting. A temporary
+      # legal class plus a spy on that element's native click tests the
+      # guard without changing the original game state or selecting cards.
+      targeting_guard=page.evaluate("""() => {
+        const slot=[...document.querySelectorAll('#arena .slot')]
+          .find(e=>!e.classList.contains('legal')&&
+            !e.classList.contains('attack-target')&&!e.querySelector('.board-card'));
+        const mirror=document.querySelector('#vr-hand .vr-card');
+        const native=document.querySelector('#hand .hand-slot');
+        if(!slot||!mirror||!native)return null;
+        const hadOwn=Object.prototype.hasOwnProperty.call(native,'click');
+        const old=native.click;
+        let forwarded=0;
+        try{
+          native.click=()=>{forwarded++;};
+          slot.classList.add('legal');
+          mirror.click();
+          return {forwarded,stillLive:mirror.isConnected,
+            nativeCount:document.querySelectorAll('#hand .hand-slot').length};
+        }finally{
+          slot.classList.remove('legal');
+          if(hadOwn)native.click=old;
+          else delete native.click;
+        }
+      }""")
+      assert targeting_guard and targeting_guard['forwarded']==0 and (
+        targeting_guard['stillLive'] and targeting_guard['nativeCount']>0),(
+          'VR01KP stale 3D hand click reached Phase21',w,h,targeting_guard)
+      assert snap()==baseline,('VR01KP native targeting guard changed Phase21',w,h)
       # VR01DT: actual Chromium pointer movement tilts only the inspected
       # card face. Native selection/state and all neighboring cards stay intact.
       inspected_index=page.locator('#vr-hand .vr-card').count()//2
