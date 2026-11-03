@@ -197,13 +197,23 @@
     // VR01JZ: real PC controls and raised hand cards must remain
     // readable when a public card is magnified. Sample only current
     // DOM rectangles, with no extra pointer surface or game commands.
+    // VR01KC: the transparent full-width header/footer wrappers do
+    // not block the 3D table. Score ONLY their actual visible controls,
+    // so a safe dock can stay near the hovered public unit.
     const hudRects=[
-      ...document.querySelectorAll('#mrr-vr-shell .vr-header,'+
-        '#mrr-vr-shell .vr-footer,'+
+      ...document.querySelectorAll(
+        '#mrr-vr-shell .vr-header .vr-logo,'+
+        '#mrr-vr-shell .vr-header .vr-hero,'+
+        '#mrr-vr-shell .vr-header .vr-tools,'+
+        '#mrr-vr-shell .vr-footer .vr-hero,'+
+        '#mrr-vr-shell .vr-footer #vr-end-turn,'+
         '#mrr-vr-shell .vr-pile-display,'+
+        '#mrr-vr-shell #vr-hint,'+
         '#mrr-vr-shell .vr-card:is(:hover,:focus-visible,.raised),'+
         '#mrr-integrated-context')
-    ].filter(node=>node.getClientRects().length).map(node=>{
+    ].filter(node=>node.getClientRects().length&&
+      !node.closest('[hidden]')&&
+      getComputedStyle(node).visibility!=='hidden').map(node=>{
       const r=node.getBoundingClientRect();
       return {x:r.left-box.left,y:r.top-box.top,w:r.width,h:r.height};
     }).filter(r=>r.w>0&&r.h>0);
