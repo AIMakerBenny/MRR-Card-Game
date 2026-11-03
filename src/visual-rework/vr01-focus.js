@@ -3,7 +3,7 @@
   'use strict';
   let frame=null, picture=null, caption=null, currentKey=null,
       currentIdentity=null,currentArtData=null,currentCaption='',pointerOnCanvas=false;
-  let arenaObserver=null,observedArena=null,arenaFrame=0;
+  let arenaObserver=null,observedArena=null,focusFrame=0;
   let passObserver=null,observedPass=null;
   let panelObserver=null,observedGameScreen=null;
   const q=(selector,parent=document)=>parent.querySelector(selector);
@@ -11,8 +11,8 @@
     arenaObserver?.disconnect();arenaObserver=observedArena=null;
     passObserver?.disconnect();passObserver=observedPass=null;
     panelObserver?.disconnect();panelObserver=observedGameScreen=null;
-    if(arenaFrame)cancelAnimationFrame(arenaFrame);
-    arenaFrame=0;
+    if(focusFrame)cancelAnimationFrame(focusFrame);
+    focusFrame=0;
     frame?.remove();frame=picture=caption=null;
     currentKey=currentIdentity=currentArtData=null;
     currentCaption='';pointerOnCanvas=false;
@@ -22,9 +22,20 @@
   // A pointermove event is not guaranteed when the mouse leaves a canvas.
   function clearFocus(){
     pointerOnCanvas=false;
+    if(focusFrame)cancelAnimationFrame(focusFrame);
+    focusFrame=0;
     if(frame)frame.hidden=true;
     currentKey=currentIdentity=currentArtData=null;
     currentCaption='';
+  }
+  // VR01KB: coalesce high-frequency pointer moves, native mutations and
+  // camera wheel events into at most one expensive 3D projection per frame.
+  function scheduleFocus(){
+    if(!pointerOnCanvas||focusFrame)return;
+    focusFrame=requestAnimationFrame(()=>{
+      focusFrame=0;
+      if(pointerOnCanvas)render();
+    });
   }
   // VR01JW: the original Phase21 PUBLIC arena is the only observed DOM.
   // Coalesce its HP, status and card replacements to one inspector refresh
@@ -35,13 +46,7 @@
     arenaObserver?.disconnect();arenaObserver=observedArena=null;
     if(!arena)return;
     observedArena=arena;
-    arenaObserver=new MutationObserver(()=>{
-      if(!pointerOnCanvas||arenaFrame)return;
-      arenaFrame=requestAnimationFrame(()=>{
-        arenaFrame=0;
-        if(pointerOnCanvas)render();
-      });
-    });
+    arenaObserver=new MutationObserver(scheduleFocus);
     arenaObserver.observe(arena,{
       subtree:true,childList:true,characterData:true,
       attributes:true,
@@ -232,9 +237,19 @@
     frame.hidden=false;
   }
   document.addEventListener('pointermove',event=>{
-    pointerOnCanvas=!!event.target.matches?.('#mrr-integrated-stage canvas');
-    if(frame)render();
+    const onCanvas=!!event.target.matches?.('#mrr-integrated-stage canvas');
+    if(!onCanvas){if(pointerOnCanvas)clearFocus();return;}
+    pointerOnCanvas=true;
+    scheduleFocus();
   },{passive:true});
+  // The authoritative Phase76 camera controls run first. Follow their
+  // wheel/preset changes with a pure visual inspection projection.
+  document.addEventListener('wheel',event=>{
+    if(event.target.matches?.('#mrr-integrated-stage canvas'))scheduleFocus();
+  },{passive:true});
+  document.addEventListener('click',event=>{
+    if(event.target.closest?.('#vr-camera'))scheduleFocus();
+  });
   document.addEventListener('pointerout',event=>{
     if(event.target.matches?.('#mrr-integrated-stage canvas')){
       // Other canvases or overlays must never retain a stale card hover.
@@ -245,7 +260,7 @@
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden)clearFocus();
   });
-  window.addEventListener('resize',render);
+  window.addEventListener('resize',scheduleFocus);
   // Low frequency reconciliation covers camera movement without reading private state.
   window.setInterval(render,400);
 })();
