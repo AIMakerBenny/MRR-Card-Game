@@ -1570,7 +1570,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       name:node?.querySelector('.card-name')?.textContent?.trim()||'',
       kind:node?.querySelector('.card-kind')?.textContent?.trim()||'',
       stats:node?.querySelector('.card-stats')?.textContent?.trim()||'',
-      cost:node?.querySelector('.cost-bubble')?.textContent?.trim()||''};
+      cost:node?.querySelector('.cost-bubble')?.textContent?.trim()||'',
+      // VR01JB: include only the sigil already printed on the PUBLIC card.
+      // No hidden card rules, hand information or new data source.
+      sigil:node?.querySelector('.sigil-text')?.textContent?.trim()||''};
   }
   function hasCard(key){
     const item=cardIndex.get(key);
@@ -3547,7 +3550,19 @@ window.MRRBattlefieldUIInit=function(loadThree){
         previewKey=info.key;
         if(shownImage!==info.artData){shownImage=info.artData;zoomImage.src=info.artData;}
         zoomImage.alt=info.name+' 카드 확대';
-        zoomCaption.textContent=[info.name,info.kind,info.stats].filter(Boolean).join(' · ');
+        // VR01JB: clear, multi-line public inspector metadata. All fields
+        // are read from the existing visible Phase21 card in the arena.
+        // Using textContent never interprets card names/abilities as HTML.
+        const title=document.createElement('strong');title.textContent=info.name;
+        const details=document.createElement('span');
+        details.textContent=[info.kind,info.cost?'비용 '+info.cost:'',
+          info.stats].filter(Boolean).join(' · ');
+        zoomCaption.replaceChildren(title,details);
+        if(info.sigil){
+          const sigil=document.createElement('span');
+          sigil.className='mrr-zoom-sigil';sigil.textContent=info.sigil;
+          zoomCaption.append(sigil);
+        }
         zoomPane.classList.add('visible');
       }
       pinPreview.addEventListener('click',()=>{

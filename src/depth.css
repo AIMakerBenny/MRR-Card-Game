@@ -448,9 +448,18 @@ body.mcw-three-ready #arena .mcw35-hurt{color:#ffb08a}
   aspect-ratio:512/704;border:1px solid #e0c48e7a;border-radius:5px;
   box-shadow:0 5px 16px #000b;
 }
+/* VR01JB: more of the existing public card's cost and sigil stays
+   readable in the dedicated inspector, never covering other card meshes. */
 #mrr-battlefield-zoom-caption {
+  display:flex;flex-direction:column;gap:3px;
   font:12px/1.45 'Malgun Gothic',sans-serif;
-  text-align:center;color:#f4e2bd;max-height:4em;overflow:hidden;
+  text-align:center;color:#f4e2bd;max-height:8.5em;overflow:hidden;
+  overflow-wrap:anywhere;
+}
+#mrr-battlefield-zoom-caption strong{color:#fff7dd;font-size:13px}
+#mrr-battlefield-zoom-caption span{display:block}
+#mrr-battlefield-zoom-caption .mrr-zoom-sigil{
+  color:#d9bf98;font-size:11px;line-height:1.35;
 }
 #mrr-battlefield-preview-pin[aria-pressed="true"] {
   background:linear-gradient(145deg,#947149,#493728);
