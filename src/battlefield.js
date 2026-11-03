@@ -2991,7 +2991,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
       // A stopped scene has no inspection beam. The original lighting
       // smoothly reacquires public focus on the next genuine RAF frame.
-      if(vrFocusLamp){vrFocusLamp.intensity=0;vrFocusedCardKey=null;}
+      if(vrFocusLamp){
+        vrFocusLamp.intensity=0;vrFocusedCardKey=null;
+        // VR01IS: the same reusable light also retains owner-specific
+        // colour when its intensity is zero. Rebase both lamp and eased
+        // target hue to a neutral colour on stop, so a new public
+        // opponent cannot inherit the prior battle's old warm/cool hue.
+        vrFocusLamp.color.setHex(0xffd3a0);
+        vrFocusColorGoal.setHex(0xffd3a0);
+      }
       if(vrTargetBracket)vrTargetBracket.visible=false;
       if(vrTargetFloorHalo)vrTargetFloorHalo.visible=false;
       // VR01IM: independently animated arc particles are not the
@@ -3114,6 +3122,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrStaleFocusLampWithdrawals:vrMode?vrStaleFocusLampWithdrawals:null,
       vrFocusedCardKey:vrMode?vrFocusedCardKey:null,
       vrFocusedLightIntensity:vrMode?Number(vrFocusLamp.intensity.toFixed(2)):null,
+      vrPausedFocusHueNeutral:vrMode&&!running?
+        vrFocusLamp.color.getHex()===0xffd3a0&&
+        vrFocusColorGoal.getHex()===0xffd3a0:null,
       vrFocusColourDelta:vrMode&&vrFocusedCardKey?Number(Math.max(
         Math.abs(vrFocusLamp.color.r-vrFocusColorGoal.r),
         Math.abs(vrFocusLamp.color.g-vrFocusColorGoal.g),

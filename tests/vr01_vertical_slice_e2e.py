@@ -3845,6 +3845,15 @@ try:
       return s.vrPausedRimColoursNeutral===true &&
         s.vrVisibleEdgeSheenCount===0;
     }"""),'VR01IR paused card rim retained prior aim tint'
+    # VR01IS: a fully retired point lamp and its interpolation
+    # target also relinquish the previous occupant's team-specific
+    # colour. A real resumed hover will acquire the new team hue.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrPausedFocusHueNeutral===true &&
+        s.vrFocusedLightIntensity===0 &&
+        s.vrFocusedCardKey===null;
+    }"""),'VR01IS stopped spotlight retained prior team hue'
     assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume,(
