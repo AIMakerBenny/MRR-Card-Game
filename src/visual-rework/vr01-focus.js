@@ -1,9 +1,10 @@
 /* VR01 in-game card focus. Reads only the existing PUBLIC 3D card texture. */
 (() => {
   'use strict';
-  let frame=null, picture=null, caption=null, currentKey=null, pointerOnCanvas=false;
+  let frame=null, picture=null, caption=null, currentKey=null,
+      currentIdentity=null,pointerOnCanvas=false;
   const q=(selector,parent=document)=>parent.querySelector(selector);
-  function dispose(){frame?.remove();frame=picture=caption=null;currentKey=null;pointerOnCanvas=false;}
+  function dispose(){frame?.remove();frame=picture=caption=null;currentKey=currentIdentity=null;pointerOnCanvas=false;}
   function create(){
     const shell=q('#mrr-vr-shell');if(!shell)return;
     frame=document.createElement('aside');frame.id='mrr-vr-card-focus';
@@ -18,15 +19,21 @@
     if(!frame)return;
     const scene=window.MRRIntegrated?.scene;
     const key=pointerOnCanvas?scene?.state.hoveredKey:null;
-    if(!key||!scene?.hasCard(key)){frame.hidden=true;currentKey=null;return;}
+    if(!key||!scene?.hasCard(key)){frame.hidden=true;currentKey=currentIdentity=null;return;}
     const where=scene.projectCard(key),box=q('#mrr-integrated-stage')?.getBoundingClientRect();
     if(!where||!box||!Number.isFinite(where.x)||!Number.isFinite(where.y)){
-      frame.hidden=true;currentKey=null;return;
+      frame.hidden=true;currentKey=currentIdentity=null;return;
     }
-    if(currentKey!==key){
-      const data=scene.getCardPreview(key);
-      if(!data?.artData){frame.hidden=true;return;}
-      currentKey=key;picture.src=data.artData;
+    // VR01JP: a Phase21 native slot can be reused by a different PUBLIC
+    // card while the mouse stays still. The old magnifier must never
+    // preserve the departed occupant's card art at the reused key.
+    const data=scene.getCardPreview(key);
+    if(!data?.artData){frame.hidden=true;currentKey=currentIdentity=null;return;}
+    const identity=data.publicId?
+      'id:'+data.publicId:'name:'+data.name;
+    if(currentKey!==key||currentIdentity!==identity){
+      currentKey=key;currentIdentity=identity;
+      picture.src=data.artData;
       caption.textContent=[data.name,data.stats].filter(Boolean).join('  |  ');
     }
     const width=frame.offsetWidth||260,height=frame.offsetHeight||375;
