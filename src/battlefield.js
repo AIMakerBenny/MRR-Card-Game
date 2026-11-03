@@ -335,6 +335,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const healthBackGeo=geometry(new THREE.BoxGeometry(2.18,.22,.075));
   const healthFillGeo=geometry(new THREE.BoxGeometry(2.04,.15,.084));
   const statusGeo=geometry(new THREE.SphereGeometry(.135,12,8));
+  // VR01JE: a real metal bezel grounds the existing PUBLIC native status
+  // orb on its card. One shared torus, no derived hidden status or input.
+  const vrStatusBezelGeo=vrMode?
+    geometry(new THREE.TorusGeometry(.185,.027,8,28)):null;
   const healthBackMat=material({color:0x061820,emissive:0x0d2a31,emissiveIntensity:.4});
   const healthHealthyMat=material({color:0x76f0c6,emissive:0x17bd8c,emissiveIntensity:.78});
   const healthWarnMat=material({color:0xf7c46b,emissive:0xdb8a24,emissiveIntensity:.9});
@@ -1777,6 +1781,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         }
         const statusDot=new THREE.Mesh(statusGeo,readyMat);
         statusDot.position.set(1.22,1.67,.26);group.add(statusDot);
+        let statusBezel=null;
+        if(vrMode){
+          statusBezel=new THREE.Mesh(vrStatusBezelGeo,pcGilt);
+          statusBezel.position.set(1.22,1.67,.215);
+          statusBezel.visible=false;group.add(statusBezel);
+        }
         scene.add(group);
         let seat=null,contactRing=null,seatShadow=null,seatShadowMaterial=null,
           seatCorners=null,seatCornersMaterial=null;
@@ -1824,7 +1834,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           seatShadow,seatShadowMaterial,
           edgeGlint,edgeGlintMaterial,edgeSheen,edgeSheenMaterial,
           seatCorners,seatCornersMaterial,slot,hpBg,hpFill,
-          hpDamageTrail,statusDot,publicId:p.cardId,publicName:p.name,
+          hpDamageTrail,statusDot,statusBezel,publicId:p.cardId,publicName:p.name,
           fingerprint:vrCardFingerprint(p)};
         const carry=vrMode?hitReactionCarry.get(p.key):null;
         if(carry&&vrSamePublicIdentity(carry.id,carry.name,p.cardId,p.name))
@@ -2088,6 +2098,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const spent=/행동 완료|대기/.test(p.stateChip);
         item.statusDot.material=ward?wardMat:spent?actedMat:readyMat;
         item.statusDot.visible=!!p.stateChip;
+        // The bezel may show only with the native public status chip.
+        if(item.statusBezel)item.statusBezel.visible=item.statusDot.visible;
         if(vrMode)item.publicStatusKind=ward?'ward':spent?'spent':'ready';
         if(p.hasHealth){
           healthIndicatorCount++;
