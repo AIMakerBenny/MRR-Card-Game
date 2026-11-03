@@ -647,7 +647,11 @@ function reconcileConfirmedOutcomes(){
     const changed=recentHpChanges.get(event.key),heal=event.type==='heal';
     const diff=changed&&Number.isFinite(changed.before)&&Number.isFinite(changed.after)?
       changed.after-changed.before:null;
-    const exact=(heal&&diff>0)||(!heal&&diff<0);
+    // VR01JL: only the same identity that received native FX can
+    // supply a numerical change. FX remains authoritative even when
+    // the card's public HP was not readable, so display text feedback.
+    const exact=samePublicOccupant(changed,event)&&
+      ((heal&&diff>0)||(!heal&&diff<0));
     // A confirmed FX with no verified public change is only an impact,
     // never a fabricated numerical damage/heal amount.
     const msg=exact?(heal?'+':'−')+Math.abs(diff):heal?'회복':'명중';

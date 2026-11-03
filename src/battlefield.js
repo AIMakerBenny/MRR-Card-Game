@@ -1255,7 +1255,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         ...(group.userData.projectileResources||[])]});
     peakLiveFxCount=Math.max(peakLiveFxCount,liveEffects.length);
     effectsReceived[type]++;
-    const combatEntry={type,key,name:document.querySelector('#arena [data-slot="'+key+'"] .card-name')?.textContent?.trim()||'',at:now,confirmedStrike:!!strike};
+    // VR01JL: carry the publicly rendered card identity with the
+    // already-confirmed Phase21 FX. The VR UI can then reject numeric
+    // damage from a different occupant that reused the same slot.
+    const fxPublicCard=document.querySelector('#arena [data-slot="'+key+
+      '"] .board-card .card-ui');
+    const combatEntry={type,key,
+      id:fxPublicCard?.getAttribute('data-mrr-public-card-id')||null,
+      name:fxPublicCard?.querySelector('.card-name')?.textContent?.trim()||'',
+      at:now,confirmedStrike:!!strike};
     nativeCombatEvents.push(combatEntry);
     if(nativeCombatEvents.length>12)nativeCombatEvents.shift();
     events.onCombat?.(combatEntry);
