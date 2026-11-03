@@ -826,6 +826,17 @@ function refresh(){
    closeUI();return;
  }
  updatePrivateHandoff();
+ // VR01LP: an open native card-detail/supply panel also revokes any
+ // ALREADY raised 3D hand inspection. Suppressing only new hover events
+ // leaves an old card visually raised with a stale glint behind the panel.
+ // Clear presentation only; never touch Phase21 selections or focus.
+ if(nativeInfoPanelOpen()){
+   const hand=q('#vr-hand',ui);
+   if(hand)for(const card of qa('.vr-card',hand)){
+     card.classList.remove('raised');
+     resetHandTilt(card);
+   }
+ }
  reconcileConfirmedOutcomes();
  updateHand();syncNativeHandSelection();updateBacks();updatePublicPlaques();
  for(const [sel,portrait,mana,fallback] of [
