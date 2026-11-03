@@ -266,8 +266,28 @@ try:
         // no active or pending native request of its own.
         MRRVR.close();
         const idleClosePreserved=nativeCancels===2;
+        // VR01LJ: Phase76 already owns a native load: do not steal its
+        // pending toggle or overwrite the current game screen.
+        nativeEntry.disabled=true;
+        await MRRVR.open();
+        const busyNativeBlocked=nativeClicks===2&&!entry.disabled&&
+          !root.classList.contains('mrr-vr-playing');
+        nativeEntry.disabled=false;
+        // A failed native import restores its entry without ever
+        // creating a scene. VR01 must fail fast, not stall for 35s,
+        // and must cancel only the failed request it actually owns.
+        const failureAt=performance.now();
+        const failed=MRRVR.open();
+        await new Promise(resolve=>setTimeout(resolve,25));
+        const failureStarted=nativeClicks===3&&entry.disabled&&
+          nativeEntry.disabled;
+        nativeEntry.disabled=false;
+        await failed;
+        const nativeFailure={failureStarted,nativeClicks,nativeCancels,
+          clean:clean(),fast:performance.now()-failureAt<10000};
         return {blocked,pendingStarted,privateAborted,
-          startedAgain,cancelled,idleClosePreserved};
+          startedAgain,cancelled,idleClosePreserved,
+          busyNativeBlocked,nativeFailure};
       }""")
       assert lifecycle=={
         'blocked':{'nativeClicks':0,'clean':True},
@@ -275,7 +295,12 @@ try:
         'privateAborted':{'nativeClicks':1,'nativeCancels':1,'clean':True},
         'startedAgain':True,
         'cancelled':{'nativeClicks':2,'nativeCancels':2,'clean':True},
-        'idleClosePreserved':True
+        'idleClosePreserved':True,
+        'busyNativeBlocked':True,
+        'nativeFailure':{
+          'failureStarted':True,'nativeClicks':3,'nativeCancels':3,
+          'clean':True,'fast':True
+        }
       },('VR01LF stale async VR entry survived private handoff/close',lifecycle)
     finally:
       vr_lifecycle_page.close()
