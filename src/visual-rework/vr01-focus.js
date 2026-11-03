@@ -240,13 +240,18 @@
       const r=node.getBoundingClientRect();
       return {x:r.left-box.left,y:r.top-box.top,w:r.width,h:r.height};
     }).filter(r=>r.w>0&&r.h>0);
-    let chosen=null;
+    // VR01KF: never cover the hovered PUBLIC source card when any
+    // physically valid dock leaves its actual projected face free.
+    // Retain the weighted-score fallback only for cramped viewports.
+    let chosen=null,fallback=null;
     for(const x of xs)for(const y of ys){
-      let occlusion=0;
+      let occlusion=0,sourceOcclusion=0;
       for(const card of cardRects){
         const a=card.bounds,ix=Math.max(0,Math.min(x+width,a.right-box.left)-Math.max(x,a.left-box.left)),
           iy=Math.max(0,Math.min(y+height,a.bottom-box.top)-Math.max(y,a.top-box.top));
-        occlusion+=ix*iy*(card.key===key?50:1);
+        const area=ix*iy;
+        if(card.key===key)sourceOcclusion+=area;
+        occlusion+=area*(card.key===key?50:1);
       }
       // VR01JZ: penalize overlap with actual hero controls, action
       // buttons and raised hand cards. Existing 50x source-card
@@ -259,9 +264,11 @@
       }
       const score=occlusion+hudOcclusion*2.2+Math.abs(y-targetY)*.03+
         (cx<box.width/2&&x===xs[0]?35:0)+(cx>=box.width/2&&x===xs[1]?35:0);
-      if(!chosen||score<chosen.score)
-        chosen={x,y,score,occlusion,hudOcclusion};
+      const candidate={x,y,score,occlusion,hudOcclusion,sourceOcclusion};
+      if(!fallback||score<fallback.score)fallback=candidate;
+      if(sourceOcclusion<.5&&(!chosen||score<chosen.score))chosen=candidate;
     }
+    chosen=chosen||fallback;
     frame.style.left=chosen.x+'px';
     frame.style.top=chosen.y+'px';
     frame.dataset.dock=chosen.x===leftDock?'left':'right';
