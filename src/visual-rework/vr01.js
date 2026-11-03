@@ -837,6 +837,12 @@ function refresh(){
  // Clear presentation only; never touch Phase21 selections or focus.
  if(nativeInfoPanelOpen()){
    const hand=q('#vr-hand',ui);
+   // VR01LT: prevent a keyboard-focused hand button from keeping the
+   // full-height focus-visible art over the genuinely opened native
+   // inspector. The native panel takes priority without touching the
+   // Phase21 selected card or changing public/private game state.
+   if(hand?.contains(document.activeElement))
+     document.activeElement.blur();
    if(hand)for(const card of qa('.vr-card',hand)){
      card.classList.remove('raised');
      resetHandTilt(card);
