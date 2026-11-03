@@ -1646,6 +1646,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           id:c.publicId,name:c.publicName,
           scale:c.visualScale,lift:c.visualLift,yaw:c.visualYaw,
           pitch:c.visualPitch,roll:c.visualRoll,press:c.vrPressAmount,
+          pressX:c.vrPressBiasX,pressY:c.vrPressBiasY,
           seatShadowReveal:c.seatShadowReveal,
           contact:c.contactAmount,edge:c.edgeAmount,
           sheen:c.edgeSheenAmount,sheenX:c.edgeSheenX,
@@ -1826,6 +1827,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
             ['visualScale',visual.scale],['visualLift',visual.lift],
             ['visualYaw',visual.yaw],['visualPitch',visual.pitch],
             ['visualRoll',visual.roll],['vrPressAmount',visual.press],
+            ['vrPressBiasX',visual.pressX],['vrPressBiasY',visual.pressY],
             ['seatShadowReveal',visual.seatShadowReveal],
             ['contactAmount',visual.contact],['edgeAmount',visual.edge],
             ['edgeSheenAmount',visual.sheen],['edgeSheenX',visual.sheenX],
@@ -2254,7 +2256,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         vrPointerStartAttackTarget=!!name&&
           !!slot?.classList.contains('attack-target');
         if(name)vrPointerStartCard={key,
-          id:node.getAttribute('data-mrr-public-card-id')||null,name};
+          id:node.getAttribute('data-mrr-public-card-id')||null,name,
+          // VR01IZ: the real clicked face/frame ray hit supplies an
+          // optional local pressure pivot. No new input or private state.
+          pressX:Math.abs(vrFaceHoverBias)>.001?
+            vrFaceHoverBias:vrRimPointerBias,
+          pressY:vrFaceHoverBiasY};
         // VR01GF: a pointer gesture begun on a currently legal empty
         // native slot must not complete after the original game revokes
         // that destination or occupies it with another card.
@@ -2618,6 +2625,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           vrSamePublicIdentity(vrPointerStartCard.id,vrPointerStartCard.name,
             c.publicId,c.publicName);
         const target=pressed?1:0;
+        if(pressed){
+          c.vrPressBiasX=vrPointerStartCard.pressX||0;
+          c.vrPressBiasY=vrPointerStartCard.pressY||0;
+        }
         const blend=frozen?1:1-Math.exp(-visualDelta/(pressed?62:110));
         c.vrPressAmount=(c.vrPressAmount??0)+
           (target-(c.vrPressAmount??0))*blend;
@@ -2915,12 +2926,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
               Math.sin(Math.PI*Math.max(0,age))*(1-Math.max(0,age)*.35):0;
             c.group.position.x=c.slot.x+(impact?.dx||0)*recoil*.34;
             c.group.position.z=c.slot.z+(impact?.dz||0)*recoil*.34;
+            // VR01IZ: tilt a held public card around its true raycast
+            // pressure point. The gesture has no additional pick surface.
             c.group.rotation.z=(impact?.dx||0)*recoil*.10+
-              (c.visualRoll||0);
+              (c.visualRoll||0)+.028*press*(c.vrPressBiasX||0);
             // VR01DZ: compress and pitch the real 3D card briefly after
             // native fx-hit only. The Phase21 hitbox and health are untouched.
             const spring=frozen?0:recoil;
-            c.group.rotation.x=-.74+(c.visualPitch||0)+spring*.08;
+            c.group.rotation.x=-.74+(c.visualPitch||0)+spring*.08-
+              .020*press*(c.vrPressBiasY||0);
             c.group.scale.multiplyScalar(1-spring*.055);
             vrImpactSpringPeak=Math.max(vrImpactSpringPeak,spring);
           }
@@ -3050,7 +3064,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // VR01IX: an interrupted press must not remain visually stuck after
       // stop and resume. Native card selection and HP are unchanged.
       for(const c of cards)if(c.vrPressAmount){
-        c.vrPressAmount=0;
+        c.vrPressAmount=0;c.vrPressBiasX=c.vrPressBiasY=0;
         if(!c.deploy){
           c.group.scale.setScalar(c.visualScale||1);
           c.group.position.y=1.76+(c.visualLift||0);
