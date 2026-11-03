@@ -605,6 +605,11 @@ try:
         }finally{
           if(originalId===null)source.removeAttribute('data-mrr-public-card-id');
           else source.setAttribute('data-mrr-public-card-id',originalId);
+          // VR01LO: the synthetic keyboard-navigation fixture must also
+          // release its intentional keyboard focus. Otherwise the existing
+          // focus-visible accessibility rule correctly suppresses mouse
+          // perspective on a different card in the later VR01DT test.
+          if(document.activeElement===cards[0])cards[0].blur();
         }
       }""")
       assert navigation_guard and navigation_guard['stayed'] and (
