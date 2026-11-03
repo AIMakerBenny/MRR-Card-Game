@@ -3649,6 +3649,19 @@ try:
     # VR01HA: a stopped scene cannot retain a cosmetic native strike
     # when the user resumes a different visual interaction.
     assert page.evaluate('MRRIntegrated.state.scene.vrPendingStrike') is None
+    # VR01HB: paused visual scenes also refuse brand-new cosmetic
+    # staged attacks. No native click or combat event may be generated.
+    stopped_stage=page.evaluate("""key=>{
+      const scene=MRRIntegrated.scene;
+      const before=scene.state;
+      const accepted=scene.stageAttack(before.selectedKey||'0:front:0',key);
+      const after=scene.state;
+      return {rejected:accepted===false,
+        counted:after.vrStoppedStrikeRejects===before.vrStoppedStrikeRejects+1,
+        noPending:after.vrPendingStrike===null,
+        unchanged:before.confirmedStrikes===after.confirmedStrikes};
+    }""",opponent)
+    assert all(stopped_stage.values()),stopped_stage
     # VR01FH: DOM events arriving while the native 3D view is
     # stopped must never start a card click or adjust the camera.
     paused_events=page.evaluate("""() => {

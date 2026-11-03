@@ -871,7 +871,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // touching the original Phase21 combat execution.
   let vrStagedAttacks=0,vrStrikeTimeouts=0,vrUnpairedNativeHits=0;
   let vrLastUnpairedHit=null,vrStaleStrikeSourceRejects=0;
-  let vrPausedStrikeWithdrawals=0;
+  let vrPausedStrikeWithdrawals=0,vrStoppedStrikeRejects=0;
   let vrStaleStrikeTargetRejects=0,vrStrikeMissingPublicRejects=0;
   // VR01GW: record only a publicly rendered native occupant's ID/name.
   // The visual source must never be borrowed by a different occupant
@@ -905,6 +905,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // Phase55 keeps the original 2.8-second limit.
   const nativeStrikeWindow=vrMode?12000:2800;
   function stageAttack(sourceKey,targetKey){
+    // VR01HB: even a native click routed through a paused canvas must
+    // never arm a future decorative 3D strike. The original native
+    // Phase21 click remains the only owner of actual game actions.
+    if(vrMode&&(!running||disposed)){vrStoppedStrikeRejects++;return false;}
     if(!boardSlots.has(sourceKey)||!boardSlots.has(targetKey)||sourceKey===targetKey)return false;
     const sourcePublic=vrMode?readStrikePublicCard(sourceKey):null;
     const targetPublic=vrMode?readStrikePublicCard(targetKey):null;
@@ -2725,6 +2729,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrStrikeTimeouts:vrMode?vrStrikeTimeouts:null,
       vrStaleStrikeSourceRejects:vrMode?vrStaleStrikeSourceRejects:null,
       vrPausedStrikeWithdrawals:vrMode?vrPausedStrikeWithdrawals:null,
+      vrStoppedStrikeRejects:vrMode?vrStoppedStrikeRejects:null,
       vrStaleStrikeTargetRejects:vrMode?vrStaleStrikeTargetRejects:null,
       vrStrikeMissingPublicRejects:vrMode?vrStrikeMissingPublicRejects:null,
       vrUnpairedNativeHits:vrMode?vrUnpairedNativeHits:null,
