@@ -326,6 +326,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const pcGilt=tabletop?material({color:0xc49c62,metalness:.73,roughness:.26,emissive:0x251406}):null;
   const pcSide=tabletop?geometry(new THREE.BoxGeometry(.046,2.89,.075)):null;
   const pcEnd=tabletop?geometry(new THREE.BoxGeometry(2.23,.046,.075)):null;
+  // VR01JD: small raised metal inlays finish the four physical corners
+  // of each truly PUBLIC VR01 card. Shared GPU geometry and original
+  // gilt material, outside the artwork slot and never in pickMeshes.
+  const vrCornerInlayGeo=vrMode?
+    geometry(new THREE.BoxGeometry(.15,.15,.047)):null;
   // Phase52: public-health display floats above each card, never reads G.
   const healthBackGeo=geometry(new THREE.BoxGeometry(2.18,.22,.075));
   const healthFillGeo=geometry(new THREE.BoxGeometry(2.04,.15,.084));
@@ -1713,6 +1718,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           }
           for(const y of [-1.427,1.427]){
             const trim=new THREE.Mesh(pcEnd,pcGilt);trim.position.set(0,y,.161);group.add(trim);
+          }
+          if(vrMode){
+            // Four physical corner caps follow the real card's hover,
+            // press, deployment and impact as existing group children.
+            for(const sx of [-1,1])for(const sy of [-1,1]){
+              const cap=new THREE.Mesh(vrCornerInlayGeo,pcGilt);
+              cap.position.set(sx*1.065,sy*1.342,.217);
+              cap.rotation.z=Math.PI/4;
+              group.add(cap);
+            }
           }
         }
         const stand=new THREE.Mesh(cardGeometry,bronze);
