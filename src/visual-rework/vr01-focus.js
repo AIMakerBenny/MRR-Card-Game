@@ -46,8 +46,12 @@
     const identityChanged=currentKey!==key||currentIdentity!==identity;
     // VR01JR: the small in-game inspector now reads the same
     // already PUBLIC card details as the Phase55 inspector.
+    // VR01JV: mirror only the HP bar percentage and status CHIP
+    // already rendered on this native PUBLIC card. Neither one is
+    // a computed game HP value or a new action entitlement.
     const captionText=JSON.stringify([
-      data.name,data.kind,data.cost,data.stats,data.sigil
+      data.name,data.kind,data.cost,data.stats,data.sigil,
+      data.hpBarPercent,data.statusChip
     ]);
     if(identityChanged||currentArtData!==data.artData){
       picture.src=data.artData;
@@ -66,6 +70,17 @@
         sigil.className='vr-focus-sigil';
         sigil.textContent=data.sigil;
         caption.append(sigil);
+      }
+      const publicState=[
+        Number.isFinite(data.hpBarPercent)?
+          '공개 HP 게이지 '+Math.round(data.hpBarPercent)+'%':'',
+        data.statusChip||''
+      ].filter(Boolean).join(' · ');
+      if(publicState){
+        const state=document.createElement('span');
+        state.className='vr-focus-public-state';
+        state.textContent=publicState;
+        caption.append(state);
       }
       picture.alt=data.name+' 공개 카드 확대';
       currentCaption=captionText;

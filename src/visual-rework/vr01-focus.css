@@ -33,6 +33,12 @@ body.mrr-vr-active #mrr-vr-card-focus .vr-card-focus-caption .vr-focus-sigil{
   display:-webkit-box;-webkit-box-orient:vertical;
   -webkit-line-clamp:3;line-clamp:3;overflow:hidden;
 }
+/* VR01JV: the real public status and HP bar are separate from rules. */
+body.mrr-vr-active #mrr-vr-card-focus .vr-card-focus-caption .vr-focus-public-state{
+  color:#a9dacb;font-size:11px;line-height:1.32;
+  display:-webkit-box;-webkit-box-orient:vertical;
+  -webkit-line-clamp:2;line-clamp:2;overflow:hidden;
+}
 @media(max-width:1500px){
   body.mrr-vr-active #mrr-vr-card-focus{width:205px}
 }
