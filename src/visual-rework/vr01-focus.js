@@ -139,6 +139,13 @@
       currentCaption=captionText;
     }
     currentKey=key;currentIdentity=identity;
+    // VR01JY: present the TRUE Phase21 native selected/attack class
+    // on the inspected public card, never inferred legality.
+    // The outline itself is decorative and never intercepts clicks.
+    const nativeSlot=q('#arena [data-slot="'+key+'"]');
+    frame.dataset.nativeRole=nativeSlot?.classList.contains('attack-target')?
+      'target':nativeSlot?.classList.contains('selected-slot')?
+      'selected':'public';
     // VR01JT: a hidden display:none frame always measures zero.
     // Show it for DOM measurement within this same frame, then
     // choose the dock from its REAL current artwork/caption height.
