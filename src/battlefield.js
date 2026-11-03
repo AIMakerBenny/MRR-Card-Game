@@ -2002,6 +2002,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01HI: the native slot must be actionable AT pointerdown, not
   // merely after a delayed pointerup when an empty seat becomes legal.
   let vrPointerStartActionable=false,vrNonactionableOriginRejects=0;
+  // VR01HJ: native attack-target eligibility cannot be borrowed from
+  // pointerdown after Phase21 withdraws it before pointerup.
+  let vrPointerStartAttackTarget=false,vrRevokedAttackGestureRejects=0;
   let vrUntrackedReleaseDrags=0,vrNonPrimaryReleaseRejects=0;
   let vrForeignPointerEventsIgnored=0,vrPausedInputEventsIgnored=0;
   let vrLostPointerCaptures=0;
@@ -2027,6 +2030,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // mouseup cannot act on the replacement through the visual bridge.
     vrPointerStartCard=null;vrPointerStartLegalSlot=null;
     vrPointerStartKey=null;vrPointerStartActionable=false;
+    vrPointerStartAttackTarget=false;
     if(vrMode){
       const key=publicHit(e);
       vrPointerStartKey=key;
@@ -2035,6 +2039,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const node=slot?.querySelector('.board-card .card-ui');
         const name=node?.querySelector('.card-name')?.textContent?.trim()||'';
         vrPointerStartActionable=!!(name||slot?.classList.contains('legal'));
+        vrPointerStartAttackTarget=!!name&&
+          !!slot?.classList.contains('attack-target');
         if(name)vrPointerStartCard={key,
           id:node.getAttribute('data-mrr-public-card-id')||null,name};
         // VR01GF: a pointer gesture begun on a currently legal empty
@@ -2089,8 +2095,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const origin=vrPointerStartCard;
     const legalOrigin=vrPointerStartLegalSlot;
     const startKey=vrPointerStartKey,wasActionable=vrPointerStartActionable;
+    const beganAttackTarget=vrPointerStartAttackTarget;
     vrPointerStartCard=null;vrPointerStartLegalSlot=null;
     vrPointerStartKey=null;vrPointerStartActionable=false;
+    vrPointerStartAttackTarget=false;
     let staleGesture=false;
     if(vrMode&&(!startKey||startKey!==picked)){
       vrInvalidOriginGestureRejects++;staleGesture=true;
@@ -2118,6 +2126,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         (origin.id?origin.id!==id:!!id||origin.name!==name);
       if(staleGesture)vrGestureIdentityRejects++;
     }
+    if(vrMode&&beganAttackTarget){
+      const nativeTarget=document.querySelector('#arena [data-slot="'+
+        startKey+'"]');
+      if(!nativeTarget?.classList.contains('attack-target')){
+        vrRevokedAttackGestureRejects++;staleGesture=true;
+      }
+    }
     if(!staleGesture&&!moved&&picked){events.onPick?.(picked);sync();}
     setHover(staleGesture?null:picked);
   }
@@ -2129,7 +2144,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     drag=false;moved=false;vrActivePointerId=null;
     vrPointerStartCard=null;vrPointerStartLegalSlot=null;
-    vrPointerStartKey=null;vrPointerStartActionable=false;setHover(null);
+    vrPointerStartKey=null;vrPointerStartActionable=false;
+    vrPointerStartAttackTarget=false;setHover(null);
   }
   function lostPointerCapture(e){
     // VR01FI: focus loss, OS gestures, or another surface stealing the
@@ -2626,7 +2642,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     vrActivePointerId=null;vrPointerStartCard=null;
     vrPointerStartLegalSlot=null;vrPointerStartKey=null;
-    vrPointerStartActionable=false;
+    vrPointerStartActionable=false;vrPointerStartAttackTarget=false;
     // VR01FJ: a hidden or stopped canvas cannot keep an old visual
     // hover/aim lock. This only withdraws presentation; Phase21 controls,
     // selection and actual legal target classes remain untouched.
@@ -2719,6 +2735,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrInvalidOriginGestureRejects:vrMode?vrInvalidOriginGestureRejects:null,
       vrNonactionableOriginRejects:vrMode?vrNonactionableOriginRejects:null,
       vrPointerStartActionable:vrMode?vrPointerStartActionable:null,
+      vrRevokedAttackGestureRejects:vrMode?vrRevokedAttackGestureRejects:null,
+      vrPointerStartAttackTarget:vrMode?vrPointerStartAttackTarget:null,
       vrUntrackedReleaseDrags:vrMode?vrUntrackedReleaseDrags:null,
       vrNonPrimaryReleaseRejects:vrMode?vrNonPrimaryReleaseRejects:null,
       vrPointerStartKey:vrMode?vrPointerStartKey:null,
