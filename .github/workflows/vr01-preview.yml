@@ -4,6 +4,12 @@ on:
     branches:
       - 'visual-rework/**'
   workflow_dispatch:
+# VR01KY: preserve both push and PR checks while cancelling superseded
+# runs of the SAME workflow/event/branch. New gameplay commits must not
+# accumulate hours of stale full-Chromium jobs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
 jobs:
   vr-preview:
     runs-on: ubuntu-latest
