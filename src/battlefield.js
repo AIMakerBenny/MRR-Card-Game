@@ -1606,7 +1606,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     card.seatShadowReveal=before+(target-before)*alpha;
     // The footprint also reacts to visual inspection and an existing
     // public-identity-checked Phase21 fx-hit, never estimated damage.
-    const spread=Math.max(0,Math.min(1,(card.visualLift||0)/.86));
+    const spread=Math.max(0,Math.min(1,
+      ((card.visualLift||0)-(card.vrPressAmount||0)*.115)/.86));
     const contact=Math.max(0,Math.min(1,impact));
     card.seatShadow.visible=!card.deploy&&card.seatShadowReveal>.012;
     card.seatShadow.scale.setScalar(.94+.26*spread-.065*contact);
@@ -1644,7 +1645,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         presentationCarry.set(c.key,{
           id:c.publicId,name:c.publicName,
           scale:c.visualScale,lift:c.visualLift,yaw:c.visualYaw,
-          pitch:c.visualPitch,roll:c.visualRoll,
+          pitch:c.visualPitch,roll:c.visualRoll,press:c.vrPressAmount,
           seatShadowReveal:c.seatShadowReveal,
           contact:c.contactAmount,edge:c.edgeAmount,
           sheen:c.edgeSheenAmount,sheenX:c.edgeSheenX,
@@ -1824,7 +1825,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           for(const [field,value] of [
             ['visualScale',visual.scale],['visualLift',visual.lift],
             ['visualYaw',visual.yaw],['visualPitch',visual.pitch],
-            ['visualRoll',visual.roll],
+            ['visualRoll',visual.roll],['vrPressAmount',visual.press],
             ['seatShadowReveal',visual.seatShadowReveal],
             ['contactAmount',visual.contact],['edgeAmount',visual.edge],
             ['edgeSheenAmount',visual.sheen],['edgeSheenX',visual.sheenX],
@@ -2608,6 +2609,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const vrAimSource=vrMode&&!frozen&&c.key===selectedKey&&
         vrTargetLock?.sourceKey===c.key&&attackArrow.visible&&
         vrTargetLock.key===hoveredKey;
+      // VR01IX: the held primary pointer presses only the SAME public 3D
+      // card, then eases back on release, drag, capture loss or cancellation.
+      // Only the native gesture origin can activate this cosmetic pose.
+      if(vrMode){
+        const pressed=!frozen&&drag&&!moved&&!c.deploy&&
+          vrPointerStartCard?.key===c.key&&
+          vrSamePublicIdentity(vrPointerStartCard.id,vrPointerStartCard.name,
+            c.publicId,c.publicName);
+        const target=pressed?1:0;
+        const blend=frozen?1:1-Math.exp(-visualDelta/(pressed?62:110));
+        c.vrPressAmount=(c.vrPressAmount??0)+
+          (target-(c.vrPressAmount??0))*blend;
+        if(Math.abs(c.vrPressAmount-target)<.001)c.vrPressAmount=target;
+      }
       // VR01FX: a real public impact can illuminate the same occupied
       // seat that is already used for genuine card inspection. The
       // existing confirmed FX event is the ONLY authority for this pulse.
@@ -2864,8 +2879,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
             spawnVrLandingDust(c.slot,time);
           }
         }else{
-          c.group.scale.setScalar(c.visualScale);
-          c.group.position.y=1.76+c.visualLift+(frozen?0:Math.sin(time*.0015+i*.67)*.025);
+          // VR01IX: compress the existing public mesh briefly without changing
+          // native hitboxes, public slot coordinates or Phase21 rules.
+          const press=vrMode?(c.vrPressAmount||0):0;
+          c.group.scale.setScalar(c.visualScale*(1-.038*press));
+          c.group.position.y=1.76+c.visualLift-.115*press+
+            (frozen?0:Math.sin(time*.0015+i*.67)*.025);
           if(vrMode){
             const impact=c.hitReaction;
             // VR01EX: slow software WebGL can spend multiple seconds on
@@ -3019,6 +3038,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           c.group.rotation.z=c.visualRoll||0;
           c.group.rotation.x=-.74+(c.visualPitch||0);
           c.group.scale.setScalar(c.visualScale||1);
+        }
+      }
+      // VR01IX: an interrupted press must not remain visually stuck after
+      // stop and resume. Native card selection and HP are unchanged.
+      for(const c of cards)if(c.vrPressAmount){
+        c.vrPressAmount=0;
+        if(!c.deploy){
+          c.group.scale.setScalar(c.visualScale||1);
+          c.group.position.y=1.76+(c.visualLift||0);
         }
       }
       // A stopped scene has no inspection beam. The original lighting
@@ -3262,6 +3290,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrSeatShadowCount:vrMode?cards.filter(c=>!!c.seatShadow).length:null,
       vrSeatShadowPickSafe:vrMode?cards.every(c=>
         !c.seatShadow||!pickMeshes.includes(c.seatShadow)):null,
+      vrPressedPublicCards:vrMode?Object.fromEntries(cards.filter(c=>
+        (c.vrPressAmount||0)>.001).map(c=>[c.key,Number(c.vrPressAmount.toFixed(3))])):null,
       vrHoveredSeatShadow:vrMode&&cardIndex.get(hoveredKey)?.seatShadow?{
         visible:cardIndex.get(hoveredKey).seatShadow.visible,
         opacity:Number(cardIndex.get(hoveredKey).seatShadowMaterial.opacity.toFixed(3)),
