@@ -3838,6 +3838,13 @@ try:
       const s=MRRIntegrated.state.scene;
       return s.vrPausedSlotScalesNeutral===true&&!!s.selectedKey;
     }"""),'VR01IQ stopped decorative slot pulse was not neutral'
+    # VR01IR: no dormant public metal material retains an old
+    # impact/aim amber colour while the 3D scene is hidden.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrPausedRimColoursNeutral===true &&
+        s.vrVisibleEdgeSheenCount===0;
+    }"""),'VR01IR paused card rim retained prior aim tint'
     assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume,(

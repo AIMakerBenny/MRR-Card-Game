@@ -2958,6 +2958,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.edgeSheenAmount=0;c.edgeSheenX=0;
         c.edgeSheenMaterial.opacity=0;
         c.edgeSheen.position.x=0;
+        // VR01IR: dormant materials are still reused on a future
+        // public stat/HP repaint. A paused scene cannot carry an
+        // amber impact or aim rim into an unrelated new inspection.
+        c.edgeSheenMaterial.color.setHex(
+          c.slot.owner===0?0xeefff8:0xffeccc);
       }
       // VR01IJ: stop clears the separate, non-pickable four-edge
       // glint as well; an old aim or hit cannot remain frozen on screen.
@@ -3148,6 +3153,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         !c.edgeSheen||!pickMeshes.includes(c.edgeSheen)):null,
       vrVisibleEdgeSheenCount:vrMode?cards.filter(c=>
         c.edgeSheen?.visible).length:null,
+      vrPausedRimColoursNeutral:vrMode&&!running?cards.every(c=>
+        !c.edgeSheenMaterial||
+        c.edgeSheenMaterial.color.getHex()===(c.slot.owner===0?
+          0xeefff8:0xffeccc)):null,
       vrHoveredEdgeSheen:vrMode&&cardIndex.get(hoveredKey)?.edgeSheen?{
         opacity:Number(cardIndex.get(hoveredKey).edgeSheenMaterial.opacity.toFixed(3)),
         x:Number(cardIndex.get(hoveredKey).edgeSheen.position.x.toFixed(3)),
