@@ -385,7 +385,13 @@ function updateHand(){
       const sameCard=d.publicId||id?
         !!(d.publicId&&id&&d.publicId===id):
         sourceName===d.name&&sourceKind===d.kind;
-      if(!original||!source||!sameCard||
+      // VR01KN: native placement and attack targeting can begin
+      // before the next mirrored-hand repaint. Neither a queued pointer
+      // click nor element.click() may switch an active Phase21 action.
+      const nativeTargeting=!!q('#arena .slot.legal, #arena .slot.attack-target');
+      if(!open||busy||root.classList.contains('hidden')||
+         nativeTargeting||ui.classList.contains('vr-placing')||
+         !original||!source||!sameCard||
          nativeHand.length!==fan.children.length||
          fan.children[d.i]!==card||
          !q('#overlay')?.classList.contains('hidden')){
