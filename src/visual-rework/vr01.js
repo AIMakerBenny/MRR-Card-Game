@@ -11,6 +11,17 @@ const el=(tag,cls,txt)=>{
 };
 const clean=v=>String(v||'').replace(/\s+/g,' ').trim();
 const native=selector=>{const n=q(selector);if(!n||n.disabled)return false;n.click();return true;};
+// VR01KW: cosmetic PC footer actions may be delivered by queued or
+// programmatic clicks after the native private handoff or scene close.
+// Native Phase21 is still the only owner of turn and cancel actions.
+const delegateGameAction=selector=>{
+ if(!open||busy||!ui?.isConnected||!stage?.isConnected||
+    !root.isConnected||root.classList.contains('hidden')||
+    !root.classList.contains('mrr-vr-playing')||
+    !window.MRRIntegrated?.state.open||
+    !q('#overlay')?.classList.contains('hidden'))return false;
+ return native(selector);
+};
 const entry=el('button','','VR01 새 게임 화면');entry.id='mrr-vr-open';entry.type='button';bar.append(entry);
 let open=false,busy=false,ui=null,stage=null,observer=null,interval=null,scheduled=0,handSignature='',handArtSources=[],handLayoutDirty=false,backCount=-1,backLayoutDirty=false;
 let tacticalCamera='tabletop',keyboardEntryPending=false;
@@ -56,7 +67,7 @@ function buildUI(){
   const footer=el('div','vr-footer');
   const heroAlly=el('div','vr-hero vr-ally');heroAlly.id='vr-ally';
   heroAlly.append(el('div','vr-portrait','M'),el('div','vr-profile'),el('div','vr-hp'));
-  footer.append(heroAlly,button('vr-end-turn','턴 종료',()=>native('#endTurn')));ui.append(footer);
+  footer.append(heroAlly,button('vr-end-turn','턴 종료',()=>delegateGameAction('#endTurn')));ui.append(footer);
   const hand=el('div','vr-hand');hand.id='vr-hand';hand.setAttribute('aria-label','내 실제 손패');
   // VR01BO: expose the existing keyboard navigation to assistive tech.
   // The native local-turn privacy barrier still hides this entire region.
@@ -70,7 +81,7 @@ function buildUI(){
   // Delegate cancellation to Phase21, including hand placement where the
   // selected-card context menu intentionally has no battlefield source.
   const cancel=button('vr-cancel','선택 취소',()=>{
-    native('#inspectBody button[data-cancel-action]');
+    if(!delegateGameAction('#inspectBody button[data-cancel-action]'))return;
     window.MRRIntegrated?.scene?.sync();schedule();
   });
   // VR01W: keep Phase21 cancellation authoritative, with one visible PC
