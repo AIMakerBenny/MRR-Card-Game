@@ -2068,7 +2068,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const legalOrigin=vrPointerStartLegalSlot;
     vrPointerStartCard=null;vrPointerStartLegalSlot=null;
     let staleGesture=false;
-    if(vrMode&&legalOrigin&&picked){
+    // VR01HC: a captured gesture may release OFF the canvas even if
+    // it started on a valid native empty legal slot. A null 3D pick
+    // also revokes the gesture and must be counted as such; never infer
+    // the original legal click from the stale pointer origin.
+    if(vrMode&&legalOrigin){
       const slot=document.querySelector('#arena [data-slot="'+legalOrigin+'"]');
       if(picked!==legalOrigin||!slot?.classList.contains('legal')||
         slot.querySelector('.board-card .card-ui')){

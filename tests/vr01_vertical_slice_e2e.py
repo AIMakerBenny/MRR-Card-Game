@@ -5260,6 +5260,28 @@ try:
     assert 'error' not in revoked_legal and revoked_legal['rejected'] and (
       revoked_legal['clear']),revoked_legal
     assert snap()==prior_move,'VR01GF revoked legal gesture changed Phase21'
+    # VR01HC: pointer capture can deliver a release outside the canvas.
+    # That null raycast must NOT click a previously valid native slot.
+    outside_release=page.evaluate("""point => {
+      const stage=document.querySelector('#mrr-integrated-stage');
+      const canvas=stage.querySelector('canvas'),scene=MRRIntegrated.scene;
+      const capture=stage.setPointerCapture;
+      const before=scene.state.vrVanishedLegalGestureRejects;
+      stage.setPointerCapture=()=>{};
+      try{
+        canvas.dispatchEvent(new PointerEvent('pointerdown',{
+          bubbles:true,button:0,pointerId:994,
+          clientX:point.x,clientY:point.y}));
+        canvas.dispatchEvent(new PointerEvent('pointerup',{
+          bubbles:true,button:0,pointerId:994,
+          clientX:-50,clientY:-50}));
+      }finally{stage.setPointerCapture=capture;}
+      const after=scene.state;
+      return {rejected:after.vrVanishedLegalGestureRejects===before+1,
+        clear:!after.vrPointerDragging,hoverNull:after.hoveredKey===null};
+    }""",target_projection)
+    assert all(outside_release.values()),outside_release
+    assert snap()==prior_move,'VR01HC off-canvas release changed Phase21'
     page.mouse.click(target_projection['x'],target_projection['y'])
     page.wait_for_function("""pairs=>{
       const source=document.querySelector('#arena [data-slot="'+pairs[0]+'"]');
