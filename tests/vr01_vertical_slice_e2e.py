@@ -3825,6 +3825,13 @@ try:
       return s.vrAttackArcMoteCount===0&&
         s.vrAttackArcMotePickSafe===true;
     }"""),'VR01IM stopped stage retained aim particles'
+    # VR01IP: the old face/frame UV never survives the pause.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrFaceHoverBias===0&&s.vrFaceHoverBiasY===0&&
+        s.vrRimPointerBias===0&&s.vrRimPointerHeight===0&&
+        s.vrHoverPublicIdentityKey===null;
+    }"""),'VR01IP stopped 3D pointer preserved stale public ray data'
     assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume,(

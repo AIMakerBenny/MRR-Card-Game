@@ -2941,6 +2941,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // selection and actual legal target classes remain untouched.
     if(vrMode){
       if(hoveredKey)setHover(null,true);
+      // VR01IP: do not retain 3D ray-hit UV biases after closing a
+      // stage. A paused cursor cannot tilt a newly repainted public card
+      // when a resume begins without a genuine fresh mouse movement.
+      vrFaceHoverBias=vrFaceHoverBiasY=0;
+      vrRimPointerBias=vrRimPointerHeight=0;
+      vrHoverPublicIdentity=null;
       vrTargetLock=null;
       attackArrow.visible=attackTip.visible=false;
       vrAimPathKey=null;
