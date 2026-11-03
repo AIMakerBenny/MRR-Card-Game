@@ -3902,6 +3902,12 @@ try:
         s.vrHoveredEdgeGlintOpacity<.46;
     }""",timeout=14000)
     assert snap()==baseline,'VR01FP edge glint changed Phase21 rules'
+    # VR01HO: the four physical frame edges use shared, non-pickable
+    # geometry; the original Phase21 game state must remain unchanged.
+    assert page.evaluate(
+      'MRRIntegrated.state.scene.vrFullFrameGlint') is True,(
+      'VR01HO public 3D card frame lost its four-side glint')
+    assert snap()==baseline,'VR01HO full-frame glint changed Phase21'
     # VR01FQ: a real native selected card has restrained, non-pickable
     # physical corner strokes surrounding its occupied 3D seat.
     page.wait_for_function("""() => {

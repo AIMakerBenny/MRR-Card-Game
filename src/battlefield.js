@@ -294,6 +294,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // REAL public card is inspected. Never cover its illustration or pick face.
   const vrEdgeGlintGeo=vrMode?
     geometry(new THREE.BoxGeometry(.035,2.51,.025)):null;
+  // VR01HO: a 3D public card's inspection glint rounds its four edges.
+  // Two horizontal caps share the same GPU geometry and opacity material
+  // as the side rails; none of these decorative meshes accept clicks.
+  const vrEdgeCapGlintGeo=vrMode?
+    geometry(new THREE.BoxGeometry(2.08,.032,.025)):null;
   // VR01FQ: world-space seat corner strokes make the currently native
   // selected public card legible without adding an HTML panel or hitbox.
   // These four pairs are shared GPU geometry for every occupied card.
@@ -1651,6 +1656,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
             stripe.position.set(x,0,.202);
             edgeGlint.add(stripe);
           }
+          for(const y of [-1.35,1.35]){
+            const cap=new THREE.Mesh(vrEdgeCapGlintGeo,edgeGlintMaterial);
+            cap.position.set(0,y,.202);
+            edgeGlint.add(cap);
+          }
           edgeGlint.visible=false;
           group.add(edgeGlint);
         }
@@ -2828,6 +2838,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         Number(cardIndex.get(hoveredKey).edgeGlintMaterial.opacity.toFixed(3)):null,
       vrEdgeGlintPickSafe:vrMode?cards.every(c=>!c.edgeGlint||
         c.edgeGlint.children.every(m=>!pickMeshes.includes(m))):null,
+      vrFullFrameGlint:vrMode?cards.every(c=>
+        !c.edgeGlint||c.edgeGlint.children.length===4):null,
       vrSelectedSeatCornersOpacity:vrMode&&cardIndex.get(selectedKey)?.seatCorners?
         Number(cardIndex.get(selectedKey).seatCornersMaterial.opacity.toFixed(3)):null,
       vrSeatCornersPickSafe:vrMode?cards.every(c=>
