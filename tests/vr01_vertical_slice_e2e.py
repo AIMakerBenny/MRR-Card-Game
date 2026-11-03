@@ -3867,6 +3867,13 @@ try:
       const s=MRRIntegrated.state.scene;
       return s.vrStatusBeacons.every(x=>x.scale===1);
     }"""),'VR01IU paused public status icon kept animated scale'
+    # VR01IV: discard only the expired visual damage afterimage.
+    # Native hit points and the current public health values persist.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrDamageTrailVisible===0 &&
+        s.vrDamageTrailPickSafe===true;
+    }"""),'VR01IV paused HP afterimage did not retire'
     assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume,(

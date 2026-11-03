@@ -2998,6 +2998,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // random enlarged scale when the 3D battle is stopped.
       for(const c of cards)if(c.statusDot)
         c.statusDot.scale.setScalar(1);
+      // VR01IV: HP comes exclusively from native public state, but
+      // the delayed 3D damage afterimage is disposable presentation.
+      // A stopped battle must not resurrect that OLD red trail when
+      // a later turn or different card becomes visible on resume.
+      // Preserve visualHealth and healthTarget without any gameplay edit.
+      for(const c of cards)if(c.hpDamageTrail){
+        c.hpDamageTrail.visible=false;
+        c.damageTrail=null;c.damageTrailAt=0;
+      }
       // A stopped scene has no inspection beam. The original lighting
       // smoothly reacquires public focus on the next genuine RAF frame.
       if(vrFocusLamp){
