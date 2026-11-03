@@ -24,6 +24,7 @@ const delegateGameAction=selector=>{
 };
 const entry=el('button','','VR01 새 게임 화면');entry.id='mrr-vr-open';entry.type='button';bar.append(entry);
 let open=false,busy=false,ui=null,stage=null,observer=null,interval=null,scheduled=0,handSignature='',handArtSources=[],handLayoutDirty=false,backCount=-1,backLayoutDirty=false;
+let openGeneration=0;
 let tacticalCamera='tabletop',keyboardEntryPending=false;
 const nativeCardLabels=new Map(),nativeStatBadges=new Map(),nativeActionMarks=new Map();
 let nativeHpSnapshot=new Map(),recentHpChanges=new Map(),lastCombatTime=null,vrOutcomeCount=0,lastOutcome=null;
@@ -1033,6 +1034,9 @@ function cleanup(){
   nativeHpSnapshot.clear();recentHpChanges.clear();lastCombatTime=null;vrOutcomeCount=0;lastOutcome=null;outcomeNodes.length=0;outcomeHistory.length=0;
 }
 function closeUI(){
+ // VR01LD: cancel any in-flight Three.js startup; its stale await
+ // must never mount a shell or clear the state of a later open.
+ openGeneration++;
  // VR01AK: when a keyboard/mouse user leaves the 3D shell, keep the
  // currently visible original PC entry reachable. A programmatic close
  // while focus is outside this shell must not steal somebody else's focus.
@@ -1062,18 +1066,31 @@ async function openUI(focusOnEntry=false){
     root.classList.contains('hidden')||
     !q('#overlay')?.classList.contains('hidden')||
     !nativeEntry||!nativeEntry.isConnected||nativeEntry.disabled)return;
+ const generation=++openGeneration;
  busy=true;entry.disabled=true;document.body.classList.add('mrr-vr-active');
  root.classList.add('mrr-vr-playing');
+ const stillCurrent=()=>generation===openGeneration&&
+   root.isConnected&&entry.isConnected&&
+   document.getElementById('gameScreen')===root&&
+   !root.classList.contains('hidden')&&
+   root.classList.contains('mrr-vr-playing')&&
+   document.body.classList.contains('mrr-vr-active')&&
+   q('#overlay')?.classList.contains('hidden');
  try{
   if(window.MRRIntegrated?.state.open)window.MRRIntegrated.close();
   if(!native('#mrr-integrated-open'))throw Error('Phase76 integrated entry absent');
   const start=performance.now();
   while(!window.MRRIntegrated?.state.open||window.MRRIntegrated.state.scene?.frames<4){
+    // VR01LD: real Phase21 privacy/scene transition wins even during
+    // the asynchronous native Three.js import and WebGL initialization.
+    if(!stillCurrent())throw Error('Native game scene changed during 3D launch');
     if(performance.now()-start>35000)throw Error('WebGL initialization unavailable');
     await new Promise(done=>setTimeout(done,160));
   }
+  if(!stillCurrent())throw Error('Native game scene changed during 3D launch');
   stage=q('#mrr-integrated-stage');
-  if(!stage)throw Error('Native battlefield stage absent');
+  if(!stage?.isConnected||!window.MRRIntegrated?.state.open)
+    throw Error('Native battlefield stage absent');
   open=true;buildUI();refresh();
   // VR01AL: entering the 3D view using Enter/Space moves keyboard focus
   // into its first real control. Pointer entry and API-driven opening must
@@ -1084,8 +1101,16 @@ async function openUI(focusOnEntry=false){
     const target=q(s);if(target)observer.observe(target,{childList:true,characterData:true,attributes:true,subtree:true});
   }
   interval=setInterval(schedule,500);
- }catch(err){console.warn('VR01 unavailable:',err);closeUI();}
- finally{busy=false;entry.disabled=false;}
+ }catch(err){
+   if(generation===openGeneration){
+     console.warn('VR01 unavailable:',err);
+     closeUI();
+   }
+ }
+ finally{
+   // A previous opening cannot reset the disabled state of a new one.
+   if(generation===openGeneration){busy=false;entry.disabled=false;}
+ }
 }
 // The browser fires a click for Enter/Space with detail=0, but so does
 // element.click(). Track a real entry keypress to avoid stealing focus when
