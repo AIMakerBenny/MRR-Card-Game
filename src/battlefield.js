@@ -2639,6 +2639,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           attackArrow.visible&&vrTargetLock?.key===c.key&&
           vrSamePublicIdentity(vrTargetLock.id,vrTargetLock.name,
             c.publicId,c.publicName);
+        // VR01IG: the ORIGINAL native-selected source also receives a
+        // matching warm metal accent only while that exact public card
+        // is locked to the native target. No speculative combat state.
+        const sourceLocked=vrAimSource&&selected&&
+          vrSamePublicIdentity(vrTargetLock.sourceId,
+            vrTargetLock.sourceName,c.publicId,c.publicName);
         const target=Math.max(over?1:selected?.27:0,hit);
         // On the first confirmed rendered native hit, reserve a real
         // easing sample on slow software WebGL just like the side frame.
@@ -2657,7 +2663,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const upperFactor=over&&!frozen?.85+.15*(vrRimPointerHeight+1)/2:1;
         c.edgeSheen.material.opacity=.34*c.edgeSheenAmount*upperFactor;
         c.edgeSheen.material.color.setHex(hit>.02?0xffba8e:
-          locked?0xffd6a0:
+          locked?0xffd6a0:sourceLocked?0xffe1ad:
           c.slot.owner===0?0xeefff8:0xffeccc);
         c.edgeSheen.position.x=c.edgeSheenX;
         if(hit>.02)vrNativeHitRimSheenPeak=Math.max(
@@ -3064,6 +3070,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }:null,
       vrAimTargetRimHue:vrMode&&cardIndex.get(vrTargetLock?.key)?.edgeSheen?
         cardIndex.get(vrTargetLock.key).edgeSheenMaterial.color.getHex():null,
+      vrAimSourceRimHue:vrMode&&cardIndex.get(selectedKey)?.edgeSheen?
+        cardIndex.get(selectedKey).edgeSheenMaterial.color.getHex():null,
       vrSelectedRimSheen:vrMode&&cardIndex.get(selectedKey)?.edgeSheen?{
         opacity:Number(cardIndex.get(selectedKey).edgeSheenMaterial.opacity.toFixed(3)),
         x:Number(cardIndex.get(selectedKey).edgeSheen.position.x.toFixed(3))

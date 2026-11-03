@@ -4066,6 +4066,16 @@ try:
         s.vrEdgeGlintPickSafe===true;
     }""",timeout=14000)
     assert snap()==baseline,'VR01HT aim frame changed Phase21'
+    # VR01IG: the native-validated source and opponent now have
+    # complementary physical rim hues, with no synthetic attack event.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrSourceAimPoseActive===true &&
+        s.vrAimSourceRimHue===0xffe1ad &&
+        s.vrAimTargetRimHue===0xffd6a0 &&
+        s.vrEdgeSheenPickSafe===true;
+    }""",timeout=16000)
+    assert snap()==baseline,'VR01IG paired aim rims changed Phase21'
     # VR01EY: identical real native selected/target slots must reuse the
     # exact 17-point 3D path instead of reuploading it on every sync.
     aim_cache=page.evaluate("""() => {
