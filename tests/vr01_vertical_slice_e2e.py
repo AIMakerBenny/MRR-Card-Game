@@ -3646,6 +3646,9 @@ try:
       return s.vrPointerDragging===false&&s.vrInterruptedPointerGestures>=1&&
         s.hoveredKey===null&&s.vrTargetLockKey===null&&!s.vrAttackArcVisible;
     }"""),'VR01FJ stop retained drag or stale public aim presentation'
+    # VR01HA: a stopped scene cannot retain a cosmetic native strike
+    # when the user resumes a different visual interaction.
+    assert page.evaluate('MRRIntegrated.state.scene.vrPendingStrike') is None
     # VR01FH: DOM events arriving while the native 3D view is
     # stopped must never start a card click or adjust the camera.
     paused_events=page.evaluate("""() => {

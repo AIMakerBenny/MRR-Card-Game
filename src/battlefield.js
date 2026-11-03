@@ -871,6 +871,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // touching the original Phase21 combat execution.
   let vrStagedAttacks=0,vrStrikeTimeouts=0,vrUnpairedNativeHits=0;
   let vrLastUnpairedHit=null,vrStaleStrikeSourceRejects=0;
+  let vrPausedStrikeWithdrawals=0;
   let vrStaleStrikeTargetRejects=0,vrStrikeMissingPublicRejects=0;
   // VR01GW: record only a publicly rendered native occupant's ID/name.
   // The visual source must never be borrowed by a different occupant
@@ -2599,6 +2600,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       for(const m of vrTargetSparks)m.visible=false;
       vrTargetBracketKey=null;
     }
+    // VR01HA: pause/exit revokes an unconfirmed cosmetic strike.
+    // A later replay must never inherit a different battle's source.
+    // This changes no original Phase21 action or resolved native hit.
+    if(vrMode&&pendingStrike){pendingStrike=null;vrPausedStrikeWithdrawals++;}
     running=false;cancelAnimationFrame(raf);fxObserver.disconnect();
     lastDraw=0;lastVisualTime=0;
   }
@@ -2719,6 +2724,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrStagedAttacks:vrMode?vrStagedAttacks:null,
       vrStrikeTimeouts:vrMode?vrStrikeTimeouts:null,
       vrStaleStrikeSourceRejects:vrMode?vrStaleStrikeSourceRejects:null,
+      vrPausedStrikeWithdrawals:vrMode?vrPausedStrikeWithdrawals:null,
       vrStaleStrikeTargetRejects:vrMode?vrStaleStrikeTargetRejects:null,
       vrStrikeMissingPublicRejects:vrMode?vrStrikeMissingPublicRejects:null,
       vrUnpairedNativeHits:vrMode?vrUnpairedNativeHits:null,
