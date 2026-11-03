@@ -162,6 +162,19 @@
         state.textContent=publicState;
         caption.append(state);
       }
+      // VR01KD: an exact copy of the visible Phase21 public HP-bar
+      // fill percentage. No guessed max HP, damage or gameplay state.
+      if(Number.isFinite(data.hpBarPercent)){
+        const percent=Math.max(0,Math.min(100,data.hpBarPercent));
+        const meter=document.createElement('span');
+        meter.className='vr-focus-hp-meter';
+        meter.setAttribute('aria-hidden','true');
+        meter.dataset.level=percent<=33?'low':percent<=66?'medium':'high';
+        const fill=document.createElement('span');
+        fill.className='vr-focus-hp-meter-fill';
+        fill.style.width=percent+'%';
+        meter.append(fill);caption.append(meter);
+      }
       picture.alt=data.name+' 공개 카드 확대';
       currentCaption=captionText;
     }

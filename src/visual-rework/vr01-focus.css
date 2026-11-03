@@ -51,6 +51,24 @@ body.mrr-vr-active #mrr-vr-card-focus .vr-card-focus-caption .vr-focus-public-st
   display:-webkit-box;-webkit-box-orient:vertical;
   -webkit-line-clamp:2;line-clamp:2;overflow:hidden;
 }
+/* VR01KD: show the REAL public HP bar as a slim compact track.
+   The percent is copied from native CSS, never from private game data. */
+body.mrr-vr-active #mrr-vr-card-focus .vr-focus-hp-meter{
+  display:block;flex:0 0 7px;width:min(100%,165px);
+  height:7px;margin:4px auto 1px;overflow:hidden;border-radius:7px;
+  border:1px solid #97b1a75c;background:#16232a;
+  box-shadow:inset 0 1px 3px #02090eab;
+}
+body.mrr-vr-active #mrr-vr-card-focus .vr-focus-hp-meter-fill{
+  display:block;height:100%;border-radius:6px;
+  background:linear-gradient(90deg,#43986c,#97d9a1);
+}
+body.mrr-vr-active #mrr-vr-card-focus .vr-focus-hp-meter[data-level="medium"] .vr-focus-hp-meter-fill{
+  background:linear-gradient(90deg,#b98939,#f0d286);
+}
+body.mrr-vr-active #mrr-vr-card-focus .vr-focus-hp-meter[data-level="low"] .vr-focus-hp-meter-fill{
+  background:linear-gradient(90deg,#ab493d,#f19977);
+}
 @media(max-width:1500px){
   body.mrr-vr-active #mrr-vr-card-focus{width:205px}
 }
