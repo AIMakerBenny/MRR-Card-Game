@@ -36,6 +36,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01DY: one shared real 3D spotlight for the public card currently
   // inspected. It never touches picking, gameplay or the legacy 3D modal.
   const vrFocusLamp=vrMode?new THREE.PointLight(0xffd3a0,0,8,2):null;
+  // VR01HR: cache one reusable colour target for the existing scene lamp.
+  // Cross-team inspection now changes hue gradually instead of flashing.
+  const vrFocusColorGoal=vrMode?new THREE.Color(0xffd3a0):null;
   let vrFocusedCardKey=null;
   if(vrFocusLamp){
     vrFocusLamp.castShadow=false;
@@ -2442,7 +2445,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const blend=frozen?1:1-Math.exp(-visualDelta/110);
       vrFocusLamp.intensity+=(strength-vrFocusLamp.intensity)*blend;
       if(focus){
-        vrFocusLamp.color.setHex(focus.slot.owner===0?0xb0ffe4:0xffd9b7);
+        // VR01HR: a hovered public ally/enemy may have a different hue.
+        // Keep the physically existing lamp and blend its colour, too.
+        vrFocusColorGoal.setHex(focus.slot.owner===0?0xb0ffe4:0xffd9b7);
+        vrFocusLamp.color.lerp(vrFocusColorGoal,
+          frozen?1:1-Math.exp(-visualDelta/175));
         // VR01EB: ease the light's position as well as its intensity.
         // Avoid allocations and jerky cross-board light teleportation.
         const move=frozen?1:1-Math.exp(-visualDelta/155);
@@ -2843,6 +2850,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
       vrFocusedCardKey:vrMode?vrFocusedCardKey:null,
       vrFocusedLightIntensity:vrMode?Number(vrFocusLamp.intensity.toFixed(2)):null,
+      vrFocusColourDelta:vrMode&&vrFocusedCardKey?Number(Math.max(
+        Math.abs(vrFocusLamp.color.r-vrFocusColorGoal.r),
+        Math.abs(vrFocusLamp.color.g-vrFocusColorGoal.g),
+        Math.abs(vrFocusLamp.color.b-vrFocusColorGoal.b)).toFixed(4)):null,
       vrFocusLightTargetDistance:vrMode&&cardIndex.has(vrFocusedCardKey)?
         Number(Math.hypot(
           vrFocusLamp.position.x-cardIndex.get(vrFocusedCardKey).slot.x,

@@ -3853,6 +3853,15 @@ try:
         s.vrFocusLightTargetDistance<.35;
     }""",arg=opponent,timeout=14000)
     assert snap()==baseline,'VR01DY scene spotlight modified Phase21 state'
+    # VR01HR: the same public-card lamp must finish a soft colour
+    # transition to the actual owner's hue without affecting gameplay.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrFocusedCardKey===s.hoveredKey &&
+        s.vrFocusColourDelta!==null &&
+        s.vrFocusColourDelta<.035;
+    }""",timeout=14000)
+    assert snap()==baseline,'VR01HR spotlight colour changed Phase21'
     # VR01ED: the original Three.js face surface becomes subtly glossier
     # on a real public hover. This is not an artwork or engine-state rewrite.
     page.wait_for_function("""key => {
