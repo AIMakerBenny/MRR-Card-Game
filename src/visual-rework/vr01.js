@@ -1059,8 +1059,14 @@ function closeUI(){
    delete control.dataset.vrShortcut;
    control.removeAttribute('title');
  }
+ // VR01LG: Phase76 can still be awaiting its own Three.js import,
+ // with state.open=false. It MUST receive close() so its native
+ // openGeneration is invalidated; otherwise it mounts a ghost stage
+ // after the VR01 caller has already cancelled the pending launch.
+ // Never close a separately opened native stage when VR01 owns no view.
+ const ownsNativeRequest=open||busy;
  open=false;busy=false;cleanup();
- if(window.MRRIntegrated?.state.open)window.MRRIntegrated.close();
+ if(ownsNativeRequest)window.MRRIntegrated?.close?.();
  document.body.classList.remove('mrr-vr-active');
  root.classList.remove('mrr-vr-playing');
  entry.disabled=false;
