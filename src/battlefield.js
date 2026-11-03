@@ -1999,7 +1999,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01HE: only a gesture that BEGINS on the same native board slot
   // may end in a delegated click. Empty/outside press is never a click.
   let vrPointerStartKey=null,vrInvalidOriginGestureRejects=0;
-  let vrUntrackedReleaseDrags=0;
+  let vrUntrackedReleaseDrags=0,vrNonPrimaryReleaseRejects=0;
   let vrForeignPointerEventsIgnored=0,vrPausedInputEventsIgnored=0;
   let vrLostPointerCaptures=0;
   function updateCamera(){
@@ -2067,6 +2067,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // Only the pointer that started this drag may finish a native click.
     if(vrMode&&e.pointerId!==vrActivePointerId){
       vrForeignPointerEventsIgnored++;return;
+    }
+    // VR01HG: only the same primary-button gesture may finish a
+    // native click. A secondary-button release cancels this gesture.
+    if(vrMode&&e.button!==0){
+      vrNonPrimaryReleaseRejects++;cancelPointer(e);return;
     }
     // VR01HF: a fast mouse release can be delivered without an
     // intermediate pointermove. Check the FINAL displacement too, so
@@ -2705,6 +2710,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrVanishedLegalGestureRejects:vrMode?vrVanishedLegalGestureRejects:null,
       vrInvalidOriginGestureRejects:vrMode?vrInvalidOriginGestureRejects:null,
       vrUntrackedReleaseDrags:vrMode?vrUntrackedReleaseDrags:null,
+      vrNonPrimaryReleaseRejects:vrMode?vrNonPrimaryReleaseRejects:null,
       vrPointerStartKey:vrMode?vrPointerStartKey:null,
       vrInterruptedPointerGestures:vrMode?vrInterruptedPointerGestures:null,
       vrForeignPointerEventsIgnored:vrMode?vrForeignPointerEventsIgnored:null,
