@@ -1052,7 +1052,16 @@ function closeUI(){
    entry.focus({preventScroll:true});
 }
 async function openUI(focusOnEntry=false){
- if(open||busy||root.classList.contains('hidden'))return;
+ // VR01LC: do not even start a native 3D import while Phase21 is
+ // withholding the current hand, the game screen is retired, or the
+ // original integrated entry cannot be used. Avoid a 35-second idle
+ // loading shell on a genuine private-turn or scene transition.
+ const nativeEntry=q('#mrr-integrated-open');
+ if(open||busy||!root.isConnected||!entry.isConnected||
+    document.getElementById('gameScreen')!==root||
+    root.classList.contains('hidden')||
+    !q('#overlay')?.classList.contains('hidden')||
+    !nativeEntry||!nativeEntry.isConnected||nativeEntry.disabled)return;
  busy=true;entry.disabled=true;document.body.classList.add('mrr-vr-active');
  root.classList.add('mrr-vr-playing');
  try{
