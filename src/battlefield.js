@@ -3590,7 +3590,8 @@ window.MRRBattlefieldUIInit=function(loadThree){
       zoomImage.alt='공개 카드 일러스트 확대';
       const zoomCaption=document.createElement('div');zoomCaption.id='mrr-battlefield-zoom-caption';
       zoomPane.append(zoomImage,zoomCaption);
-      let pinnedKey=null,pinnedPublic=null,previewKey=null,shownImage='';
+      let pinnedKey=null,pinnedPublic=null,previewKey=null,shownImage='',
+        shownCaptionSignature='';
       function samePinnedPublic(info){
         if(!pinnedPublic||!info||info.key!==pinnedKey)return false;
         if(pinnedPublic.id||info.publicId)
@@ -3612,25 +3613,32 @@ window.MRRBattlefieldUIInit=function(loadThree){
           releasePin();key=null;
         }
         if(!key||!info||!info.name){
-          previewKey=null;shownImage='';zoomPane.classList.remove('visible');
+          previewKey=null;shownImage='';shownCaptionSignature='';
+          zoomPane.classList.remove('visible');
           zoomImage.removeAttribute('src');zoomCaption.textContent='';
           return;
         }
         previewKey=info.key;
         if(shownImage!==info.artData){shownImage=info.artData;zoomImage.src=info.artData;}
         zoomImage.alt=info.name+' 카드 확대';
-        // VR01JB: clear, multi-line public inspector metadata. All fields
-        // are read from the existing visible Phase21 card in the arena.
-        // Using textContent never interprets card names/abilities as HTML.
-        const title=document.createElement('strong');title.textContent=info.name;
-        const details=document.createElement('span');
-        details.textContent=[info.kind,info.cost?'비용 '+info.cost:'',
-          info.stats].filter(Boolean).join(' · ');
-        zoomCaption.replaceChildren(title,details);
-        if(info.sigil){
-          const sigil=document.createElement('span');
-          sigil.className='mrr-zoom-sigil';sigil.textContent=info.sigil;
-          zoomCaption.append(sigil);
+        // VR01JH: pinned previews refresh on every native state sync
+        // after VR01JG. Rebuild caption DOM only when PUBLIC metadata
+        // changes, preventing needless layout work during Chromium play.
+        const captionSignature=JSON.stringify([
+          info.name,info.kind,info.cost,info.stats,info.sigil
+        ]);
+        if(captionSignature!==shownCaptionSignature){
+          shownCaptionSignature=captionSignature;
+          const title=document.createElement('strong');title.textContent=info.name;
+          const details=document.createElement('span');
+          details.textContent=[info.kind,info.cost?'비용 '+info.cost:'',
+            info.stats].filter(Boolean).join(' · ');
+          zoomCaption.replaceChildren(title,details);
+          if(info.sigil){
+            const sigil=document.createElement('span');
+            sigil.className='mrr-zoom-sigil';sigil.textContent=info.sigil;
+            zoomCaption.append(sigil);
+          }
         }
         zoomPane.classList.add('visible');
       }
