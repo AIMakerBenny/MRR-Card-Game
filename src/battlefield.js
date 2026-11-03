@@ -506,6 +506,24 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // No per-slot meshes, invented legal targets or new input actions.
   const vrLandingGuide=vrMode?new THREE.Group():null;
   let vrLandingGuideKey=null,vrLandingGuideBorn=0,vrLandingGuideReveals=0;
+  // VR01JF: a single card-sized line footprint previews only the real
+  // native .legal EMPTY destination beneath the existing landing guide.
+  // The plane is visual, never a new card or pickable placement target.
+  const vrLandingFootprint=vrMode?(()=>{
+    const w=1.035,d=1.315,y=.15;
+    const corners=[-w,y,-d, w,y,-d, w,y,d, -w,y,d];
+    const verts=[];
+    for(let i=0;i<4;i++){
+      const a=i*3,b=((i+1)%4)*3;
+      verts.push(...corners.slice(a,a+3),...corners.slice(b,b+3));
+    }
+    const geo=geometry(new THREE.BufferGeometry());
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+    const mat=new THREE.LineBasicMaterial({color:0xb9ffeb,
+      transparent:true,opacity:0,depthWrite:false});
+    madeMaterials.push(mat);
+    return new THREE.LineSegments(geo,mat);
+  })():null;
   if(vrLandingGuide){
     const arc=new THREE.Mesh(
       geometry(new THREE.TorusGeometry(.83,.055,8,52,Math.PI*1.5)),
@@ -523,6 +541,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         transparent:true,opacity:.13,side:THREE.DoubleSide,depthWrite:false}));
     lightColumn.position.y=.62;
     vrLandingGuide.add(arc,floorMark,lightColumn);
+    // Preserve original child indices 0-2 used by earlier visual QA.
+    if(vrLandingFootprint)vrLandingGuide.add(vrLandingFootprint);
     vrLandingGuide.visible=false;scene.add(vrLandingGuide);
   }
   // VR01FU: four slim real-world corner beacons rise from the original
@@ -2593,6 +2613,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         (frozen?0:.022*Math.sin(time*.006)));
       vrLandingGuide.children[1].material.opacity=.32*eased;
       vrLandingGuide.children[2].material.opacity=.13*eased;
+      // VR01JF: reveal the exact card-sized placement footprint along
+      // with the native legal slot's existing guide, static in reduce-motion.
+      if(vrLandingFootprint)vrLandingFootprint.material.opacity=.48*eased;
       vrLandingGuide.position.y=.36+(frozen?0:.025*Math.sin(time*.005));
     }
     // VR01FU: the companion 3D posts follow ONLY the already validated
