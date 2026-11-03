@@ -238,6 +238,22 @@ function reflowHand(fan){
    card.style.setProperty('--vr-glint-x',((x+1)*50).toFixed(1)+'%');
    card.style.setProperty('--vr-glint-y',((y+1)*50).toFixed(1)+'%');
  }
+// VR01KR: share one current PUBLIC card identity check for both
+// native Phase21 hand clicks and the 3D selected-card highlight.
+function matchesCurrentNativeHandCard(mirror,original){
+ const live=original?.querySelector('.card-ui'),face=q('.vr-card-face',mirror);
+ if(!live||!face)return false;
+ const id=live.getAttribute('data-mrr-public-card-id')||'';
+ const mirroredId=mirror.dataset.vrPublicId||'';
+ if(id||mirroredId)return !!(id&&mirroredId&&id===mirroredId);
+ const nativeText=selector=>clean(q(selector,live)?.textContent);
+ const mirrorText=selector=>clean(q(selector,face)?.textContent);
+ return (nativeText('.card-name')||'카드')===(mirrorText('.vr-name')||'카드')&&
+   (nativeText('.card-kind')||'카드')===(mirrorText('.vr-kind')||'카드')&&
+   (nativeText('.cost-bubble')||'0')===(mirrorText('.vr-mana')||'0')&&
+   nativeText('.card-summary')===mirrorText('.vr-rules')&&
+   nativeText('.card-stats')===mirrorText('.vr-stats');
+}
 function updateHand(){
   const src=qa('#hand .hand-slot');
   const hand=src.map((slot,i)=>{
@@ -289,6 +305,7 @@ function updateHand(){
   if(sameVisibleCards){
     src.forEach((slot,i)=>{
       const card=fan.children[i],d=hand[i];
+      card.dataset.vrPublicId=d.publicId||'';
       // Name and kind may now change cosmetically for the same public ID.
       const label=d.name+' 손패 선택';
       if(card.getAttribute('aria-label')!==label)card.setAttribute('aria-label',label);
@@ -348,6 +365,7 @@ function updateHand(){
   for(const d of hand){
     const card=el('button','vr-card');card.type='button';
     card.setAttribute('aria-label',d.name+' 손패 선택');card.dataset.index=String(d.i);
+    card.dataset.vrPublicId=d.publicId||'';
     if(d.i<10){
       const shortcut=d.i===9?'0':String(d.i+1);
       card.setAttribute('aria-keyshortcuts',shortcut);
@@ -379,30 +397,9 @@ function updateHand(){
       const nativeHand=qa('#hand .hand-slot');
       const original=nativeHand[d.i];
       const source=original?.querySelector('.card-ui');
-      const id=source?.getAttribute('data-mrr-public-card-id')||'';
-      const sourceName=clean(q('.card-name',source)?.textContent)||'카드';
-      const sourceKind=clean(q('.card-kind',source)?.textContent);
-      // VR01KO: the native card can receive a harmless PUBLIC cosmetic
-      // rename/type repaint without changing its genuine Phase21 identity.
-      // VR01BG keeps the same 3D button and updates its visible face;
-      // compare today's mirrored labels, not the stale closure snapshot.
-      // A mismatched live card still rejects the click before Phase21.
-      const mirrorName=clean(q('.vr-name',surface)?.textContent)||'카드';
-      const mirrorKind=clean(q('.vr-kind',surface)?.textContent);
-      // VR01KQ: when a native hand card exposes no public ID, confirm
-      // its ENTIRE already-visible card face. Two cards with the same
-      // name/type but different public costs, rules or stats must never
-      // be treated as an interchangeable Phase21 hand selection.
-      const samePublicFace=sourceName===mirrorName&&
-        (sourceKind||'카드')===(mirrorKind||'카드')&&
-        (clean(q('.cost-bubble',source)?.textContent)||'0')===
-          (clean(q('.vr-mana',surface)?.textContent)||'0')&&
-        clean(q('.card-summary',source)?.textContent)===
-          clean(q('.vr-rules',surface)?.textContent)&&
-        clean(q('.card-stats',source)?.textContent)===
-          clean(q('.vr-stats',surface)?.textContent);
-      const sameCard=d.publicId||id?
-        !!(d.publicId&&id&&d.publicId===id):samePublicFace;
+      // VR01KR: native click and 3D pressed state share the same
+      // live, public-card identity rule, including the no-ID fallback.
+      const sameCard=matchesCurrentNativeHandCard(card,original);
       // VR01KN: native placement and attack targeting can begin
       // before the next mirrored-hand repaint. Neither a queued pointer
       // click nor element.click() may switch an active Phase21 action.
@@ -448,7 +445,8 @@ function updateHand(){
 function syncNativeHandSelection(){
   const source=qa('#hand .hand-slot'),mirror=qa('#vr-hand .vr-card',ui);
   for(let i=0;i<mirror.length;i++){
-    const active=!!source[i]?.classList.contains('active');
+    const active=!!source[i]?.classList.contains('active')&&
+      matchesCurrentNativeHandCard(mirror[i],source[i]);
     mirror[i].classList.toggle('vr-native-selected',active);
     mirror[i].setAttribute('aria-pressed',active?'true':'false');
   }
