@@ -466,8 +466,13 @@ function updateHand(){
       }
       schedule();
     });
-    card.addEventListener('mouseenter',()=>{
-      if(!nativeInfoPanelOpen())card.classList.add('raised');
+    // VR01LQ: initialize perspective from the first genuine mouse-enter
+    // event rather than relying on a second pointermove. At busy WebGL
+    // framerates the initial move may be the only event in this frame.
+    card.addEventListener('mouseenter',ev=>{
+      if(nativeInfoPanelOpen())return;
+      card.classList.add('raised');
+      updateHandTilt(card,ev);
     });
     card.addEventListener('pointermove',ev=>updateHandTilt(card,ev));
     card.addEventListener('mouseleave',()=>{
