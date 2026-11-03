@@ -389,9 +389,20 @@ function updateHand(){
       // A mismatched live card still rejects the click before Phase21.
       const mirrorName=clean(q('.vr-name',surface)?.textContent)||'카드';
       const mirrorKind=clean(q('.vr-kind',surface)?.textContent);
+      // VR01KQ: when a native hand card exposes no public ID, confirm
+      // its ENTIRE already-visible card face. Two cards with the same
+      // name/type but different public costs, rules or stats must never
+      // be treated as an interchangeable Phase21 hand selection.
+      const samePublicFace=sourceName===mirrorName&&
+        (sourceKind||'카드')===(mirrorKind||'카드')&&
+        (clean(q('.cost-bubble',source)?.textContent)||'0')===
+          (clean(q('.vr-mana',surface)?.textContent)||'0')&&
+        clean(q('.card-summary',source)?.textContent)===
+          clean(q('.vr-rules',surface)?.textContent)&&
+        clean(q('.card-stats',source)?.textContent)===
+          clean(q('.vr-stats',surface)?.textContent);
       const sameCard=d.publicId||id?
-        !!(d.publicId&&id&&d.publicId===id):
-        sourceName===mirrorName&&sourceKind===mirrorKind;
+        !!(d.publicId&&id&&d.publicId===id):samePublicFace;
       // VR01KN: native placement and attack targeting can begin
       // before the next mirrored-hand repaint. Neither a queued pointer
       // click nor element.click() may switch an active Phase21 action.
