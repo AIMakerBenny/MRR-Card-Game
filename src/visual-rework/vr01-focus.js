@@ -3,8 +3,16 @@
   'use strict';
   let frame=null, picture=null, caption=null, currentKey=null,
       currentIdentity=null,currentArtData=null,currentCaption='',pointerOnCanvas=false;
+  let arenaObserver=null,observedArena=null,arenaFrame=0;
   const q=(selector,parent=document)=>parent.querySelector(selector);
-  function dispose(){frame?.remove();frame=picture=caption=null;currentKey=currentIdentity=currentArtData=null;currentCaption='';pointerOnCanvas=false;}
+  function dispose(){
+    arenaObserver?.disconnect();arenaObserver=observedArena=null;
+    if(arenaFrame)cancelAnimationFrame(arenaFrame);
+    arenaFrame=0;
+    frame?.remove();frame=picture=caption=null;
+    currentKey=currentIdentity=currentArtData=null;
+    currentCaption='';pointerOnCanvas=false;
+  }
   // VR01JS: canvas pointer-exit, window deactivation and tab hiding
   // withdraw the visual inspector immediately without touching Phase21.
   // A pointermove event is not guaranteed when the mouse leaves a canvas.
@@ -13,6 +21,28 @@
     if(frame)frame.hidden=true;
     currentKey=currentIdentity=currentArtData=null;
     currentCaption='';
+  }
+  // VR01JW: the original Phase21 PUBLIC arena is the only observed DOM.
+  // Coalesce its HP, status and card replacements to one inspector refresh
+  // per browser frame; the 400ms camera reconciliation remains a fallback.
+  function watchPublicArena(){
+    const arena=q('#arena');
+    if(arena===observedArena)return;
+    arenaObserver?.disconnect();arenaObserver=observedArena=null;
+    if(!arena)return;
+    observedArena=arena;
+    arenaObserver=new MutationObserver(()=>{
+      if(!pointerOnCanvas||arenaFrame)return;
+      arenaFrame=requestAnimationFrame(()=>{
+        arenaFrame=0;
+        if(pointerOnCanvas)render();
+      });
+    });
+    arenaObserver.observe(arena,{
+      subtree:true,childList:true,characterData:true,
+      attributes:true,
+      attributeFilter:['class','style','data-mrr-public-card-id']
+    });
   }
   function create(){
     const shell=q('#mrr-vr-shell');if(!shell)return;
@@ -26,6 +56,7 @@
     if(!window.MRRVR?.status.open){if(frame)dispose();return;}
     if(!frame)create();
     if(!frame)return;
+    watchPublicArena();
     const scene=window.MRRIntegrated?.scene;
     const key=pointerOnCanvas?scene?.state.hoveredKey:null;
     if(!key||!scene?.hasCard(key)){frame.hidden=true;currentKey=currentIdentity=currentArtData=null;currentCaption='';return;}
