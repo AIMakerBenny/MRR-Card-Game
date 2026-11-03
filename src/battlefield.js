@@ -1419,12 +1419,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   let vrProjectionSamples=0,vrStalePreviewRejected=0,vrStaleCardQueriesRejected=0;
   // VR01FW: the visible Three.js card face supplies its own UV position.
   // This is only an inspection tilt, never a different pick or native click.
-  let vrFaceHoverBias=0,vrFaceHoverSamples=0;
+  let vrFaceHoverBias=0,vrFaceHoverBiasY=0,vrFaceHoverSamples=0;
   let vrStaleRaycastRejects=0;
   function publicHit(e){
     const rect=renderer.domElement.getBoundingClientRect();
     if(rect.width<10||rect.height<10||e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom){
-      if(vrMode)vrFaceHoverBias=0;
+      if(vrMode){vrFaceHoverBias=0;vrFaceHoverBiasY=0;}
       return null;
     }
     pointer.set((e.clientX-rect.left)/rect.width*2-1,-((e.clientY-rect.top)/rect.height*2-1));
@@ -1445,7 +1445,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           '"] .board-card .card-ui');
         const valid=vrMatchesNativePublicCard(cached,node);
         if(!valid){
-          vrStaleRaycastRejects++;vrFaceHoverBias=0;
+          vrStaleRaycastRejects++;vrFaceHoverBias=vrFaceHoverBiasY=0;
           return null;
         }
       }
@@ -1455,6 +1455,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const actualFace=!!publicKey&&cardIndex.get(publicKey)?.face===first.object;
       vrFaceHoverBias=actualFace&&first.uv?
         Math.max(-1,Math.min(1,(first.uv.x-.5)*2)):0;
+      // VR01HN: Y UV of the same genuine 3D public face is presentational.
+      // Never infer a pointer bias from an empty slot or a private hand.
+      vrFaceHoverBiasY=actualFace&&first.uv?
+        Math.max(-1,Math.min(1,(first.uv.y-.5)*2)):0;
       if(actualFace&&first.uv)vrFaceHoverSamples++;
     }
     return first?.object.userData.mrrSlotKey||null;
@@ -1573,7 +1577,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         presentationCarry.set(c.key,{
           id:c.publicId,name:c.publicName,
           scale:c.visualScale,lift:c.visualLift,yaw:c.visualYaw,
-          pitch:c.visualPitch,contact:c.contactAmount,edge:c.edgeAmount,
+          pitch:c.visualPitch,roll:c.visualRoll,
+          contact:c.contactAmount,edge:c.edgeAmount,
           corners:c.seatCornerAmount,
           roughness:c.face.material.roughness,
           metalness:c.face.material.metalness
@@ -1732,6 +1737,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           for(const [field,value] of [
             ['visualScale',visual.scale],['visualLift',visual.lift],
             ['visualYaw',visual.yaw],['visualPitch',visual.pitch],
+            ['visualRoll',visual.roll],
             ['contactAmount',visual.contact],['edgeAmount',visual.edge],
             ['seatCornerAmount',visual.corners]
           ])if(Number.isFinite(value))item[field]=value;
@@ -1990,7 +1996,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if((cardChanged||statusChanged)&&hoveredKey)setHover(hoveredKey,true);
   }
   function setHover(key,force=false){
-    if(vrMode&&!key)vrFaceHoverBias=0;
+    if(vrMode&&!key){vrFaceHoverBias=0;vrFaceHoverBiasY=0;}
     if(hoveredKey===key&&!force)return;
     const slot=document.querySelector('#arena [data-slot="'+(key||'')+'"]');
     // VR01N: acquire a target only on a TRUE native attack-target hover
@@ -2557,9 +2563,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // selection. It never tilts the entire board or changes picking.
         // Reduced motion retains the original static card inclination.
         const targetPitch=frozen||c.deploy?0:hover?
-          .043+vrFaceHoverBias*.004:c.key===selectedKey?.014:0;
+          .043+vrFaceHoverBiasY*.006:c.key===selectedKey?.014:0;
         c.visualPitch=(c.visualPitch??0)+
           (targetPitch-(c.visualPitch??0))*alpha;
+        // VR01HN: restrained second-axis parallax on the genuine public
+        // face, with no camera orbit, additional pick mesh or rule changes.
+        const targetRoll=frozen||c.deploy?0:hover?vrFaceHoverBias*.024:0;
+        c.visualRoll=(c.visualRoll??0)+
+          (targetRoll-(c.visualRoll??0))*alpha;
       }
       if(tabletop){
         // VR01-C: an occupied card gets larger when it has actual physical
@@ -2639,7 +2650,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
               Math.sin(Math.PI*Math.max(0,age))*(1-Math.max(0,age)*.35):0;
             c.group.position.x=c.slot.x+(impact?.dx||0)*recoil*.34;
             c.group.position.z=c.slot.z+(impact?.dz||0)*recoil*.34;
-            c.group.rotation.z=(impact?.dx||0)*recoil*.10;
+            c.group.rotation.z=(impact?.dx||0)*recoil*.10+
+              (c.visualRoll||0);
             // VR01DZ: compress and pitch the real 3D card briefly after
             // native fx-hit only. The Phase21 hitbox and health are untouched.
             const spring=frozen?0:recoil;
@@ -2809,6 +2821,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         Number(cardIndex.get(selectedKey).group.rotation.y.toFixed(4)):null,
       vrHoveredCardPitch:vrMode&&cardIndex.has(hoveredKey)?
         Number(((cardIndex.get(hoveredKey).visualPitch)||0).toFixed(4)):null,
+      vrFaceHoverBiasY:vrMode?Number(vrFaceHoverBiasY.toFixed(4)):null,
+      vrHoveredCardRoll:vrMode&&cardIndex.has(hoveredKey)?
+        Number(((cardIndex.get(hoveredKey).visualRoll)||0).toFixed(4)):null,
       vrHoveredEdgeGlintOpacity:vrMode&&cardIndex.get(hoveredKey)?.edgeGlint?
         Number(cardIndex.get(hoveredKey).edgeGlintMaterial.opacity.toFixed(3)):null,
       vrEdgeGlintPickSafe:vrMode?cards.every(c=>!c.edgeGlint||

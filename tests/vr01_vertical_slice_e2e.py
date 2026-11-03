@@ -3882,6 +3882,17 @@ try:
         s.vrHoveredCardPitch<.055;
     }""",timeout=14000)
     assert snap()==baseline,'VR01FO pitch changed native gameplay'
+    # VR01HN: both pointer UV axes must remain bounded; the real public
+    # face uses Y bias for pitch and a non-pickable micro-roll.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.hoveredKey &&
+        Number.isFinite(s.vrFaceHoverBiasY) &&
+        Math.abs(s.vrFaceHoverBiasY)<=1 &&
+        Number.isFinite(s.vrHoveredCardRoll) &&
+        Math.abs(s.vrHoveredCardRoll)<=.026;
+    }""",timeout=14000)
+    assert snap()==baseline,'VR01HN two-axis hover changed Phase21'
     # VR01FP: actual occupied public meshes, not a drawn hand card,
     # receive two soft non-interactive side-frame gleams on inspection.
     page.wait_for_function("""() => {
