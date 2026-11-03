@@ -3854,6 +3854,13 @@ try:
         s.vrFocusedLightIntensity===0 &&
         s.vrFocusedCardKey===null;
     }"""),'VR01IS stopped spotlight retained prior team hue'
+    # VR01IT: do not replay the prior native selection's cosmetic
+    # spring flash when reopening the same selected Phase21 card.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return !!s.selectedKey&&s.vrSelectionBurstKey===null&&
+        s.vrSelectionRingScale===1;
+    }"""),'VR01IT stopped selection retained previous pulse'
     assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume,(

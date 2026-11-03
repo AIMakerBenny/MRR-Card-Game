@@ -2948,6 +2948,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrRimPointerBias=vrRimPointerHeight=0;
       vrHoverPublicIdentity=null;
       vrTargetLock=null;
+      // VR01IT: native selectedKey still belongs to the original
+      // Phase21 game. The short cosmetic selection burst does not.
+      // Never replay a stale selection flash across stop/start.
+      vrSelectionBurst=null;
       attackArrow.visible=attackTip.visible=false;
       vrAimPathKey=null;
       // VR01HX: stop immediately withdraws transient top-rim glare;
