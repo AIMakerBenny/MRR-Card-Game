@@ -5,10 +5,12 @@
       currentIdentity=null,currentArtData=null,currentCaption='',pointerOnCanvas=false;
   let arenaObserver=null,observedArena=null,arenaFrame=0;
   let passObserver=null,observedPass=null;
+  let panelObserver=null,observedGameScreen=null;
   const q=(selector,parent=document)=>parent.querySelector(selector);
   function dispose(){
     arenaObserver?.disconnect();arenaObserver=observedArena=null;
     passObserver?.disconnect();passObserver=observedPass=null;
+    panelObserver?.disconnect();panelObserver=observedGameScreen=null;
     if(arenaFrame)cancelAnimationFrame(arenaFrame);
     arenaFrame=0;
     frame?.remove();frame=picture=caption=null;
@@ -60,6 +62,25 @@
     });
     passObserver.observe(overlay,{attributes:true,attributeFilter:['class']});
   }
+  // VR01KA: a real Phase21 inspector/deck panel has priority over
+  // this decorative hover magnifier. It may open by keyboard without a
+  // canvas pointerout event, so track the ORIGINAL panel classes.
+  function nativePanelOpen(){
+    const game=q('#gameScreen');
+    return !!game&&(game.classList.contains('mrr-integrated-inspector-open')||
+      game.classList.contains('mrr-integrated-rail-open'));
+  }
+  function watchNativePanels(){
+    const game=q('#gameScreen');
+    if(game===observedGameScreen)return;
+    panelObserver?.disconnect();panelObserver=observedGameScreen=null;
+    if(!game)return;
+    observedGameScreen=game;
+    panelObserver=new MutationObserver(()=>{
+      if(nativePanelOpen())clearFocus();
+    });
+    panelObserver.observe(game,{attributes:true,attributeFilter:['class']});
+  }
   function create(){
     const shell=q('#mrr-vr-shell');if(!shell)return;
     frame=document.createElement('aside');frame.id='mrr-vr-card-focus';
@@ -74,8 +95,9 @@
     if(!frame)return;
     watchPublicArena();
     watchNativeOverlay();
+    watchNativePanels();
     const nativeCover=q('#overlay');
-    if(document.hidden||
+    if(document.hidden||nativePanelOpen()||
        (nativeCover&&!nativeCover.classList.contains('hidden'))){
       clearFocus();return;
     }
