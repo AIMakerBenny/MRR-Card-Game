@@ -3702,8 +3702,14 @@ window.MRRBattlefieldUIInit=function(loadThree){
           }
         }
         pinPreview.disabled=!(pinnedKey||view?.hasCard(info.hoveredKey)||view?.hasCard(info.selectedKey)||view?.hasCard(previewKey));
-        if(!pinnedKey&&(info.hoveredKey||info.selectedKey)&&(info.hoveredKey||info.selectedKey)!==previewKey){
-          renderZoom(info.hoveredKey||info.selectedKey);
+        // VR01JJ: a legal EMPTY hover is not a public card. Follow only
+        // an actually visible public hover, otherwise the original
+        // selected public card, and clear the inspector when neither
+        // exists. Do not leave a stale departed card enlarged.
+        if(!pinnedKey){
+          const followKey=view?.hasCard(info.hoveredKey)?info.hoveredKey:
+            view?.hasCard(info.selectedKey)?info.selectedKey:null;
+          if(followKey!==previewKey)renderZoom(followKey);
         }
         if(combatFeed.classList.contains('active')&&performance.now()-Number(combatFeed.dataset.since)>1650){combatFeed.classList.remove('active');}
         const inspect=Boolean(info.selectedKey);
@@ -3735,7 +3741,11 @@ window.MRRBattlefieldUIInit=function(loadThree){
         view.refreshHover(key);
       }
       function describeHover(key,profile){
-        if(!pinnedKey&&(view?.hasCard(key)||view?.hasCard(view?.state.selectedKey)))renderZoom(view?.hasCard(key)?key:view?.state.selectedKey);
+        if(!pinnedKey){
+          const publicKey=view?.hasCard(key)?key:
+            view?.hasCard(view?.state.selectedKey)?view.state.selectedKey:null;
+          if(publicKey!==previewKey)renderZoom(publicKey);
+        }
         if(!key||!profile){cardTip.classList.remove('visible');cardTip.textContent='';return;}
         const legal=profile.target?'공격 가능 대상':profile.legal?'합법적 대상 또는 위치':'';
         cardTip.replaceChildren();
