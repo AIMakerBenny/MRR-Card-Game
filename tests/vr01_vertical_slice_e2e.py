@@ -212,6 +212,58 @@ try:
           detached,retired_screen)
       finally:
         dom_page.close()
+    # VR01LF: test VR01's ACTUAL entry/startup lifecycle independently
+    # of the Three.js loader. The original integrated engine receives no
+    # synthetic game action and must never reveal a private hand.
+    vr_lifecycle_page=browser.new_page()
+    try:
+      vr_lifecycle_page.set_content(
+        '<div id="overlay" class="hidden"></div>'
+        '<div id="gameScreen"><div class="mcw-top-controls">'
+        '<button id="mrr-integrated-open" type="button">Native 3D</button>'
+        '</div></div>')
+      vr_lifecycle_page.add_script_tag(content=(
+        ROOT/'src'/'visual-rework'/'vr01.js').read_text(encoding='utf-8'))
+      lifecycle=vr_lifecycle_page.evaluate("""async () => {
+        const overlay=document.querySelector('#overlay');
+        const root=document.querySelector('#gameScreen');
+        const entry=document.querySelector('#mrr-vr-open');
+        const nativeEntry=document.querySelector('#mrr-integrated-open');
+        let nativeClicks=0;
+        nativeEntry.addEventListener('click',()=>{nativeClicks++;});
+        window.MRRIntegrated={state:{open:false},close(){}};
+        const clean=()=>!MRRVR.status.open&&!entry.disabled&&
+          !document.body.classList.contains('mrr-vr-active')&&
+          !root.classList.contains('mrr-vr-playing');
+        overlay.classList.remove('hidden');
+        await MRRVR.open();
+        const blocked={nativeClicks,clean:clean()};
+        overlay.classList.add('hidden');
+        const pending=MRRVR.open();
+        await new Promise(resolve=>setTimeout(resolve,25));
+        const pendingStarted=nativeClicks===1&&entry.disabled;
+        overlay.classList.remove('hidden');
+        await pending;
+        const privateAborted={nativeClicks,clean:clean()};
+        overlay.classList.add('hidden');
+        const second=MRRVR.open();
+        await new Promise(resolve=>setTimeout(resolve,25));
+        const startedAgain=nativeClicks===2&&entry.disabled;
+        MRRVR.close();
+        await second;
+        const cancelled={nativeClicks,clean:clean()};
+        return {blocked,pendingStarted,privateAborted,
+          startedAgain,cancelled};
+      }""")
+      assert lifecycle=={
+        'blocked':{'nativeClicks':0,'clean':True},
+        'pendingStarted':True,
+        'privateAborted':{'nativeClicks':1,'clean':True},
+        'startedAgain':True,
+        'cancelled':{'nativeClicks':2,'clean':True}
+      },('VR01LF stale async VR entry survived private handoff/close',lifecycle)
+    finally:
+      vr_lifecycle_page.close()
     def snap():
       return page.evaluate("""() => {
         const s=gameSnapshot();delete s.storedAt;return JSON.stringify(s);
@@ -262,6 +314,20 @@ try:
     page.wait_for_function('MRRVR.status.open && MRRIntegrated.state.scene.frames>5',timeout=45000)
     assert snap()==baseline,'Opening VR changed actual gameplay'
     assert page.locator('#mrr-vr-shell').is_visible()
+    # VR01LF: close the real Phase21 screen while VR01 is already open.
+    # The 3D shell must dispose itself and return to the unchanged game.
+    page.evaluate("""() => document.getElementById('gameScreen')
+      .classList.add('hidden')""")
+    page.wait_for_function("""() => !MRRVR.status.open&&
+      !MRRIntegrated.state.open&&
+      !document.body.classList.contains('mrr-vr-active')""",timeout=15000)
+    page.evaluate("""() => document.getElementById('gameScreen')
+      .classList.remove('hidden')""")
+    assert snap()==baseline,'VR01LF native exit changed Phase21 gameplay'
+    page.locator('#mrr-vr-open').click()
+    page.wait_for_function('MRRVR.status.open && MRRIntegrated.state.scene.frames>5',
+      timeout=45000)
+    assert snap()==baseline,'VR01LF reopening after native exit changed gameplay'
     # VR01AO: save the same public opponent back node across real PC
     # resize events. Only the publicly visible back count is consulted.
     page.evaluate("""() => {
