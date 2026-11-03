@@ -134,6 +134,12 @@
     // updates and a fresh Three.js face texture without changing slots.
     // Refresh only the changed artwork or text, avoiding repeat uploads.
     const identityChanged=currentKey!==key||currentIdentity!==identity;
+    // VR01KG: selection/attack eligibility belongs exclusively to
+    // the ORIGINAL native public slot, not to VR geometry or labels.
+    const nativeSlot=q('#arena [data-slot="'+key+'"]');
+    const nativeRole=nativeSlot?.classList.contains('attack-target')?
+      'target':nativeSlot?.classList.contains('selected-slot')?
+      'selected':'public';
     // VR01JR: the small in-game inspector now reads the same
     // already PUBLIC card details as the Phase55 inspector.
     // VR01JV: mirror only the HP bar percentage and status CHIP
@@ -141,7 +147,7 @@
     // a computed game HP value or a new action entitlement.
     const captionText=JSON.stringify([
       data.name,data.kind,data.cost,data.stats,data.sigil,
-      data.hpBarPercent,data.statusChip
+      data.hpBarPercent,data.statusChip,nativeRole
     ]);
     if(identityChanged||currentArtData!==data.artData){
       picture.src=data.artData;
@@ -155,6 +161,12 @@
         data.kind,data.cost?'비용 '+data.cost:'',data.stats
       ].filter(Boolean).join(' · ');
       caption.replaceChildren(title,detail);
+      if(nativeRole!=='public'){
+        const roleLabel=document.createElement('span');
+        roleLabel.className='vr-focus-action-status';
+        roleLabel.textContent=nativeRole==='target'?'공격 대상':'선택 카드';
+        caption.append(roleLabel);
+      }
       if(data.sigil){
         const sigil=document.createElement('span');
         sigil.className='vr-focus-sigil';
@@ -192,10 +204,7 @@
     // VR01JY: present the TRUE Phase21 native selected/attack class
     // on the inspected public card, never inferred legality.
     // The outline itself is decorative and never intercepts clicks.
-    const nativeSlot=q('#arena [data-slot="'+key+'"]');
-    frame.dataset.nativeRole=nativeSlot?.classList.contains('attack-target')?
-      'target':nativeSlot?.classList.contains('selected-slot')?
-      'selected':'public';
+    frame.dataset.nativeRole=nativeRole;
     // VR01JT: a hidden display:none frame always measures zero.
     // Show it for DOM measurement within this same frame, then
     // choose the dock from its REAL current artwork/caption height.
