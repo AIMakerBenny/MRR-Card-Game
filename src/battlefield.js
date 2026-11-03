@@ -1595,7 +1595,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(!(canvas instanceof HTMLCanvasElement))return null;
       item.previewUrl=canvas.toDataURL('image/png');
     }
-    return {key,artData:item.previewUrl,
+    // VR01JI: show the current PUBLIC HP-bar fill and visible native
+    // status chip in the optional inspector. A CSS fill percentage is
+    // presentation only, never interpreted as absolute Phase21 health.
+    const bar=node?.closest('.board-card')?.querySelector('.hpbar > div');
+    const percent=bar?Number.parseFloat(bar.style.width):NaN;
+    const hpBarPercent=Number.isFinite(percent)?
+      Math.max(0,Math.min(100,percent)):null;
+    const statusChip=node?.closest('.board-card')?.
+      querySelector('.status-chip')?.textContent?.trim()||'';
+    return {key,artData:item.previewUrl,hpBarPercent,statusChip,
       // VR01JC: pin an already public ID, never a slot key alone.
       publicId:item.publicId,
       name:node?.querySelector('.card-name')?.textContent?.trim()||'',
@@ -3625,7 +3634,8 @@ window.MRRBattlefieldUIInit=function(loadThree){
         // after VR01JG. Rebuild caption DOM only when PUBLIC metadata
         // changes, preventing needless layout work during Chromium play.
         const captionSignature=JSON.stringify([
-          info.name,info.kind,info.cost,info.stats,info.sigil
+          info.name,info.kind,info.cost,info.stats,info.sigil,
+          info.hpBarPercent,info.statusChip
         ]);
         if(captionSignature!==shownCaptionSignature){
           shownCaptionSignature=captionSignature;
@@ -3638,6 +3648,17 @@ window.MRRBattlefieldUIInit=function(loadThree){
             const sigil=document.createElement('span');
             sigil.className='mrr-zoom-sigil';sigil.textContent=info.sigil;
             zoomCaption.append(sigil);
+          }
+          const nativeState=[
+            Number.isFinite(info.hpBarPercent)?
+              '공개 HP 게이지 '+Math.round(info.hpBarPercent)+'%':'',
+            info.statusChip||''
+          ].filter(Boolean).join(' · ');
+          if(nativeState){
+            const state=document.createElement('span');
+            state.className='mrr-zoom-public-state';
+            state.textContent=nativeState;
+            zoomCaption.append(state);
           }
         }
         zoomPane.classList.add('visible');
