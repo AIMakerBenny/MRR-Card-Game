@@ -1611,7 +1611,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const contact=Math.max(0,Math.min(1,impact));
     card.seatShadow.visible=!card.deploy&&card.seatShadowReveal>.012;
     card.seatShadow.scale.setScalar(.94+.26*spread-.065*contact);
-    card.seatShadowMaterial.opacity=(.53-.22*spread+.10*contact)*
+    card.seatShadowMaterial.opacity=(.53-.22*spread+.10*contact+.075*(card.vrPressAmount||0))*
       card.seatShadowReveal;
     if(card.seatShadow.visible&&contact>0)
       vrNativeHitShadowPeak=Math.max(vrNativeHitShadowPeak,contact);
@@ -2635,7 +2635,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // neighboring seats never flash together. Reduced motion is static.
       if(c.contactRing){
         const inspected=c.key===hoveredKey?1:c.key===selectedKey?.48:0;
-        const target=Math.max(inspected,vrImpactContact*.78);
+        const target=Math.max(inspected,vrImpactContact*.78,(c.vrPressAmount||0)*.84);
         // VR01GQ: a genuine hit can receive a very short first RAF delta
         // on SwiftShader. Give its FIRST confirmed rendered frame at least
         // one 32ms visual easing step, so the contact glow is actually
@@ -2646,9 +2646,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.contactAmount=(c.contactAmount??0)+
           (target-(c.contactAmount??0))*alpha;
         c.contactRing.visible=c.contactAmount>.012;
-        c.contactRing.material.opacity=.68*c.contactAmount;
+        c.contactRing.material.opacity=(.68+.10*(c.vrPressAmount||0))*c.contactAmount;
         c.contactRing.material.color.setHex(vrImpactContact>.02?
-          0xffb18e:c.slot.owner===0?0xa1f9d6:0xffc997);
+          0xffb18e:(c.vrPressAmount||0)>.12?
+            (c.slot.owner===0?0xd2fff4:0xffedcd):
+            c.slot.owner===0?0xa1f9d6:0xffc997);
         c.contactRing.scale.setScalar(.91+.09*c.contactAmount);
         if(vrImpactContact>.02)vrNativeHitContactPeak=Math.max(
           vrNativeHitContactPeak,c.contactRing.material.opacity);
@@ -2665,7 +2667,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.edgeAmount=(c.edgeAmount??0)+
           (Math.max(focus,nativeImpact)-(c.edgeAmount??0))*alpha;
         c.edgeGlint.visible=c.edgeAmount>.015;
-        c.edgeGlintMaterial.opacity=.44*c.edgeAmount;
+        c.edgeGlintMaterial.opacity=(.44+.12*(c.vrPressAmount||0))*c.edgeAmount;
         c.edgeGlintMaterial.color.setHex(validFlash?0xffa476:
           vrAimSource?0xffd69a:
           c.slot.owner===0?0xc5ffe8:0xffdfad);
@@ -2710,7 +2712,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // VR01IE: the current public pointer height changes only the
         // reflection, not selected state, strike validation or hitboxes.
         const upperFactor=over&&!frozen?.85+.15*(vrRimPointerHeight+1)/2:1;
-        c.edgeSheen.material.opacity=.34*c.edgeSheenAmount*upperFactor;
+        c.edgeSheen.material.opacity=(.34+.10*(c.vrPressAmount||0))*
+          c.edgeSheenAmount*upperFactor;
         c.edgeSheen.material.color.setHex(hit>.02?0xffba8e:
           locked?0xffd6a0:sourceLocked?0xffe1ad:
           c.slot.owner===0?0xeefff8:0xffeccc);
@@ -2784,8 +2787,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // texture, catches more of the existing scene lighting on inspection.
       // No duplicate artwork, hidden information, geometry or input layer.
       if(vrMode){
-        const targetRoughness=hover?.29:c.key===selectedKey?.37:.48;
-        const targetMetalness=hover?.18:c.key===selectedKey?.11:.05;
+        // VR01IY: touch pressure catches the EXISTING public card's
+        // physical enamel and metal trim, then relaxes on release. No
+        // extra geometry, card texture, gameplay state or pickable layer.
+        const pressure=c.vrPressAmount||0;
+        const targetRoughness=(hover?.29:c.key===selectedKey?.37:.48)-.06*pressure;
+        const targetMetalness=(hover?.18:c.key===selectedKey?.11:.05)+.09*pressure;
         const alpha=frozen?1:1-Math.exp(-visualDelta/145);
         c.face.material.roughness+=(targetRoughness-c.face.material.roughness)*alpha;
         c.face.material.metalness+=(targetMetalness-c.face.material.metalness)*alpha;
