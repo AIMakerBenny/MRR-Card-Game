@@ -3660,9 +3660,9 @@ try:
     assert same_size['real']==0 and same_size['skipped']>=2 and (
       same_size['projected'] is True),same_size
     assert snap()==baseline,'VR01FE duplicate scene resize mutated Phase21'
-    # VR01ET: a real stop/resume must not advance Phase21 input or leave
-    # the 3D animation clock carrying a stale hidden-tab frame interval.
-    before_resume=page.evaluate('MRRIntegrated.state.scene.frames')
+    # VR01ET: stop/resume must not advance Phase21 input or keep a stale
+    # hidden-tab frame interval. Capture frames AFTER stop, not before
+    # the interactive pointer tests, where real frames must still run.
     # VR01FB: simulate only the pointer-down portion of a drag. The
     # native engine never receives a click, attack or mouse-up.
     armed=page.evaluate("""() => {
@@ -3738,6 +3738,10 @@ try:
       pending_before_stop['nativeUnchanged']),pending_before_stop
     assert snap()==baseline,'VR01HD staging a visual strike changed Phase21'
     page.evaluate('MRRIntegrated.scene.stop()')
+    # VR01HV: the previous baseline was captured many live RAF frames
+    # before stop(), causing a false failure on slower Chromium runners.
+    # A paused frame count can only be compared with a post-stop value.
+    before_resume=page.evaluate('MRRIntegrated.state.scene.frames')
     assert page.evaluate("""n => {
       const s=MRRIntegrated.state.scene;
       return s.vrPendingStrike===null&&
@@ -3786,7 +3790,8 @@ try:
       paused_events['distanceBefore']==paused_events['distanceAfter']),paused_events
     assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
-    assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume
+    assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume,(
+      'VR01HV stopped 3D scene rendered a frame after stop()')
     page.evaluate('MRRIntegrated.scene.start()')
     page.wait_for_function("""n => {
       const s=MRRIntegrated.state.scene;
