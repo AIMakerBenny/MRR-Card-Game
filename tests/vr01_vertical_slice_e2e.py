@@ -1098,6 +1098,38 @@ try:
       focus_box['y']+focus_box['height']<=main_card['top']+8 or
       focus_box['y']>=main_card['bottom']-8),('focus occludes hovered public card',focus_box,main_card)
     page.screenshot(path=str(ROOT/'tests/vr01_card_focus_1920x1080.png'),animations='disabled')
+    # VR01KL: authentic native card-inspector and deck-rail toggles
+    # suppress the hover magnifier even when mouse position is unchanged.
+    # Never click a card, expose a hidden hand or alter Phase21 game state.
+    for control_id,panel_class in (
+        ('mrr-integrated-inspector','mrr-integrated-inspector-open'),
+        ('mrr-integrated-rail','mrr-integrated-rail-open')):
+      opened=page.evaluate("""args => {
+        const control=document.getElementById(args.control);
+        if(!control||control.disabled||control.hidden)return false;
+        control.click();
+        return document.getElementById('gameScreen')?.classList.contains(args.panel);
+      }""",{'control':control_id,'panel':panel_class})
+      assert opened,('native panel did not open',control_id)
+      page.wait_for_function("""panel => {
+        const host=document.getElementById('gameScreen');
+        const focus=document.getElementById('mrr-vr-card-focus');
+        return host?.classList.contains(panel)&&!!focus&&focus.hidden;
+      }""",arg=panel_class,timeout=12000)
+      assert snap()==baseline,('VR01KL panel open mutated gameplay',control_id)
+      page.evaluate("""control => {
+        document.getElementById(control)?.click();
+      }""",control_id)
+      page.wait_for_function("""panel =>
+        !document.getElementById('gameScreen')?.classList.contains(panel)
+      """,arg=panel_class,timeout=12000)
+      page.mouse.move(xy['x']+2,xy['y']+2)
+      page.wait_for_function("""key => {
+        const focus=document.getElementById('mrr-vr-card-focus');
+        return MRRIntegrated.state.scene.hoveredKey===key&&
+          !!focus&&!focus.hidden&&!!focus.querySelector('img')?.naturalWidth;
+      }""",arg=mine,timeout=18000)
+      assert snap()==baseline,('VR01KL panel close mutated gameplay',control_id)
     # VR01P: OS/browser cancellation must never synthesize a card click.
     page.locator('#mrr-integrated-stage canvas').evaluate("""(canvas,p)=>{
       for(const type of ['pointerdown','pointercancel','pointerup'])
