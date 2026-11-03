@@ -45,6 +45,13 @@ body.mrr-vr-active #mrr-vr-card-focus .vr-card-focus-caption .vr-focus-sigil{
   display:-webkit-box;-webkit-box-orient:vertical;
   -webkit-line-clamp:3;line-clamp:3;overflow:hidden;
 }
+/* VR01KK: concise native public rules copy, not a second
+   engine description or a fabricated card effect. */
+body.mrr-vr-active #mrr-vr-card-focus .vr-focus-public-summary{
+  color:#eee0be;font:400 11px/1.38 'Malgun Gothic',sans-serif;
+  display:-webkit-box;-webkit-box-orient:vertical;
+  -webkit-line-clamp:3;line-clamp:3;overflow:hidden;
+}
 /* VR01KG: native target/selection identity is visibly labelled, not
    communicated only by a colored border. No input or click target. */
 body.mrr-vr-active #mrr-vr-card-focus .vr-focus-action-status{

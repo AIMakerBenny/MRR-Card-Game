@@ -1617,6 +1617,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       publicId:item.publicId,
       name:node?.querySelector('.card-name')?.textContent?.trim()||'',
       kind:node?.querySelector('.card-kind')?.textContent?.trim()||'',
+      // VR01KK: optional rules copy comes ONLY from an already
+      // visible PUBLIC battlefield card, never a hidden card registry.
+      summary:node?.querySelector('.card-summary')?.textContent?.trim()||'',
       stats:node?.querySelector('.card-stats')?.textContent?.trim()||'',
       cost:node?.querySelector('.cost-bubble')?.textContent?.trim()||'',
       // VR01JB: include only the sigil already printed on the PUBLIC card.

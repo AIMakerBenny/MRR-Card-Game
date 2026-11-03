@@ -149,7 +149,7 @@
     // Only the public vitality meter and status text update on impact,
     // preserving layout and avoiding unnecessary texture/art recomposition.
     const captionText=JSON.stringify([
-      data.name,data.kind,data.cost,data.stats,data.sigil,nativeRole
+      data.name,data.kind,data.cost,data.stats,data.summary,data.sigil,nativeRole
     ]);
     if(identityChanged||currentArtData!==data.artData){
       picture.src=data.artData;
@@ -163,6 +163,12 @@
         data.kind,data.cost?'비용 '+data.cost:'',data.stats
       ].filter(Boolean).join(' · ');
       caption.replaceChildren(title,detail);
+      if(data.summary){
+        const summary=document.createElement('span');
+        summary.className='vr-focus-public-summary';
+        summary.textContent=data.summary;
+        caption.append(summary);
+      }
       if(nativeRole!=='public'){
         const roleLabel=document.createElement('span');
         roleLabel.className='vr-focus-action-status';
