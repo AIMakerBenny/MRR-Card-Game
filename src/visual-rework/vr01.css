@@ -673,6 +673,26 @@ body.mrr-vr-active #mrr-vr-shell:not(.vr-placing) .vr-hand:has(.vr-card:focus-vi
  transform:translateX(-50%) rotate(var(--angle))!important;
  filter:drop-shadow(0 7px 13px #000d)!important;
 }
+/* VR01LS: a genuine native inspector or supply rail is a modal
+   information surface. Neither a lingering :hover nor a focused mirror
+   may raise, rotate or intercept its underlying 3D hand cards.
+   The real native panel stays fully interactive and owns all gameplay. */
+body.mrr-vr-active #gameScreen:is(.mrr-integrated-inspector-open,.mrr-integrated-rail-open)
+ #mrr-vr-shell .vr-hand .vr-card{
+ pointer-events:none!important;
+ height:var(--peek)!important;
+ width:var(--hit)!important;
+}
+body.mrr-vr-active #gameScreen:is(.mrr-integrated-inspector-open,.mrr-integrated-rail-open)
+ #mrr-vr-shell .vr-hand .vr-card .vr-card-face{
+ bottom:calc(-1 * var(--card-h) + var(--peek))!important;
+ transform:translateX(-50%) rotate(var(--angle))!important;
+ filter:drop-shadow(0 7px 13px #000d)!important;
+}
+body.mrr-vr-active #gameScreen:is(.mrr-integrated-inspector-open,.mrr-integrated-rail-open)
+ #mrr-vr-shell .vr-hand .vr-card .vr-card-face::after{
+ display:none!important;
+}
 /* VR01DT: perspective inspection and pointer-tracked specular highlight.
    Fixed native hit anchors, neighbors and the 1200x960 art region are intact. */
 @media(prefers-reduced-motion:no-preference){
