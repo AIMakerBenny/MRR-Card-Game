@@ -372,7 +372,25 @@ function updateHand(){
       card.append(keycap);
     }
     card.addEventListener('click',()=>{
-      const original=qa('#hand .hand-slot')[d.i];
+      // VR01JN: a native draw, discard or reorder can happen between
+      // VR01's last mirrored-hand render and a real mouse/keyboard click.
+      // Never click a DIFFERENT Phase21 card merely because its old
+      // 3D button still occupies the same numbered hand position.
+      const nativeHand=qa('#hand .hand-slot');
+      const original=nativeHand[d.i];
+      const source=original?.querySelector('.card-ui');
+      const id=source?.getAttribute('data-mrr-public-card-id')||'';
+      const sourceName=clean(q('.card-name',source)?.textContent)||'카드';
+      const sourceKind=clean(q('.card-kind',source)?.textContent);
+      const sameCard=d.publicId||id?
+        !!(d.publicId&&id&&d.publicId===id):
+        sourceName===d.name&&sourceKind===d.kind;
+      if(!original||!source||!sameCard||
+         nativeHand.length!==fan.children.length||
+         fan.children[d.i]!==card||
+         !q('#overlay')?.classList.contains('hidden')){
+        schedule();return;
+      }
       if(original){
         // Arm a visual launch at the hand card's actual onscreen position.
         // The 3D scene waits until original Phase21 rules really create a
