@@ -1570,7 +1570,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   // VR01HS: cumulative diagnostic for shadows reacting to confirmed
   // native public hits. Never count hover, targeting or an empty slot.
-  let vrNativeHitShadowPeak=0;
+  let vrNativeHitShadowPeak=0,vrNativeHitRimSheenPeak=0;
   function updateVrLiftShadow(card,impact=0,delta=0,frozen=false){
     if(!card.seatShadow)return;
     // VR01HU: a REAL Phase21-confirmed arrival has no ground shadow
@@ -2595,15 +2595,21 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         if(validFlash)vrNativeHitEdgePeak=Math.max(
           vrNativeHitEdgePeak,c.edgeGlintMaterial.opacity);
       }
-      // VR01IA: a genuinely native-selected 3D card retains one
-      // restrained, steady top-rim gleam while a different public
-      // target is inspected. The brighter moving sheen is hover-only.
-      // Reuse the original real mesh, and never suggest a legal attack.
+      // VR01IB: native-confirmed PUBLIC damage briefly warms the
+      // physical top-rim shine even without hover. It uses the already
+      // identity-checked fx-hit, never a click, aim or inferred HP loss.
+      // The subdued native selection and pointer inspection still work.
       if(c.edgeSheen){
         const over=c.key===hoveredKey&&!c.deploy;
         const selected=c.key===selectedKey&&!c.deploy;
-        const target=over?1:selected?.27:0;
-        const alpha=frozen?1:1-Math.exp(-visualDelta/135);
+        const hit=validFlash&&!frozen&&!c.deploy?
+          Math.max(0,vrImpactContact)*.90:0;
+        const target=Math.max(over?1:selected?.27:0,hit);
+        // On the first confirmed rendered native hit, reserve a real
+        // easing sample on slow software WebGL just like the side frame.
+        const delta=validFlash&&flash.shownFrames===0&&!frozen?
+          Math.max(32,visualDelta):visualDelta;
+        const alpha=frozen?1:1-Math.exp(-delta/135);
         c.edgeSheenAmount=(c.edgeSheenAmount??0)+
           (target-(c.edgeSheenAmount??0))*alpha;
         const xTarget=over&&!frozen?Math.max(-.73,
@@ -2612,7 +2618,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           (xTarget-(c.edgeSheenX??0))*alpha;
         c.edgeSheen.visible=c.edgeSheenAmount>.015;
         c.edgeSheen.material.opacity=.34*c.edgeSheenAmount;
+        c.edgeSheen.material.color.setHex(hit>.02?0xffba8e:
+          c.slot.owner===0?0xeefff8:0xffeccc);
         c.edgeSheen.position.x=c.edgeSheenX;
+        if(hit>.02)vrNativeHitRimSheenPeak=Math.max(
+          vrNativeHitRimSheenPeak,c.edgeSheen.material.opacity);
       }
       // VR01FQ: the four genuine 3D seat corners belong only to the
       // card selected by native Phase21. No speculative attack cue.
@@ -3115,6 +3125,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrNativeHitEdgePeak:vrMode?Number(vrNativeHitEdgePeak.toFixed(4)):null,
       vrNativeHitContactPeak:vrMode?Number(vrNativeHitContactPeak.toFixed(4)):null,
       vrNativeHitShadowPeak:vrMode?Number(vrNativeHitShadowPeak.toFixed(4)):null,
+      vrNativeHitRimSheenPeak:vrMode?
+        Number(vrNativeHitRimSheenPeak.toFixed(4)):null,
       vrHitFaceFlashActive:vrMode?vrHitFaceFlash.size:null,
       vrHitFaceRendered:vrMode?[...vrHitFaceFlash.values()].filter(f=>
         f.shownFrames>0).length:null,

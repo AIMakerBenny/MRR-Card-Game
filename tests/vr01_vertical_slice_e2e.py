@@ -4455,6 +4455,7 @@ try:
           return s.vrHitFaceFlashCount>=1&&s.vrHitFaceFlashPeak>.08&&
             s.vrNativeHitEdgePeak>.08&&s.vrNativeHitContactPeak>.08&&
             s.vrNativeHitShadowPeak>.08&&
+            s.vrNativeHitRimSheenPeak>.08&&
             s.vrImpactSpringPeak>.08;
         }""",timeout=13000)
       except Exception:
@@ -4467,6 +4468,7 @@ try:
             flashPeak:s.vrHitFaceFlashPeak,edgePeak:s.vrNativeHitEdgePeak,
             contactPeak:s.vrNativeHitContactPeak,
             shadowPeak:s.vrNativeHitShadowPeak,
+            rimSheenPeak:s.vrNativeHitRimSheenPeak,
             active:s.vrHitFaceFlashActive,
             rendered:s.vrHitFaceRendered,springPeak:s.vrImpactSpringPeak,
             recoilFrames:s.vrHitRecoilRenderFrames,
