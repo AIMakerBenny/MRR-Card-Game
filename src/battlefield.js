@@ -2632,6 +2632,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const selected=c.key===selectedKey&&!c.deploy;
         const hit=validFlash&&!frozen&&!c.deploy?
           Math.max(0,vrImpactContact)*.90:0;
+        // VR01IF: an existing native-validated target lock warms only
+        // its CURRENT public card's rim. A lock on an old occupant
+        // cannot colour the next occupant at the same native slot.
+        const locked=vrMode&&!frozen&&!c.deploy&&over&&
+          attackArrow.visible&&vrTargetLock?.key===c.key&&
+          vrSamePublicIdentity(vrTargetLock.id,vrTargetLock.name,
+            c.publicId,c.publicName);
         const target=Math.max(over?1:selected?.27:0,hit);
         // On the first confirmed rendered native hit, reserve a real
         // easing sample on slow software WebGL just like the side frame.
@@ -2650,6 +2657,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const upperFactor=over&&!frozen?.85+.15*(vrRimPointerHeight+1)/2:1;
         c.edgeSheen.material.opacity=.34*c.edgeSheenAmount*upperFactor;
         c.edgeSheen.material.color.setHex(hit>.02?0xffba8e:
+          locked?0xffd6a0:
           c.slot.owner===0?0xeefff8:0xffeccc);
         c.edgeSheen.position.x=c.edgeSheenX;
         if(hit>.02)vrNativeHitRimSheenPeak=Math.max(
@@ -3054,6 +3062,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         x:Number(cardIndex.get(hoveredKey).edgeSheen.position.x.toFixed(3)),
         color:cardIndex.get(hoveredKey).edgeSheenMaterial.color.getHex()
       }:null,
+      vrAimTargetRimHue:vrMode&&cardIndex.get(vrTargetLock?.key)?.edgeSheen?
+        cardIndex.get(vrTargetLock.key).edgeSheenMaterial.color.getHex():null,
       vrSelectedRimSheen:vrMode&&cardIndex.get(selectedKey)?.edgeSheen?{
         opacity:Number(cardIndex.get(selectedKey).edgeSheenMaterial.opacity.toFixed(3)),
         x:Number(cardIndex.get(selectedKey).edgeSheen.position.x.toFixed(3))

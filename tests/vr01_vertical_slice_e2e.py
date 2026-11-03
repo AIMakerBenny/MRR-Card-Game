@@ -4040,6 +4040,15 @@ try:
         s.vrTargetFloorHaloOpacity<=.251;
     }""",timeout=14000)
     assert snap()==baseline,'VR01HP target floor halo changed Phase21'
+    # VR01IF: only a native-validated, still-identical public target
+    # gets the amber top rim. This does not submit an attack action.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrTargetLockKey===s.hoveredKey &&
+        s.vrAimTargetRimHue===0xffd6a0 &&
+        s.vrEdgeSheenPickSafe===true;
+    }""",timeout=14000)
+    assert snap()==baseline,'VR01IF attack-target rim changed Phase21'
     # VR01HQ: a true native-validated attacking SOURCE gently readies
     # its actual public mesh; no speculative combat, input or HP change.
     page.wait_for_function("""() => {
