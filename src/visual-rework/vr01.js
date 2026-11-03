@@ -10,6 +10,10 @@ const el=(tag,cls,txt)=>{
   if(txt!==undefined)e.textContent=String(txt);return e;
 };
 const clean=v=>String(v||'').replace(/\s+/g,' ').trim();
+// VR01LK: Phase76's original modal information panels own keyboard focus.
+// A card-selection hotkey may not activate gameplay behind those panels.
+const nativeInfoPanelOpen=()=>root.classList.contains('mrr-integrated-inspector-open')||
+  root.classList.contains('mrr-integrated-rail-open');
 const native=selector=>{const n=q(selector);if(!n||n.disabled)return false;n.click();return true;};
 // VR01KW: cosmetic PC footer actions may be delivered by queued or
 // programmatic clicks after the native private handoff or scene close.
@@ -890,6 +894,7 @@ function refresh(){
  const handButtons=qa('#vr-hand .vr-card',ui);
  const nativeHandButtons=qa('#hand .hand-slot');
  const handHotkeysActive=legalCount===0&&attackCount===0&&
+   !nativeInfoPanelOpen()&&
    q('#overlay')?.classList.contains('hidden')&&
    handButtons.length===nativeHandButtons.length;
  ui.classList.toggle('vr-hand-hotkeys-paused',!handHotkeysActive);
@@ -932,7 +937,7 @@ function handleHandShortcut(ev){
     !root.classList.contains('mrr-vr-playing')||!ui.isConnected||
     !window.MRRIntegrated?.state.open)return;
  if(ev.target?.closest?.('input,textarea,select,[contenteditable],[role="textbox"]'))return;
- if(!q('#overlay')?.classList.contains('hidden'))return;
+ if(!q('#overlay')?.classList.contains('hidden')||nativeInfoPanelOpen())return;
  const key=ev.key.toLowerCase();
  // VR01BR: the original Phase21 legal target DOM is authoritative even
  // before the visual adapter's next requestAnimationFrame refresh.
