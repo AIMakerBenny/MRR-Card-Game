@@ -1415,6 +1415,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   const vrCardFingerprint=p=>JSON.stringify([p.cardId,p.name,p.kind,p.cost,p.stats,p.sigil]);
   let hoveredKey=null,selectedKey=null,legalCount=0,attackTargetCount=0,statusSignature='';
+  // VR01HY: a hover belongs to a visible PUBLIC card identity, not
+  // merely to a slot which the native game may replace in place.
+  let vrHoverPublicIdentity=null,vrHoverIdentityWithdrawals=0;
   let vrSelectionBursts=0,vrSelectionBurst=null;
   let vrTargetLocks=0,vrTargetLock=null;
   let cardHealth=new Map(),healthIndicatorCount=0;
@@ -1936,6 +1939,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         p.cardId===vrTargetLock.id:
         !p.cardId&&p.name===vrTargetLock.name))))
       vrTargetLock=null;
+    // VR01HY: the same occupied native slot can receive a NEW public
+    // card after combat or a turn refresh. Previous hover highlights
+    // cannot transfer to that new identity until a genuine pointer move.
+    if(vrMode&&vrHoverPublicIdentity&&
+      hoveredKey===vrHoverPublicIdentity.key){
+      const occupant=list.find(p=>p.key===hoveredKey);
+      if(!occupant?.name||!vrSamePublicIdentity(
+        vrHoverPublicIdentity.id,vrHoverPublicIdentity.name,
+        occupant.cardId,occupant.name)){
+        vrHoverIdentityWithdrawals++;
+        setHover(null,true);
+      }
+    }
     // VR01P: a departed card must not leave hover light or its inspector
     // attached to an empty, non-actionable slot. Legal empty slots remain.
     if(vrMode&&hoveredKey&&!list.some(p=>p.key===hoveredKey&&
@@ -2091,6 +2107,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
     hoveredKey=key;
     const card=slot?.querySelector('.board-card .card-ui');
+    // Only a real hover transition establishes the binding. A forced
+    // sync refresh cannot silently rebind a new occupant at this slot.
+    if(vrMode&&(!force||!key)){
+      const name=card?.querySelector('.card-name')?.textContent?.trim()||'';
+      vrHoverPublicIdentity=name?{
+        key,id:card.getAttribute('data-mrr-public-card-id')||null,name
+      }:null;
+    }
     mount.style.cursor=key&&(card||slot?.classList.contains('legal')||slot?.classList.contains('attack-target'))?'pointer':vrMode?'default':'grab';
     events.onHover?.(key,card?{
       name:card.querySelector('.card-name')?.textContent?.trim()||'',
@@ -2927,6 +2951,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrCameraAuto:vrMode?!manualCamera:null,
       vrCrowdedComposition:vrMode&&cameraPreset==='tabletop'&&cards.length>=16,
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
+      vrHoverPublicIdentityKey:vrMode?vrHoverPublicIdentity?.key||null:null,
+      vrHoverIdentityWithdrawals:vrMode?vrHoverIdentityWithdrawals:null,
       vrFocusedCardKey:vrMode?vrFocusedCardKey:null,
       vrFocusedLightIntensity:vrMode?Number(vrFocusLamp.intensity.toFixed(2)):null,
       vrFocusColourDelta:vrMode&&vrFocusedCardKey?Number(Math.max(
