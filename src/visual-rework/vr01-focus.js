@@ -167,6 +167,19 @@
     const targetY=Math.max(yMin,Math.min(yMax,cy-height/2));
     const leftDock=margin,rightDock=Math.max(margin,box.width-width-margin);
     const xs=[leftDock,rightDock],ys=[targetY,yMin,yMax];
+    // VR01JZ: real PC controls and raised hand cards must remain
+    // readable when a public card is magnified. Sample only current
+    // DOM rectangles, with no extra pointer surface or game commands.
+    const hudRects=[
+      ...document.querySelectorAll('#mrr-vr-shell .vr-header,'+
+        '#mrr-vr-shell .vr-footer,'+
+        '#mrr-vr-shell .vr-pile-display,'+
+        '#mrr-vr-shell .vr-card:is(:hover,:focus-visible,.raised),'+
+        '#mrr-integrated-context')
+    ].filter(node=>node.getClientRects().length).map(node=>{
+      const r=node.getBoundingClientRect();
+      return {x:r.left-box.left,y:r.top-box.top,w:r.width,h:r.height};
+    }).filter(r=>r.w>0&&r.h>0);
     let chosen=null;
     for(const x of xs)for(const y of ys){
       let occlusion=0;
@@ -175,15 +188,25 @@
           iy=Math.max(0,Math.min(y+height,a.bottom-box.top)-Math.max(y,a.top-box.top));
         occlusion+=ix*iy*(card.key===key?50:1);
       }
-      // Avoid jumping the inspection dock far from the mouse when scores tie.
-      const score=occlusion+Math.abs(y-targetY)*.03+
+      // VR01JZ: penalize overlap with actual hero controls, action
+      // buttons and raised hand cards. Existing 50x source-card
+      // protection remains the primary visibility requirement.
+      let hudOcclusion=0;
+      for(const r of hudRects){
+        const iw=Math.max(0,Math.min(x+width,r.x+r.w)-Math.max(x,r.x));
+        const ih=Math.max(0,Math.min(y+height,r.y+r.h)-Math.max(y,r.y));
+        hudOcclusion+=iw*ih;
+      }
+      const score=occlusion+hudOcclusion*2.2+Math.abs(y-targetY)*.03+
         (cx<box.width/2&&x===xs[0]?35:0)+(cx>=box.width/2&&x===xs[1]?35:0);
-      if(!chosen||score<chosen.score)chosen={x,y,score,occlusion};
+      if(!chosen||score<chosen.score)
+        chosen={x,y,score,occlusion,hudOcclusion};
     }
     frame.style.left=chosen.x+'px';
     frame.style.top=chosen.y+'px';
     frame.dataset.dock=chosen.x===leftDock?'left':'right';
     frame.dataset.publicOcclusion=Math.round(chosen.occlusion).toString();
+    frame.dataset.hudOcclusion=Math.round(chosen.hudOcclusion).toString();
     frame.hidden=false;
   }
   document.addEventListener('pointermove',event=>{
