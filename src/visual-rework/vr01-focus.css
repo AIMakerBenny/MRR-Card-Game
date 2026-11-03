@@ -12,9 +12,19 @@ body.mrr-vr-active #mrr-vr-card-focus img{
   border:3px solid #c7a976;border-radius:10px;background:#192b31;
   box-shadow:inset 0 0 0 2px #e7d1a1,0 0 0 7px #0a171a9e,0 3px 17px #040709dd;
 }
+/* VR01JR: readable real public name, card cost/kind/stats and
+   sigil, with no new native action, pick surface or private data. */
 body.mrr-vr-active #mrr-vr-card-focus .vr-card-focus-caption{
-  max-width:100%;padding:8px 9px 0;color:#dfdbc9;text-shadow:0 2px 6px #000;
-  font:500 12px 'Malgun Gothic',sans-serif;text-align:center;
+  display:flex;flex-direction:column;gap:3px;max-width:100%;
+  padding:8px 9px 0;color:#dfdbc9;text-shadow:0 2px 6px #000;
+  font:500 12px/1.4 'Malgun Gothic',sans-serif;text-align:center;
+  overflow-wrap:anywhere;
+}
+body.mrr-vr-active #mrr-vr-card-focus .vr-card-focus-caption strong{
+  color:#fff0c7;font-size:13px;
+}
+body.mrr-vr-active #mrr-vr-card-focus .vr-card-focus-caption .vr-focus-sigil{
+  color:#c8bca8;font-size:11px;line-height:1.32;
 }
 @media(max-width:1500px){
   body.mrr-vr-active #mrr-vr-card-focus{width:205px}

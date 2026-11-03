@@ -35,13 +35,29 @@
     // updates and a fresh Three.js face texture without changing slots.
     // Refresh only the changed artwork or text, avoiding repeat uploads.
     const identityChanged=currentKey!==key||currentIdentity!==identity;
-    const captionText=[data.name,data.stats].filter(Boolean).join('  |  ');
+    // VR01JR: the small in-game inspector now reads the same
+    // already PUBLIC card details as the Phase55 inspector.
+    const captionText=JSON.stringify([
+      data.name,data.kind,data.cost,data.stats,data.sigil
+    ]);
     if(identityChanged||currentArtData!==data.artData){
       picture.src=data.artData;
       currentArtData=data.artData;
     }
     if(identityChanged||currentCaption!==captionText){
-      caption.textContent=captionText;
+      const title=document.createElement('strong');
+      title.textContent=data.name;
+      const detail=document.createElement('span');
+      detail.textContent=[
+        data.kind,data.cost?'비용 '+data.cost:'',data.stats
+      ].filter(Boolean).join(' · ');
+      caption.replaceChildren(title,detail);
+      if(data.sigil){
+        const sigil=document.createElement('span');
+        sigil.className='vr-focus-sigil';
+        sigil.textContent=data.sigil;
+        caption.append(sigil);
+      }
       picture.alt=data.name+' 공개 카드 확대';
       currentCaption=captionText;
     }
