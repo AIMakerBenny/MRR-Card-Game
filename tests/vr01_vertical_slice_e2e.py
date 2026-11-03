@@ -3922,6 +3922,13 @@ try:
       'MRRIntegrated.state.scene.vrFullFrameGlint') is True,(
       'VR01HO public 3D card frame lost its four-side glint')
     assert snap()==baseline,'VR01HO full-frame glint changed Phase21'
+    # VR01HW: UV-driven rim sheen follows only real public inspection.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene,sh=s.vrHoveredEdgeSheen;
+      return s.hoveredKey&&s.vrEdgeSheenPickSafe===true &&
+        sh?.opacity>.24 && sh.opacity<.35 && Math.abs(sh.x)<=.74;
+    }""",timeout=14000)
+    assert snap()==baseline,'VR01HW top-rim sheen changed Phase21'
     # VR01FQ: a real native selected card has restrained, non-pickable
     # physical corner strokes surrounding its occupied 3D seat.
     page.wait_for_function("""() => {

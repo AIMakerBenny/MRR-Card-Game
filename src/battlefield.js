@@ -302,6 +302,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // as the side rails; none of these decorative meshes accept clicks.
   const vrEdgeCapGlintGeo=vrMode?
     geometry(new THREE.BoxGeometry(2.08,.032,.025)):null;
+  // VR01HW: one narrow highlight moves along a real PUBLIC card's
+  // top metal rim when its existing Three.js face is inspected.
+  const vrEdgeSheenGeo=vrMode?
+    geometry(new THREE.BoxGeometry(.46,.054,.034)):null;
   // VR01FQ: world-space seat corner strokes make the currently native
   // selected public card legible without adding an HTML panel or hitbox.
   // These four pairs are shared GPU geometry for every occupied card.
@@ -1616,6 +1620,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           pitch:c.visualPitch,roll:c.visualRoll,
           seatShadowReveal:c.seatShadowReveal,
           contact:c.contactAmount,edge:c.edgeAmount,
+          sheen:c.edgeSheenAmount,sheenX:c.edgeSheenX,
           corners:c.seatCornerAmount,
           roughness:c.face.material.roughness,
           metalness:c.face.material.metalness
@@ -1635,6 +1640,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         if(c.contactRing)c.contactRing.material.dispose();
         if(c.seatShadowMaterial)c.seatShadowMaterial.dispose();
         if(c.edgeGlintMaterial)c.edgeGlintMaterial.dispose();
+        if(c.edgeSheenMaterial)c.edgeSheenMaterial.dispose();
         if(c.seatCornersMaterial)c.seatCornersMaterial.dispose();
         if(c.face.material.map){
           const tex=c.face.material.map;tex.userData.artDisposed=true;tex.dispose();
@@ -1676,6 +1682,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const stand=new THREE.Mesh(cardGeometry,bronze);
         stand.position.z=-.065;stand.scale.set(1.055,1.05,.18);group.add(stand);
         let edgeGlint=null,edgeGlintMaterial=null;
+        let edgeSheen=null,edgeSheenMaterial=null;
         if(vrMode){
           edgeGlintMaterial=new THREE.MeshBasicMaterial({
             color:slot.owner===0?0xc5ffe8:0xffdfad,
@@ -1695,6 +1702,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           }
           edgeGlint.visible=false;
           group.add(edgeGlint);
+          edgeSheenMaterial=new THREE.MeshBasicMaterial({
+            color:slot.owner===0?0xeefff8:0xffeccc,
+            transparent:true,opacity:0,depthWrite:false,
+            blending:THREE.AdditiveBlending
+          });
+          edgeSheen=new THREE.Mesh(vrEdgeSheenGeo,edgeSheenMaterial);
+          edgeSheen.position.set(0,1.35,.226);
+          edgeSheen.visible=false;group.add(edgeSheen);
         }
         // Parent the indicators to the 3D card so tilt, hover and focus
         // transform the art and health/status as a single visible object.
@@ -1756,7 +1771,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         }
         const item={key:p.key,group,face,frame,seat,contactRing,
           seatShadow,seatShadowMaterial,
-          edgeGlint,edgeGlintMaterial,seatCorners,seatCornersMaterial,slot,hpBg,hpFill,
+          edgeGlint,edgeGlintMaterial,edgeSheen,edgeSheenMaterial,
+          seatCorners,seatCornersMaterial,slot,hpBg,hpFill,
           hpDamageTrail,statusDot,publicId:p.cardId,publicName:p.name,
           fingerprint:vrCardFingerprint(p)};
         const carry=vrMode?hitReactionCarry.get(p.key):null;
@@ -1782,6 +1798,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
             ['visualRoll',visual.roll],
             ['seatShadowReveal',visual.seatShadowReveal],
             ['contactAmount',visual.contact],['edgeAmount',visual.edge],
+            ['edgeSheenAmount',visual.sheen],['edgeSheenX',visual.sheenX],
             ['seatCornerAmount',visual.corners]
           ])if(Number.isFinite(value))item[field]=value;
           if(Number.isFinite(visual.roughness))
@@ -1800,6 +1817,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           if(item.edgeGlint&&Number.isFinite(item.edgeAmount)){
             item.edgeGlint.visible=item.edgeAmount>.015;
             item.edgeGlintMaterial.opacity=.44*item.edgeAmount;
+          }
+          if(item.edgeSheen&&Number.isFinite(item.edgeSheenAmount)){
+            item.edgeSheen.visible=item.edgeSheenAmount>.015;
+            item.edgeSheenMaterial.opacity=.34*item.edgeSheenAmount;
+            item.edgeSheen.position.x=item.edgeSheenX||0;
           }
           if(item.seatCorners&&Number.isFinite(item.seatCornerAmount)){
             item.seatCorners.visible=item.seatCornerAmount>.012;
@@ -2538,6 +2560,21 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         if(validFlash)vrNativeHitEdgePeak=Math.max(
           vrNativeHitEdgePeak,c.edgeGlintMaterial.opacity);
       }
+      // VR01HW: public face UV drives a tiny rim-only light; never
+      // cover artwork or add an input hitbox on the physical card.
+      if(c.edgeSheen){
+        const target=c.key===hoveredKey&&!c.deploy?1:0;
+        const alpha=frozen?1:1-Math.exp(-visualDelta/135);
+        c.edgeSheenAmount=(c.edgeSheenAmount??0)+
+          (target-(c.edgeSheenAmount??0))*alpha;
+        const xTarget=target&&!frozen?Math.max(-.73,
+          Math.min(.73,vrFaceHoverBias*.73)):0;
+        c.edgeSheenX=(c.edgeSheenX??0)+
+          (xTarget-(c.edgeSheenX??0))*alpha;
+        c.edgeSheen.visible=c.edgeSheenAmount>.015;
+        c.edgeSheen.material.opacity=.34*c.edgeSheenAmount;
+        c.edgeSheen.position.x=c.edgeSheenX;
+      }
       // VR01FQ: the four genuine 3D seat corners belong only to the
       // card selected by native Phase21. No speculative attack cue.
       if(c.seatCorners){
@@ -2829,6 +2866,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(c.contactRing)c.contactRing.material.dispose();
       if(c.seatShadowMaterial)c.seatShadowMaterial.dispose();
       if(c.edgeGlintMaterial)c.edgeGlintMaterial.dispose();
+        if(c.edgeSheenMaterial)c.edgeSheenMaterial.dispose();
       if(c.seatCornersMaterial)c.seatCornersMaterial.dispose();
       const tex=c.face.material.map;
       if(tex){tex.userData.artDisposed=true;uniqueTextures.add(tex);}
@@ -2909,6 +2947,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.edgeGlint.children.every(m=>!pickMeshes.includes(m))):null,
       vrFullFrameGlint:vrMode?cards.every(c=>
         !c.edgeGlint||c.edgeGlint.children.length===4):null,
+      vrEdgeSheenPickSafe:vrMode?cards.every(c=>
+        !c.edgeSheen||!pickMeshes.includes(c.edgeSheen)):null,
+      vrHoveredEdgeSheen:vrMode&&cardIndex.get(hoveredKey)?.edgeSheen?{
+        opacity:Number(cardIndex.get(hoveredKey).edgeSheenMaterial.opacity.toFixed(3)),
+        x:Number(cardIndex.get(hoveredKey).edgeSheen.position.x.toFixed(3))
+      }:null,
       vrSourceAimEdgeOpacity:vrMode&&cardIndex.get(selectedKey)?.edgeGlint?
         Number(cardIndex.get(selectedKey).edgeGlintMaterial.opacity.toFixed(3)):null,
       vrSelectedSeatCornersOpacity:vrMode&&cardIndex.get(selectedKey)?.seatCorners?
