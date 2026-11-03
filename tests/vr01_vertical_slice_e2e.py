@@ -401,6 +401,66 @@ try:
       }""")
       assert tooltip_audit,('VR01BC publicly grounded hand tooltip mismatch',w,h)
       assert snap()==baseline,('VR01AW/AX inspection changed Phase21 state',w,h)
+      # VR01KT: when an ID is absent, differing native PUBLIC cost,
+      # rules or stats must never select an unrelated mirrored hand card.
+      # Restore the original public DOM synchronously before the next frame.
+      no_id_guard=page.evaluate("""() => {
+        const original=document.querySelector('#hand .hand-slot');
+        const source=original?.querySelector('.card-ui');
+        const mirror=document.querySelector('#vr-hand .vr-card');
+        const field=source?.querySelector('.card-stats,.card-summary,.cost-bubble');
+        if(!source||!mirror||!field)return null;
+        const originalId=source.getAttribute('data-mrr-public-card-id');
+        const mirrorId=mirror.dataset.vrPublicId;
+        const oldText=field.textContent,hadOwn=Object.prototype.hasOwnProperty.call(original,'click');
+        const oldClick=original.click;
+        let forwarded=0;
+        try{
+          original.click=()=>{forwarded++;};
+          source.removeAttribute('data-mrr-public-card-id');
+          mirror.dataset.vrPublicId='';
+          field.textContent=oldText+' VR01KT';
+          mirror.click();
+          return {forwarded,mirrorAlive:mirror.isConnected};
+        }finally{
+          field.textContent=oldText;
+          if(originalId===null)source.removeAttribute('data-mrr-public-card-id');
+          else source.setAttribute('data-mrr-public-card-id',originalId);
+          mirror.dataset.vrPublicId=mirrorId;
+          if(hadOwn)original.click=oldClick;
+          else delete original.click;
+        }
+      }""")
+      assert no_id_guard and no_id_guard['forwarded']==0 and (
+        no_id_guard['mirrorAlive']),('VR01KT no-ID public mismatch activated native card',
+          w,h,no_id_guard)
+      # VR01KS: stale public target identities must not move the keyboard
+      # hand focus, even if the native count and stale mirror index match.
+      navigation_guard=page.evaluate("""() => {
+        const cards=[...document.querySelectorAll('#vr-hand .vr-card')];
+        const native=[...document.querySelectorAll('#hand .hand-slot')];
+        if(cards.length<2||cards.length!==native.length)return null;
+        const source=native[1].querySelector('.card-ui');
+        if(!source)return null;
+        const originalId=source.getAttribute('data-mrr-public-card-id');
+        cards[0].focus();
+        try{
+          source.setAttribute('data-mrr-public-card-id',
+            (originalId||'')+'-vr01kt-stale');
+          cards[0].dispatchEvent(new KeyboardEvent('keydown',
+            {key:'ArrowRight',bubbles:true,cancelable:true}));
+          return {stayed:document.activeElement===cards[0],
+            mirrorCount:cards.length,nativeCount:native.length};
+        }finally{
+          if(originalId===null)source.removeAttribute('data-mrr-public-card-id');
+          else source.setAttribute('data-mrr-public-card-id',originalId);
+        }
+      }""")
+      assert navigation_guard and navigation_guard['stayed'] and (
+        navigation_guard['mirrorCount']==navigation_guard['nativeCount']),(
+          'VR01KT stale keyboard hand navigation was not rejected',
+          w,h,navigation_guard)
+      assert snap()==baseline,('VR01KT public-only guards changed Phase21',w,h)
       # VR01KP: even a queued 3D hand click must not forward into
       # Phase21 while a REAL native slot is already targeting. A temporary
       # legal class plus a spy on that element's native click tests the
