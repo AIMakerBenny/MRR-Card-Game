@@ -4,9 +4,11 @@
   let frame=null, picture=null, caption=null, currentKey=null,
       currentIdentity=null,currentArtData=null,currentCaption='',pointerOnCanvas=false;
   let arenaObserver=null,observedArena=null,arenaFrame=0;
+  let passObserver=null,observedPass=null;
   const q=(selector,parent=document)=>parent.querySelector(selector);
   function dispose(){
     arenaObserver?.disconnect();arenaObserver=observedArena=null;
+    passObserver?.disconnect();passObserver=observedPass=null;
     if(arenaFrame)cancelAnimationFrame(arenaFrame);
     arenaFrame=0;
     frame?.remove();frame=picture=caption=null;
@@ -44,6 +46,20 @@
       attributeFilter:['class','style','data-mrr-public-card-id']
     });
   }
+  // VR01JX: a real Phase21 handoff overlay instantly hides public
+  // inspection, even when the cursor never moves. The observer watches
+  // only the native overlay visibility, never any private hand contents.
+  function watchNativeOverlay(){
+    const overlay=q('#overlay');
+    if(overlay===observedPass)return;
+    passObserver?.disconnect();passObserver=observedPass=null;
+    if(!overlay)return;
+    observedPass=overlay;
+    passObserver=new MutationObserver(()=>{
+      if(!overlay.classList.contains('hidden'))clearFocus();
+    });
+    passObserver.observe(overlay,{attributes:true,attributeFilter:['class']});
+  }
   function create(){
     const shell=q('#mrr-vr-shell');if(!shell)return;
     frame=document.createElement('aside');frame.id='mrr-vr-card-focus';
@@ -57,6 +73,12 @@
     if(!frame)create();
     if(!frame)return;
     watchPublicArena();
+    watchNativeOverlay();
+    const nativeCover=q('#overlay');
+    if(document.hidden||
+       (nativeCover&&!nativeCover.classList.contains('hidden'))){
+      clearFocus();return;
+    }
     const scene=window.MRRIntegrated?.scene;
     const key=pointerOnCanvas?scene?.state.hoveredKey:null;
     if(!key||!scene?.hasCard(key)){frame.hidden=true;currentKey=currentIdentity=currentArtData=null;currentCaption='';return;}
