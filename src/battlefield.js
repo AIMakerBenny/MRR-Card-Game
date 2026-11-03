@@ -2816,9 +2816,23 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // existing restrained card tilt, with NO camera orbit and no
         // additional hitbox. Only the native visible public face supplies
         // the horizontal UV; legal empty slots always have zero bias.
+        // VR01JA: the selected public attack source subtly turns toward
+        // the real Phase21-validated, identity-matched opponent target.
+        // This is only card presentation: targeting still follows the
+        // original native .attack-target and slot-click decision.
+        const aimTarget=vrAimSource&&vrTargetLock&&
+          vrSamePublicIdentity(vrTargetLock.sourceId,
+            vrTargetLock.sourceName,c.publicId,c.publicName)?
+            cardIndex.get(vrTargetLock.key):null;
+        const validAimTarget=aimTarget&&
+          vrSamePublicIdentity(vrTargetLock.id,vrTargetLock.name,
+            aimTarget.publicId,aimTarget.publicName);
+        const aimTurn=validAimTarget&&!frozen?Math.max(-.13,Math.min(.13,
+          Math.atan2(aimTarget.slot.x-c.slot.x,
+            Math.abs(aimTarget.slot.z-c.slot.z)+2)*.15)):0;
         const targetYaw=c.deploy?0:hover?
           (c.slot.owner===0?-1:1)*(.115+vrFaceHoverBias*.014):
-          c.key===selectedKey?(c.slot.owner===0?-.043:.043):0;
+          c.key===selectedKey?(c.slot.owner===0?-.043:.043)+aimTurn:0;
         const alpha=frozen?1:1-Math.exp(-visualDelta/130);
         c.visualYaw=(c.visualYaw??0)+(targetYaw-(c.visualYaw??0))*alpha;
         c.group.rotation.y=c.visualYaw;
@@ -2827,7 +2841,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // Reduced motion retains the original static card inclination.
         const targetPitch=frozen||c.deploy?0:hover?
           .043+vrFaceHoverBiasY*.006:c.key===selectedKey?
-            (vrAimSource?.027:.014):0;
+            (validAimTarget&&!frozen?.048:.014):0;
         c.visualPitch=(c.visualPitch??0)+
           (targetPitch-(c.visualPitch??0))*alpha;
         // VR01HN: restrained second-axis parallax on the genuine public
