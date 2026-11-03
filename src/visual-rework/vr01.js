@@ -242,10 +242,16 @@ function reflowHand(fan){
      card.style.removeProperty(name);
  }
  function updateHandTilt(card,ev){
-   if(!open||!ui||ui.classList.contains('vr-placing')||
-       nativeInfoPanelOpen()||
+   // VR01LU: stale pointermove can arrive after a card is recycled,
+   // focused via keyboard, or covered by a genuine native modal.
+   // Never maintain a glint/raised state on a disabled hand anchor.
+   const behindPanel=nativeInfoPanelOpen();
+   if(!open||!ui||!card.isConnected||!ui.contains(card)||
+       ui.classList.contains('vr-placing')||behindPanel||
+       card.matches(':focus-visible')||
        !q('#overlay')?.classList.contains('hidden')||
        window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+     if(behindPanel)card.classList.remove('raised');
      resetHandTilt(card);return;
    }
    const rect=q('.vr-card-face',card)?.getBoundingClientRect();
