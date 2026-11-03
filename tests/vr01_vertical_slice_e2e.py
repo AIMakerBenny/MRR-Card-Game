@@ -5127,6 +5127,14 @@ try:
         page.wait_for_function("""() => MRRIntegrated.state.scene.vrDeployTransitions>=1""",timeout=22000)
         page.wait_for_function("""() => MRRIntegrated.state.scene.vrDeployActive===0""",timeout=27000)
         assert page.evaluate('MRRIntegrated.state.scene.vrDeployTransitions')==1
+        # VR01HU: only the already confirmed native arrival receives
+        # its own physically eased non-pickable ground shadow.
+        page.wait_for_function("""key=>{
+          const s=MRRIntegrated.state.scene;
+          return s.vrLandingShadowReveals===1 &&
+            s.vrSeatShadowPickSafe===true &&
+            s.vrSeatShadowRevealByKey?.[key]>.90;
+        }""",arg=dest,timeout=15000)
         assert page.evaluate('MRRIntegrated.state.scene.vrLandingDustStarted')==1,(
           'Real confirmed landing should create exactly one temporary ground-contact puff')
         page.wait_for_function('MRRIntegrated.state.scene.vrLandingDustActive===0',timeout=15000)

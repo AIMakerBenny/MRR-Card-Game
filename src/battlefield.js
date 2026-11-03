@@ -1387,6 +1387,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   let cards=[],signature='',publicCardCount=0,lastSync=0;
   let vrPendingDeploy=null,vrDeployTransitions=0,vrReusedCards=0;
+  let vrLandingShadowReveals=0;
   let vrPresentationCarryTransfers=0,vrIdentityCarryRejects=0;
   let vrNeighborPairChecks=0,vrNeighborCacheRebuilds=0;
   let vrNeighborOccupancyKey='',vrNeighborCache=new Map();
@@ -1562,15 +1563,24 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01HS: cumulative diagnostic for shadows reacting to confirmed
   // native public hits. Never count hover, targeting or an empty slot.
   let vrNativeHitShadowPeak=0;
-  function updateVrLiftShadow(card,impact=0){
+  function updateVrLiftShadow(card,impact=0,delta=0,frozen=false){
     if(!card.seatShadow)return;
-    // The footprint reacts to the existing VISUAL lift and only to a
-    // public-identity-checked Phase21 fx-hit. It never estimates damage.
+    // VR01HU: a REAL Phase21-confirmed arrival has no ground shadow
+    // while airborne; after physical landing its original seat shadow
+    // fades in. Never invent a card, legal seat or deployment event.
+    const before=Number.isFinite(card.seatShadowReveal)?
+      card.seatShadowReveal:1;
+    const target=card.deploy?0:1;
+    const alpha=delta<=0?0:frozen?1:1-Math.exp(-delta/165);
+    card.seatShadowReveal=before+(target-before)*alpha;
+    // The footprint also reacts to visual inspection and an existing
+    // public-identity-checked Phase21 fx-hit, never estimated damage.
     const spread=Math.max(0,Math.min(1,(card.visualLift||0)/.86));
     const contact=Math.max(0,Math.min(1,impact));
-    card.seatShadow.visible=!card.deploy;
+    card.seatShadow.visible=!card.deploy&&card.seatShadowReveal>.012;
     card.seatShadow.scale.setScalar(.94+.26*spread-.065*contact);
-    card.seatShadowMaterial.opacity=.53-.22*spread+.10*contact;
+    card.seatShadowMaterial.opacity=(.53-.22*spread+.10*contact)*
+      card.seatShadowReveal;
     if(card.seatShadow.visible&&contact>0)
       vrNativeHitShadowPeak=Math.max(vrNativeHitShadowPeak,contact);
   }
@@ -1604,6 +1614,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           id:c.publicId,name:c.publicName,
           scale:c.visualScale,lift:c.visualLift,yaw:c.visualYaw,
           pitch:c.visualPitch,roll:c.visualRoll,
+          seatShadowReveal:c.seatShadowReveal,
           contact:c.contactAmount,edge:c.edgeAmount,
           corners:c.seatCornerAmount,
           roughness:c.face.material.roughness,
@@ -1769,6 +1780,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
             ['visualScale',visual.scale],['visualLift',visual.lift],
             ['visualYaw',visual.yaw],['visualPitch',visual.pitch],
             ['visualRoll',visual.roll],
+            ['seatShadowReveal',visual.seatShadowReveal],
             ['contactAmount',visual.contact],['edgeAmount',visual.edge],
             ['seatCornerAmount',visual.corners]
           ])if(Number.isFinite(value))item[field]=value;
@@ -1802,6 +1814,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           performance.now()-vrPendingDeploy.born<18000){
           if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
             item.deploy={started:performance.now(),from:vrPendingDeploy.origin.clone()};
+            item.seatShadowReveal=0;
             frame.userData.mrrDeploying=face.userData.mrrDeploying=true;
             vrDeployTransitions++;
           }
@@ -2660,7 +2673,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // VR01HS: briefly tighten the real 3D contact shadow only when
         // the CURRENT public card received a native-confirmed hit.
         if(vrMode)updateVrLiftShadow(c,validFlash&&!frozen?
-          Math.max(0,1-(time-flash.firstShownAt)/600):0);
+          Math.max(0,1-(time-flash.firstShownAt)/600):0,
+          visualDelta,frozen);
         if(vrMode&&c.deploy){
           const raw=Math.max(0,Math.min(1,(performance.now()-c.deploy.started)/720));
           const ease=1-Math.pow(1-raw,3);
@@ -2676,6 +2690,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           if(c.seat)c.seat.scale.setScalar(.72+.28*ease);
           if(raw>=1){
             c.deploy=null;
+            // VR01HU: only this already native-confirmed 3D arrival
+            // can start the delayed seat-shadow reveal.
+            vrLandingShadowReveals++;
             c.frame.userData.mrrDeploying=c.face.userData.mrrDeploying=false;
             c.group.rotation.set(-.74,0,0);
             if(c.seat)c.seat.scale.setScalar(1);
@@ -2953,6 +2970,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrInspectionContactPickSafe:vrMode?
         cards.every(c=>!c.contactRing||!pickMeshes.includes(c.contactRing)):null,
       vrReusedCards:vrMode?vrReusedCards:null,vrDeployTransitions:vrMode?vrDeployTransitions:null,
+      vrLandingShadowReveals:vrMode?vrLandingShadowReveals:null,
+      vrSeatShadowRevealByKey:vrMode?Object.fromEntries(cards.filter(c=>c.seatShadow)
+        .map(c=>[c.key,Number((c.seatShadowReveal??1).toFixed(3))])):null,
       vrPresentationCarryTransfers:vrMode?vrPresentationCarryTransfers:null,
       vrIdentityCarryRejects:vrMode?vrIdentityCarryRejects:null,
       vrDeployActive:vrMode?cards.filter(c=>!!c.deploy).length:null,
