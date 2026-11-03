@@ -3640,7 +3640,32 @@ try:
       return MRRIntegrated.state.scene.vrPointerDragging;
     }""")
     assert rearmed is True,'VR01FJ could not rearm stop-interruption fixture'
+    # VR01HD: unlike a zero-pending stop assertion, prove that stopping
+    # a deliberately staged but UNCONFIRMED 3D attack revokes its source.
+    # No fx-hit, native click, HP change or combat calculation is created.
+    pending_before_stop=page.evaluate("""key => {
+      const scene=MRRIntegrated.scene;
+      const before=scene.state;
+      const source=before.selectedKey;
+      if(!source)return {error:'no original selected source'};
+      const accepted=scene.stageAttack(source,key);
+      const now=scene.state;
+      return {armed:accepted===true,
+        pending:now.vrPendingStrike?.sourceKey===source&&
+          now.vrPendingStrike?.targetKey===key,
+        nativeUnchanged:now.confirmedStrikes===before.confirmedStrikes,
+        withdrawals:now.vrPausedStrikeWithdrawals};
+    }""",opponent)
+    assert 'error' not in pending_before_stop and (
+      pending_before_stop['armed'] and pending_before_stop['pending'] and
+      pending_before_stop['nativeUnchanged']),pending_before_stop
+    assert snap()==baseline,'VR01HD staging a visual strike changed Phase21'
     page.evaluate('MRRIntegrated.scene.stop()')
+    assert page.evaluate("""n => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrPendingStrike===null&&
+        s.vrPausedStrikeWithdrawals===n+1;
+    }""",pending_before_stop['withdrawals']),'VR01HD stop did not revoke staged strike'
     assert page.evaluate("""() => {
       const s=MRRIntegrated.state.scene;
       return s.vrPointerDragging===false&&s.vrInterruptedPointerGestures>=1&&
