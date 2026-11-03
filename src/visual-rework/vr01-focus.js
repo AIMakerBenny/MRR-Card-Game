@@ -241,7 +241,16 @@
     const yMax=Math.max(yMin,yEnd);
     const targetY=Math.max(yMin,Math.min(yMax,cy-height/2));
     const leftDock=margin,rightDock=Math.max(margin,box.width-width-margin);
-    const xs=[leftDock,rightDock],ys=[targetY,yMin,yMax];
+    // VR01KM: one y target plus a small set of REAL viewport-bounded
+    // docks. Two extreme positions alone can overlap a large native face
+    // even when a safe intermediate position exists.
+    const ys=[targetY,yMin,yMax];
+    const usableHeight=yMax-yMin;
+    for(const fraction of [.25,.5,.75]){
+      const intermediate=yMin+usableHeight*fraction;
+      if(ys.every(y=>Math.abs(y-intermediate)>=2))ys.push(intermediate);
+    }
+    const xs=[leftDock,rightDock];
     // VR01JZ: real PC controls and raised hand cards must remain
     // readable when a public card is magnified. Sample only current
     // DOM rectangles, with no extra pointer surface or game commands.
