@@ -3659,9 +3659,18 @@ window.MRRBattlefieldUIInit=function(loadThree){
       cancelAction.addEventListener('click',()=>runNativeAction('button[data-cancel-action]'));
       function updateCommands(info){
         if(previewKey&&!view?.hasCard(previewKey))renderZoom(null);
-        if(pinnedKey&&!samePinnedPublic(view?.getCardPreview(pinnedKey))){
-          releasePin();
-          renderZoom(null);
+        // VR01JG: the same pinned PUBLIC occupant can receive native HP
+        // or stat changes while its slot stays unchanged. Refresh the
+        // existing inspector from the live identity-checked face instead
+        // of waiting for a new mouse hover or unpin action.
+        if(pinnedKey){
+          const pinnedInfo=view?.getCardPreview(pinnedKey);
+          if(!samePinnedPublic(pinnedInfo)){
+            releasePin();
+            renderZoom(null);
+          }else{
+            renderZoom(pinnedKey);
+          }
         }
         pinPreview.disabled=!(pinnedKey||view?.hasCard(info.hoveredKey)||view?.hasCard(info.selectedKey)||view?.hasCard(previewKey));
         if(!pinnedKey&&(info.hoveredKey||info.selectedKey)&&(info.hoveredKey||info.selectedKey)!==previewKey){
