@@ -2,9 +2,9 @@
 (() => {
   'use strict';
   let frame=null, picture=null, caption=null, currentKey=null,
-      currentIdentity=null,pointerOnCanvas=false;
+      currentIdentity=null,currentArtData=null,currentCaption='',pointerOnCanvas=false;
   const q=(selector,parent=document)=>parent.querySelector(selector);
-  function dispose(){frame?.remove();frame=picture=caption=null;currentKey=currentIdentity=null;pointerOnCanvas=false;}
+  function dispose(){frame?.remove();frame=picture=caption=null;currentKey=currentIdentity=currentArtData=null;currentCaption='';pointerOnCanvas=false;}
   function create(){
     const shell=q('#mrr-vr-shell');if(!shell)return;
     frame=document.createElement('aside');frame.id='mrr-vr-card-focus';
@@ -19,23 +19,33 @@
     if(!frame)return;
     const scene=window.MRRIntegrated?.scene;
     const key=pointerOnCanvas?scene?.state.hoveredKey:null;
-    if(!key||!scene?.hasCard(key)){frame.hidden=true;currentKey=currentIdentity=null;return;}
+    if(!key||!scene?.hasCard(key)){frame.hidden=true;currentKey=currentIdentity=currentArtData=null;currentCaption='';return;}
     const where=scene.projectCard(key),box=q('#mrr-integrated-stage')?.getBoundingClientRect();
     if(!where||!box||!Number.isFinite(where.x)||!Number.isFinite(where.y)){
-      frame.hidden=true;currentKey=currentIdentity=null;return;
+      frame.hidden=true;currentKey=currentIdentity=currentArtData=null;currentCaption='';return;
     }
     // VR01JP: a Phase21 native slot can be reused by a different PUBLIC
     // card while the mouse stays still. The old magnifier must never
     // preserve the departed occupant's card art at the reused key.
     const data=scene.getCardPreview(key);
-    if(!data?.artData){frame.hidden=true;currentKey=currentIdentity=null;return;}
+    if(!data?.artData){frame.hidden=true;currentKey=currentIdentity=currentArtData=null;currentCaption='';return;}
     const identity=data.publicId?
       'id:'+data.publicId:'name:'+data.name;
-    if(currentKey!==key||currentIdentity!==identity){
-      currentKey=key;currentIdentity=identity;
+    // VR01JQ: a card with the SAME native ID can receive visible HP/stat
+    // updates and a fresh Three.js face texture without changing slots.
+    // Refresh only the changed artwork or text, avoiding repeat uploads.
+    const identityChanged=currentKey!==key||currentIdentity!==identity;
+    const captionText=[data.name,data.stats].filter(Boolean).join('  |  ');
+    if(identityChanged||currentArtData!==data.artData){
       picture.src=data.artData;
-      caption.textContent=[data.name,data.stats].filter(Boolean).join('  |  ');
+      currentArtData=data.artData;
     }
+    if(identityChanged||currentCaption!==captionText){
+      caption.textContent=captionText;
+      picture.alt=data.name+' 공개 카드 확대';
+      currentCaption=captionText;
+    }
+    currentKey=key;currentIdentity=identity;
     const width=frame.offsetWidth||260,height=frame.offsetHeight||375;
     const cx=where.x-box.left,cy=where.y-box.top;
     // VR01F: choose a side inspection dock with the least overlap against
