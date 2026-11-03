@@ -3796,6 +3796,13 @@ try:
         s.vrFocusedCardKey===null && s.vrFocusedLightIntensity===0 &&
         s.vrEdgeSheenPickSafe===true;
     }"""),'VR01HX stopped 3D stage retained a transient rim shine'
+    # VR01IJ: an old selection/aim side-frame highlight is also
+    # withdrawn before the first restarted render frame.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrVisibleFrameGlintCount===0 &&
+        s.vrEdgeGlintPickSafe===true && s.vrFullFrameGlint===true;
+    }"""),'VR01IJ stopped scene retained a four-edge light'
     assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume,(
@@ -3826,6 +3833,13 @@ try:
         s.vrFocusedCardKey===key&&s.vrFocusedLightIntensity>10;
     }""",arg=opponent,timeout=16000)
     assert snap()==baseline,'VR01HX resumed hover mutated Phase21'
+    # VR01IJ: a NEW genuine hover restores existing frame light.
+    page.wait_for_function("""key => {
+      const s=MRRIntegrated.state.scene;
+      return s.hoveredKey===key&&s.vrVisibleFrameGlintCount>=1&&
+        s.vrHoveredEdgeGlintOpacity>.22;
+    }""",arg=opponent,timeout=14000)
+    assert snap()==baseline,'VR01IJ resumed frame changed Phase21'
     # VR01FN: the existing public target card gains a gently eased 3D
     # seat-contact glint. It is never raycastable, and every occupied
     # native public card has exactly one glint, no matter the viewport.

@@ -2949,6 +2949,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.edgeSheenMaterial.opacity=0;
         c.edgeSheen.position.x=0;
       }
+      // VR01IJ: stop clears the separate, non-pickable four-edge
+      // glint as well; an old aim or hit cannot remain frozen on screen.
+      for(const c of cards)if(c.edgeGlint){
+        c.edgeGlint.visible=false;c.edgeAmount=0;
+        c.edgeGlintMaterial.opacity=0;
+        c.edgeGlintMaterial.color.setHex(
+          c.slot.owner===0?0xc5ffe8:0xffdfad);
+      }
       // A stopped scene has no inspection beam. The original lighting
       // smoothly reacquires public focus on the next genuine RAF frame.
       if(vrFocusLamp){vrFocusLamp.intensity=0;vrFocusedCardKey=null;}
@@ -3089,6 +3097,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.edgeGlint.children.every(m=>!pickMeshes.includes(m))):null,
       vrFullFrameGlint:vrMode?cards.every(c=>
         !c.edgeGlint||c.edgeGlint.children.length===4):null,
+      vrVisibleFrameGlintCount:vrMode?cards.filter(c=>
+        c.edgeGlint?.visible).length:null,
       vrEdgeSheenPickSafe:vrMode?cards.every(c=>
         !c.edgeSheen||!pickMeshes.includes(c.edgeSheen)):null,
       vrVisibleEdgeSheenCount:vrMode?cards.filter(c=>
