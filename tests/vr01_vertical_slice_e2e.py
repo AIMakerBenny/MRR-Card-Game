@@ -3542,6 +3542,48 @@ try:
     assert 'error' not in stale_gesture and stale_gesture['rejected'] and (
       stale_gesture['dragCleared']),stale_gesture
     assert snap()==baseline,'VR01GD stale pointer release changed Phase21'
+    # VR01HH: exercise all three real canvas pointer-safety guards
+    # without calling a native engine click or changing game state.
+    pointer_safety=page.evaluate("""key => {
+      const stage=document.querySelector('#mrr-integrated-stage');
+      const canvas=stage?.querySelector('canvas'),scene=MRRIntegrated.scene;
+      if(!stage||!canvas)return {error:'missing VR canvas'};
+      const point=scene.projectCard(key);
+      if(!point)return {error:'no public projected target'};
+      const capture=stage.setPointerCapture;
+      stage.setPointerCapture=()=>{};
+      const fire=(name,id,x,y,button=0)=>{
+        canvas.dispatchEvent(new PointerEvent(name,{
+          bubbles:true,pointerId:id,button,clientX:x,clientY:y}));
+      };
+      let originRejected=false,movementRejected=false,
+        secondaryRejected=false,allCleared=false;
+      try{
+        const prior=scene.state;
+        fire('pointerdown',995,0,0);
+        fire('pointerup',995,point.x,point.y);
+        const a=scene.state;
+        originRejected=a.vrInvalidOriginGestureRejects===
+          prior.vrInvalidOriginGestureRejects+1;
+        fire('pointerdown',996,point.x,point.y);
+        const started=scene.state.vrPointerStartKey===key;
+        fire('pointerup',996,point.x+36,point.y+28);
+        const b=scene.state;
+        movementRejected=started&&b.vrUntrackedReleaseDrags===
+          a.vrUntrackedReleaseDrags+1;
+        fire('pointerdown',997,point.x,point.y);
+        fire('pointerup',997,point.x,point.y,2);
+        const c=scene.state;
+        secondaryRejected=c.vrNonPrimaryReleaseRejects===
+          b.vrNonPrimaryReleaseRejects+1;
+        allCleared=!c.vrPointerDragging&&c.vrPointerStartKey===null;
+      }finally{
+        stage.setPointerCapture=capture;
+      }
+      return {originRejected,movementRejected,secondaryRejected,allCleared};
+    }""",opponent)
+    assert 'error' not in pointer_safety and all(pointer_safety.values()),pointer_safety
+    assert snap()==baseline,'VR01HH synthetic pointer guards modified Phase21'
     # VR01FL: an attribute update on a slot removed within the same
     # MutationObserver batch is not a visible Phase21 combat event.
     detached_fx=page.evaluate("""() => {
