@@ -1567,6 +1567,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       item.previewUrl=canvas.toDataURL('image/png');
     }
     return {key,artData:item.previewUrl,
+      // VR01JC: pin an already public ID, never a slot key alone.
+      publicId:item.publicId,
       name:node?.querySelector('.card-name')?.textContent?.trim()||'',
       kind:node?.querySelector('.card-kind')?.textContent?.trim()||'',
       stats:node?.querySelector('.card-stats')?.textContent?.trim()||'',
@@ -3538,11 +3540,28 @@ window.MRRBattlefieldUIInit=function(loadThree){
       zoomImage.alt='공개 카드 일러스트 확대';
       const zoomCaption=document.createElement('div');zoomCaption.id='mrr-battlefield-zoom-caption';
       zoomPane.append(zoomImage,zoomCaption);
-      let pinnedKey=null,previewKey=null,shownImage='';
+      let pinnedKey=null,pinnedPublic=null,previewKey=null,shownImage='';
+      function samePinnedPublic(info){
+        if(!pinnedPublic||!info||info.key!==pinnedKey)return false;
+        if(pinnedPublic.id||info.publicId)
+          return !!pinnedPublic.id&&!!info.publicId&&
+            pinnedPublic.id===info.publicId;
+        return !!pinnedPublic.name&&pinnedPublic.name===info.name;
+      }
+      function releasePin(){
+        pinnedKey=null;pinnedPublic=null;
+        pinPreview.setAttribute('aria-pressed','false');
+        pinPreview.textContent='확대 고정';
+      }
       function renderZoom(key){
         if(pinnedKey)key=pinnedKey;
         const info=key?view?.getCardPreview(key):null;
-        if(!info||!info.name){
+        // The original Phase21 native slot can now show another card.
+        // Never silently redirect a pinned public inspector to it.
+        if(pinnedKey&&!samePinnedPublic(info)){
+          releasePin();key=null;
+        }
+        if(!key||!info||!info.name){
           previewKey=null;shownImage='';zoomPane.classList.remove('visible');
           zoomImage.removeAttribute('src');zoomCaption.textContent='';
           return;
@@ -3567,13 +3586,14 @@ window.MRRBattlefieldUIInit=function(loadThree){
       }
       pinPreview.addEventListener('click',()=>{
         if(pinnedKey){
-          pinnedKey=null;pinPreview.setAttribute('aria-pressed','false');
-          pinPreview.textContent='확대 고정';
+          releasePin();
           renderZoom(view?.state.hoveredKey||view?.state.selectedKey||previewKey);
         }else{
           const key=view?.state.hoveredKey||view?.state.selectedKey||previewKey;
-          if(!key||!view?.hasCard(key))return;
-          pinnedKey=key;pinPreview.setAttribute('aria-pressed','true');
+          const info=key?view?.getCardPreview(key):null;
+          if(!info||!info.name)return;
+          pinnedKey=key;pinnedPublic={id:info.publicId||null,name:info.name};
+          pinPreview.setAttribute('aria-pressed','true');
           pinPreview.textContent='고정 해제';renderZoom(key);
         }
       });
@@ -3589,9 +3609,9 @@ window.MRRBattlefieldUIInit=function(loadThree){
       cancelAction.addEventListener('click',()=>runNativeAction('button[data-cancel-action]'));
       function updateCommands(info){
         if(previewKey&&!view?.hasCard(previewKey))renderZoom(null);
-        if(pinnedKey&&!view?.hasCard(pinnedKey)){
-          pinnedKey=null;pinPreview.setAttribute('aria-pressed','false');
-          pinPreview.textContent='확대 고정';
+        if(pinnedKey&&!samePinnedPublic(view?.getCardPreview(pinnedKey))){
+          releasePin();
+          renderZoom(null);
         }
         pinPreview.disabled=!(pinnedKey||view?.hasCard(info.hoveredKey)||view?.hasCard(info.selectedKey)||view?.hasCard(previewKey));
         if(!pinnedKey&&(info.hoveredKey||info.selectedKey)&&(info.hoveredKey||info.selectedKey)!==previewKey){
