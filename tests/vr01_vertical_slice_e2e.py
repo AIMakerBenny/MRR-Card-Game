@@ -3997,6 +3997,14 @@ try:
         edgeContinues:before.vrHoveredEdgeGlintOpacity>.1&&
           Math.abs(during.vrHoveredEdgeGlintOpacity-
             before.vrHoveredEdgeGlintOpacity)<.02,
+        // VR01IC: when a live public face texture is recreated, its
+        // exact same-card rim hue and visible strength survive before
+        // the next RAF. No new game action or hidden-card read occurs.
+        rimContinues:before.vrHoveredEdgeSheen?.opacity>.12&&
+          Math.abs(during.vrHoveredEdgeSheen?.opacity-
+            before.vrHoveredEdgeSheen.opacity)<.02 &&
+          during.vrHoveredEdgeSheen?.color===
+            before.vrHoveredEdgeSheen.color,
         restored:after.publicCardCount===before.publicCardCount,
         hovered:after.hoveredKey===key,
         glintsSafe:after.vrInspectionContactPickSafe&&
@@ -4004,7 +4012,8 @@ try:
     }""",opponent)
     assert refresh['found'] and refresh['transferred']>=1 and (
       refresh['restored'] and refresh['hovered'] and refresh['glintsSafe'] and
-      refresh['contactContinues'] and refresh['edgeContinues']),refresh
+      refresh['contactContinues'] and refresh['edgeContinues'] and
+      refresh['rimContinues']),refresh
     assert snap()==baseline,'VR01FR public visual repaint changed Phase21'
     # VR01DU: a curved 17-point THREE.js trajectory must appear only
     # while the REAL Phase21 attack-target remains hovered.

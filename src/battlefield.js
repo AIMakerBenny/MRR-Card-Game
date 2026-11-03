@@ -1625,6 +1625,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           seatShadowReveal:c.seatShadowReveal,
           contact:c.contactAmount,edge:c.edgeAmount,
           sheen:c.edgeSheenAmount,sheenX:c.edgeSheenX,
+          sheenColor:c.edgeSheenMaterial?.color.getHex(),
           corners:c.seatCornerAmount,
           roughness:c.face.material.roughness,
           metalness:c.face.material.metalness
@@ -1822,10 +1823,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
             item.edgeGlint.visible=item.edgeAmount>.015;
             item.edgeGlintMaterial.opacity=.44*item.edgeAmount;
           }
+          // VR01IC: replacing public HP/stat texture must not reset an
+          // actual native-hit amber rim glint to its idle team color for
+          // one WebGL frame. Copy visual material state only when the
+          // current public card ID/name still matches exactly.
           if(item.edgeSheen&&Number.isFinite(item.edgeSheenAmount)){
             item.edgeSheen.visible=item.edgeSheenAmount>.015;
             item.edgeSheenMaterial.opacity=.34*item.edgeSheenAmount;
             item.edgeSheen.position.x=item.edgeSheenX||0;
+            if(Number.isFinite(visual.sheenColor))
+              item.edgeSheenMaterial.color.setHex(visual.sheenColor);
           }
           if(item.seatCorners&&Number.isFinite(item.seatCornerAmount)){
             item.seatCorners.visible=item.seatCornerAmount>.012;
@@ -3017,7 +3024,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.edgeSheen?.visible).length:null,
       vrHoveredEdgeSheen:vrMode&&cardIndex.get(hoveredKey)?.edgeSheen?{
         opacity:Number(cardIndex.get(hoveredKey).edgeSheenMaterial.opacity.toFixed(3)),
-        x:Number(cardIndex.get(hoveredKey).edgeSheen.position.x.toFixed(3))
+        x:Number(cardIndex.get(hoveredKey).edgeSheen.position.x.toFixed(3)),
+        color:cardIndex.get(hoveredKey).edgeSheenMaterial.color.getHex()
       }:null,
       vrSelectedRimSheen:vrMode&&cardIndex.get(selectedKey)?.edgeSheen?{
         opacity:Number(cardIndex.get(selectedKey).edgeSheenMaterial.opacity.toFixed(3)),
