@@ -5294,6 +5294,47 @@ try:
     target_projection=page.evaluate('k=>MRRIntegrated.scene.projectSlot(k)',target)
     assert target_projection and 0<target_projection['x']<1920 and (
       0<target_projection['y']<1080),target_projection
+    # VR01HK: a vacant seat was NOT legal at pointerdown. Becoming
+    # legal before pointerup cannot retroactively authorize a Phase21
+    # placement or movement. The native DOM is restored before any
+    # event observer runs; no original engine click is issued.
+    late_legal=page.evaluate("""key => {
+      const stage=document.querySelector('#mrr-integrated-stage');
+      const canvas=stage?.querySelector('canvas');
+      const scene=MRRIntegrated.scene;
+      const slot=document.querySelector('#arena [data-slot="'+key+'"]');
+      if(!stage||!canvas||!slot?.classList.contains('legal')||
+        slot.querySelector('.board-card .card-ui'))
+        return {error:'missing originally legal empty slot'};
+      const point=scene.projectSlot(key),capture=stage.setPointerCapture;
+      const before=scene.state.vrNonactionableOriginRejects;
+      let origin=false,clear=false,rejected=false;
+      stage.setPointerCapture=()=>{};
+      try{
+        slot.classList.remove('legal');
+        canvas.dispatchEvent(new PointerEvent('pointerdown',{
+          bubbles:true,button:0,pointerId:998,
+          clientX:point.x,clientY:point.y}));
+        const pressed=scene.state;
+        origin=pressed.vrPointerStartKey===key&&
+          pressed.vrPointerStartActionable===false;
+        slot.classList.add('legal');
+        canvas.dispatchEvent(new PointerEvent('pointerup',{
+          bubbles:true,button:0,pointerId:998,
+          clientX:point.x,clientY:point.y}));
+        const released=scene.state;
+        rejected=released.vrNonactionableOriginRejects===before+1;
+        clear=!released.vrPointerDragging&&
+          released.vrPointerStartActionable===false;
+      }finally{
+        slot.classList.add('legal');
+        stage.setPointerCapture=capture;
+        scene.sync();
+      }
+      return {origin,rejected,clear};
+    }""",target)
+    assert 'error' not in late_legal and all(late_legal.values()),late_legal
+    assert snap()==prior_move,'VR01HK late-legal click modified Phase21'
     # VR01GF: the exact native empty legal destination must be revoked
     # immediately if its .legal class disappears mid-pointer gesture.
     # Restore the original DOM class before Phase21 gets a real click.
