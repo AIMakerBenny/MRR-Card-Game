@@ -3822,7 +3822,7 @@ try:
     # the stop/resume transition; no old highlight is resurrected.
     page.wait_for_function("""key => {
       const s=MRRIntegrated.state.scene;
-      return s.hoveredKey===key&&s.vrVisibleEdgeSheenCount===1&&
+      return s.hoveredKey===key&&s.vrVisibleEdgeSheenCount>=1&&
         s.vrFocusedCardKey===key&&s.vrFocusedLightIntensity>10;
     }""",arg=opponent,timeout=16000)
     assert snap()==baseline,'VR01HX resumed hover mutated Phase21'
@@ -3945,6 +3945,16 @@ try:
         sh?.opacity>.24 && sh.opacity<.35 && Math.abs(sh.x)<=.74;
     }""",timeout=14000)
     assert snap()==baseline,'VR01HW top-rim sheen changed Phase21'
+    # VR01IA: the current native selected source keeps a quiet central
+    # rim highlight when the opponent is actually hovered. It is neither
+    # an invented valid target nor a new selectable input object.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene,sh=s.vrSelectedRimSheen;
+      return !!s.selectedKey&&s.selectedKey!==s.hoveredKey &&
+        s.vrEdgeSheenPickSafe===true&&
+        sh?.opacity>.075&&sh.opacity<.101&&Math.abs(sh.x)<.03;
+    }""",timeout=16000)
+    assert snap()==baseline,'VR01IA selected-card sheen changed Phase21'
     # VR01FQ: a real native selected card has restrained, non-pickable
     # physical corner strokes surrounding its occupied 3D seat.
     page.wait_for_function("""() => {

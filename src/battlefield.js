@@ -2595,14 +2595,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         if(validFlash)vrNativeHitEdgePeak=Math.max(
           vrNativeHitEdgePeak,c.edgeGlintMaterial.opacity);
       }
-      // VR01HW: public face UV drives a tiny rim-only light; never
-      // cover artwork or add an input hitbox on the physical card.
+      // VR01IA: a genuinely native-selected 3D card retains one
+      // restrained, steady top-rim gleam while a different public
+      // target is inspected. The brighter moving sheen is hover-only.
+      // Reuse the original real mesh, and never suggest a legal attack.
       if(c.edgeSheen){
-        const target=c.key===hoveredKey&&!c.deploy?1:0;
+        const over=c.key===hoveredKey&&!c.deploy;
+        const selected=c.key===selectedKey&&!c.deploy;
+        const target=over?1:selected?.27:0;
         const alpha=frozen?1:1-Math.exp(-visualDelta/135);
         c.edgeSheenAmount=(c.edgeSheenAmount??0)+
           (target-(c.edgeSheenAmount??0))*alpha;
-        const xTarget=target&&!frozen?Math.max(-.73,
+        const xTarget=over&&!frozen?Math.max(-.73,
           Math.min(.73,vrFaceHoverBias*.73)):0;
         c.edgeSheenX=(c.edgeSheenX??0)+
           (xTarget-(c.edgeSheenX??0))*alpha;
@@ -3004,6 +3008,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrHoveredEdgeSheen:vrMode&&cardIndex.get(hoveredKey)?.edgeSheen?{
         opacity:Number(cardIndex.get(hoveredKey).edgeSheenMaterial.opacity.toFixed(3)),
         x:Number(cardIndex.get(hoveredKey).edgeSheen.position.x.toFixed(3))
+      }:null,
+      vrSelectedRimSheen:vrMode&&cardIndex.get(selectedKey)?.edgeSheen?{
+        opacity:Number(cardIndex.get(selectedKey).edgeSheenMaterial.opacity.toFixed(3)),
+        x:Number(cardIndex.get(selectedKey).edgeSheen.position.x.toFixed(3))
       }:null,
       vrSourceAimEdgeOpacity:vrMode&&cardIndex.get(selectedKey)?.edgeGlint?
         Number(cardIndex.get(selectedKey).edgeGlintMaterial.opacity.toFixed(3)):null,
