@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   let frame=null, picture=null, caption=null, currentKey=null,
-      currentIdentity=null,currentArtData=null,currentCaption='',pointerOnCanvas=false;
+      currentIdentity=null,currentArtData=null,currentCaption='',currentVitals='',pointerOnCanvas=false;
   let arenaObserver=null,observedArena=null,focusFrame=0;
   let passObserver=null,observedPass=null;
   let panelObserver=null,observedGameScreen=null;
@@ -15,7 +15,7 @@
     focusFrame=0;
     frame?.remove();frame=picture=caption=null;
     currentKey=currentIdentity=currentArtData=null;
-    currentCaption='';pointerOnCanvas=false;
+    currentCaption=currentVitals='';pointerOnCanvas=false;
   }
   // VR01JS: canvas pointer-exit, window deactivation and tab hiding
   // withdraw the visual inspector immediately without touching Phase21.
@@ -26,7 +26,7 @@
     focusFrame=0;
     if(frame)frame.hidden=true;
     currentKey=currentIdentity=currentArtData=null;
-    currentCaption='';
+    currentCaption=currentVitals='';
   }
   // VR01KB: coalesce high-frequency pointer moves, native mutations and
   // camera wheel events into at most one expensive 3D projection per frame.
@@ -145,9 +145,11 @@
     // VR01JV: mirror only the HP bar percentage and status CHIP
     // already rendered on this native PUBLIC card. Neither one is
     // a computed game HP value or a new action entitlement.
+    // VR01KI: stable title/rules DOM survives native HP/status changes.
+    // Only the public vitality meter and status text update on impact,
+    // preserving layout and avoiding unnecessary texture/art recomposition.
     const captionText=JSON.stringify([
-      data.name,data.kind,data.cost,data.stats,data.sigil,
-      data.hpBarPercent,data.statusChip,nativeRole
+      data.name,data.kind,data.cost,data.stats,data.sigil,nativeRole
     ]);
     if(identityChanged||currentArtData!==data.artData){
       picture.src=data.artData;
@@ -173,32 +175,40 @@
         sigil.textContent=data.sigil;
         caption.append(sigil);
       }
+      picture.alt=data.name+' 공개 카드 확대';
+      currentCaption=captionText;currentVitals='';
+    }
+    const vitalsText=JSON.stringify([data.hpBarPercent,data.statusChip]);
+    if(currentVitals!==vitalsText){
       const publicState=[
         Number.isFinite(data.hpBarPercent)?
           '공개 HP 게이지 '+Math.round(data.hpBarPercent)+'%':'',
         data.statusChip||''
       ].filter(Boolean).join(' · ');
+      let status=caption.querySelector('.vr-focus-public-state');
       if(publicState){
-        const state=document.createElement('span');
-        state.className='vr-focus-public-state';
-        state.textContent=publicState;
-        caption.append(state);
-      }
-      // VR01KD: an exact copy of the visible Phase21 public HP-bar
-      // fill percentage. No guessed max HP, damage or gameplay state.
+        if(!status){
+          status=document.createElement('span');
+          status.className='vr-focus-public-state';
+          caption.append(status);
+        }
+        if(status.textContent!==publicState)status.textContent=publicState;
+      }else status?.remove();
+      let meter=caption.querySelector('.vr-focus-hp-meter');
       if(Number.isFinite(data.hpBarPercent)){
         const percent=Math.max(0,Math.min(100,data.hpBarPercent));
-        const meter=document.createElement('span');
-        meter.className='vr-focus-hp-meter';
-        meter.setAttribute('aria-hidden','true');
+        if(!meter){
+          meter=document.createElement('span');
+          meter.className='vr-focus-hp-meter';
+          meter.setAttribute('aria-hidden','true');
+          const fill=document.createElement('span');
+          fill.className='vr-focus-hp-meter-fill';
+          meter.append(fill);caption.append(meter);
+        }
         meter.dataset.level=percent<=33?'low':percent<=66?'medium':'high';
-        const fill=document.createElement('span');
-        fill.className='vr-focus-hp-meter-fill';
-        fill.style.width=percent+'%';
-        meter.append(fill);caption.append(meter);
-      }
-      picture.alt=data.name+' 공개 카드 확대';
-      currentCaption=captionText;
+        meter.firstElementChild.style.width=percent+'%';
+      }else meter?.remove();
+      currentVitals=vitalsText;
     }
     currentKey=key;currentIdentity=identity;
     // VR01JY: present the TRUE Phase21 native selected/attack class
