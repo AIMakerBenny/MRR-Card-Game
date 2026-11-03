@@ -1559,14 +1559,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const r=renderer.domElement.getBoundingClientRect();
     return {x:r.left+(point.x+1)*r.width/2,y:r.top+(1-point.y)*r.height/2};
   }
-  function updateVrLiftShadow(card){
+  // VR01HS: cumulative diagnostic for shadows reacting to confirmed
+  // native public hits. Never count hover, targeting or an empty slot.
+  let vrNativeHitShadowPeak=0;
+  function updateVrLiftShadow(card,impact=0){
     if(!card.seatShadow)return;
-    // Use only the already-eased VISUAL lift, never an inferred game event.
-    // The same public ID keeps this lift when its art/HP texture is repainted.
+    // The footprint reacts to the existing VISUAL lift and only to a
+    // public-identity-checked Phase21 fx-hit. It never estimates damage.
     const spread=Math.max(0,Math.min(1,(card.visualLift||0)/.86));
+    const contact=Math.max(0,Math.min(1,impact));
     card.seatShadow.visible=!card.deploy;
-    card.seatShadow.scale.setScalar(.94+.26*spread);
-    card.seatShadowMaterial.opacity=.53-.22*spread;
+    card.seatShadow.scale.setScalar(.94+.26*spread-.065*contact);
+    card.seatShadowMaterial.opacity=.53-.22*spread+.10*contact;
+    if(card.seatShadow.visible&&contact>0)
+      vrNativeHitShadowPeak=Math.max(vrNativeHitShadowPeak,contact);
   }
   function sync(){
     const list=publicSnapshot();
@@ -2648,7 +2654,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         const blend=frozen?1:1-Math.exp(-visualDelta/115);
         c.visualScale=(c.visualScale??1.30)+(targetScale-(c.visualScale??1.30))*blend;
         c.visualLift=(c.visualLift??0)+(targetLift-(c.visualLift??0))*blend;
-        if(vrMode)updateVrLiftShadow(c);
+        // VR01HS: briefly tighten the real 3D contact shadow only when
+        // the CURRENT public card received a native-confirmed hit.
+        if(vrMode)updateVrLiftShadow(c,validFlash&&!frozen?
+          Math.max(0,1-(time-flash.firstShownAt)/600):0);
         if(vrMode&&c.deploy){
           const raw=Math.max(0,Math.min(1,(performance.now()-c.deploy.started)/720));
           const ease=1-Math.pow(1-raw,3);
@@ -2976,6 +2985,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrHitFaceFlashPeak:vrMode?Number(vrHitFaceFlashPeak.toFixed(4)):null,
       vrNativeHitEdgePeak:vrMode?Number(vrNativeHitEdgePeak.toFixed(4)):null,
       vrNativeHitContactPeak:vrMode?Number(vrNativeHitContactPeak.toFixed(4)):null,
+      vrNativeHitShadowPeak:vrMode?Number(vrNativeHitShadowPeak.toFixed(4)):null,
       vrHitFaceFlashActive:vrMode?vrHitFaceFlash.size:null,
       vrHitFaceRendered:vrMode?[...vrHitFaceFlash.values()].filter(f=>
         f.shownFrames>0).length:null,
