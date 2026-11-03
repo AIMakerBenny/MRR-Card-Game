@@ -382,9 +382,16 @@ function updateHand(){
       const id=source?.getAttribute('data-mrr-public-card-id')||'';
       const sourceName=clean(q('.card-name',source)?.textContent)||'카드';
       const sourceKind=clean(q('.card-kind',source)?.textContent);
+      // VR01KO: the native card can receive a harmless PUBLIC cosmetic
+      // rename/type repaint without changing its genuine Phase21 identity.
+      // VR01BG keeps the same 3D button and updates its visible face;
+      // compare today's mirrored labels, not the stale closure snapshot.
+      // A mismatched live card still rejects the click before Phase21.
+      const mirrorName=clean(q('.vr-name',surface)?.textContent)||'카드';
+      const mirrorKind=clean(q('.vr-kind',surface)?.textContent);
       const sameCard=d.publicId||id?
         !!(d.publicId&&id&&d.publicId===id):
-        sourceName===d.name&&sourceKind===d.kind;
+        sourceName===mirrorName&&sourceKind===mirrorKind;
       // VR01KN: native placement and attack targeting can begin
       // before the next mirrored-hand repaint. Neither a queued pointer
       // click nor element.click() may switch an active Phase21 action.
