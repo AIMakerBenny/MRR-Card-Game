@@ -91,6 +91,16 @@
     frame=document.createElement('aside');frame.id='mrr-vr-card-focus';
     frame.setAttribute('aria-label','공개 전장 카드 확대');
     picture=document.createElement('img');picture.alt='';picture.draggable=false;
+    // VR01KE: the canvas-based public preview image can decode AFTER
+    // the initial hidden-frame measurement. Reposition on genuine load
+    // without creating native input or another busy polling timer.
+    picture.addEventListener('load',()=>{
+      if(picture?.isConnected&&pointerOnCanvas)scheduleFocus();
+    });
+    // A failed image decode must not leave a stale public card texture.
+    picture.addEventListener('error',()=>{
+      if(picture?.isConnected)clearFocus();
+    });
     caption=document.createElement('div');caption.className='vr-card-focus-caption';
     frame.append(picture,caption);shell.append(frame);
   }
