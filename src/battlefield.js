@@ -2979,6 +2979,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(vrFocusLamp){vrFocusLamp.intensity=0;vrFocusedCardKey=null;}
       if(vrTargetBracket)vrTargetBracket.visible=false;
       if(vrTargetFloorHalo)vrTargetFloorHalo.visible=false;
+      // VR01IM: independently animated arc particles are not the
+      // native attack itself. Stop all three immediately, because
+      // there may be no next RAF to advance their visibility state.
+      for(const mote of vrAttackMotes)mote.visible=false;
       for(const m of vrLandingPillars)m.visible=false;
       for(const m of vrTargetSparks)m.visible=false;
       vrTargetBracketKey=null;

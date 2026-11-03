@@ -3818,6 +3818,13 @@ try:
         s.vrSelectedSeatCornersOpacity===0 &&
         s.vrSeatCornersPickSafe===true;
     }"""),'VR01IL paused selection corner light still visible'
+    # VR01IM: cancelling a visual battle must also retire the original
+    # non-pickable flight motes in the same synchronous stop call.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrAttackArcMoteCount===0&&
+        s.vrAttackArcMotePickSafe===true;
+    }"""),'VR01IM stopped stage retained aim particles'
     assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume,(
@@ -3863,6 +3870,13 @@ try:
         s.vrSelectedSeatCornersOpacity>.30;
     }""",timeout=14000)
     assert snap()==baseline,'VR01IL selection corners changed Phase21'
+    # VR01IM: a new real native target lock creates its original
+    # three cosmetic arc motes again only after the render resumes.
+    page.wait_for_function("""key => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrTargetLockKey===key&&s.vrAttackArcMoteCount===3;
+    }""",arg=opponent,timeout=14000)
+    assert snap()==baseline,'VR01IM aim motes changed Phase21'
     # VR01FN: the existing public target card gains a gently eased 3D
     # seat-contact glint. It is never raycastable, and every occupied
     # native public card has exactly one glint, no matter the viewport.
