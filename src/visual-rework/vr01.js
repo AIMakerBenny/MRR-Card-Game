@@ -23,6 +23,9 @@ const delegateGameAction=selector=>{
     !root.isConnected||root.classList.contains('hidden')||
     !root.classList.contains('mrr-vr-playing')||
     !window.MRRIntegrated?.state.open||
+    // VR01LM: footer commands never act behind a native information
+    // panel, even when a queued DOM click bypasses a disabled button.
+    nativeInfoPanelOpen()||
     !q('#overlay')?.classList.contains('hidden'))return false;
  return native(selector);
 };
@@ -927,8 +930,12 @@ function refresh(){
  if(tag.textContent!==modeName[mode])tag.textContent=modeName[mode];
  if(label.textContent!==instruction)label.textContent=instruction;
  const cancel=q('#vr-cancel',ui),nativeCancel=q('#inspectBody button[data-cancel-action]');
- cancel.hidden=!nativeCancel;cancel.disabled=!nativeCancel||nativeCancel.disabled;
- q('#vr-end-turn',ui).disabled=!!q('#endTurn')?.disabled;
+ // VR01LM: controls express their genuine current availability. The
+ // gameplay guards above remain authoritative for same-frame transitions.
+ const blockedByPanel=nativeInfoPanelOpen();
+ cancel.hidden=!nativeCancel;
+ cancel.disabled=blockedByPanel||!nativeCancel||nativeCancel.disabled;
+ q('#vr-end-turn',ui).disabled=blockedByPanel||!!q('#endTurn')?.disabled;
  updateAim();
 }
 // VR01U: PC numeric hotkeys delegate to the exact same one-click
