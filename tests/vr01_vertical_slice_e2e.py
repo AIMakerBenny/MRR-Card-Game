@@ -4200,7 +4200,8 @@ try:
       const name=node.querySelector('.card-name');
       const originalName=name?.textContent;
       const before=scene.state.vrTargetLocks;
-      let revoked=false,visualsGone=false;
+      const sourceResets=scene.state.vrRevokedSourceRimResets;
+      let revoked=false,visualsGone=false,sourceRimGone=false;
       try{
         if(original)node.setAttribute('data-mrr-public-card-id',
           'vr01gg-replacement-selected-card');
@@ -4208,6 +4209,11 @@ try:
         scene.sync();
         const state=scene.state;
         revoked=state.vrTargetLockKey===null;
+        // VR01II: a same-slot source replacement cannot inherit the
+        // original selected attacker's warm lock rim before next RAF.
+        sourceRimGone=state.vrRevokedSourceRimResets>sourceResets&&
+          state.vrLastRevokedSourceRimHue!==0xffe1ad&&
+          state.vrLastRevokedSourceRimHue!==null;
         visualsGone=state.vrTargetSparkCount===0&&
           state.vrTargetBracketCount===0;
       }finally{
@@ -4216,7 +4222,7 @@ try:
         scene.sync();
       }
       const after=scene.state;
-      return {available:true,revoked,visualsGone,
+      return {available:true,revoked,visualsGone,sourceRimGone,
         notReacquired:after.vrTargetLockKey===null,
         countStable:after.vrTargetLocks===before};
     }""")

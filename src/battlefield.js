@@ -1424,6 +1424,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01IH: audit the same-sync withdrawal of a native-verified target
   // rim hue; no cosmetic lock may persist after the source is revoked.
   let vrRevokedTargetRimResets=0,vrLastRevokedTargetRimHue=null;
+  let vrRevokedSourceRimResets=0,vrLastRevokedSourceRimHue=null;
   let cardHealth=new Map(),healthIndicatorCount=0;
   let pickMeshes=slotPickMeshes.slice(),cardIndex=new Map();
   // VR01GJ: one symmetric identity check for transient presentation.
@@ -1975,7 +1976,19 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // ordinary owner hue instead of leaving an amber acquisition cue
       // on a stale or newly substituted public card.
       const oldTargetKey=vrTargetLock.key;
+      const oldSourceKey=vrTargetLock.sourceKey;
       vrTargetLock=null;
+      // VR01II: the same public-sync transition must also revoke the
+      // selected source's old amber 3D rim. It may remain selected by
+      // the native engine, but it no longer owns a valid attack lock.
+      const oldSourceMesh=cardIndex.get(oldSourceKey);
+      if(oldSourceMesh?.edgeSheenMaterial){
+        if(oldSourceMesh.edgeSheenMaterial.color.getHex()===0xffe1ad)
+          oldSourceMesh.edgeSheenMaterial.color.setHex(
+            oldSourceMesh.slot.owner===0?0xeefff8:0xffeccc);
+        vrLastRevokedSourceRimHue=oldSourceMesh.edgeSheenMaterial.color.getHex();
+        vrRevokedSourceRimResets++;
+      }
       const oldTargetMesh=cardIndex.get(oldTargetKey);
       if(oldTargetMesh?.edgeSheenMaterial){
         if(oldTargetMesh.edgeSheenMaterial.color.getHex()===0xffd6a0)
@@ -3219,6 +3232,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrTargetLockKey:vrMode?vrTargetLock?.key||null:null,
       vrRevokedTargetRimResets:vrMode?vrRevokedTargetRimResets:null,
       vrLastRevokedTargetRimHue:vrMode?vrLastRevokedTargetRimHue:null,
+      vrRevokedSourceRimResets:vrMode?vrRevokedSourceRimResets:null,
+      vrLastRevokedSourceRimHue:vrMode?vrLastRevokedSourceRimHue:null,
       vrTargetBracketKey:vrMode?vrTargetBracketKey:null,
       vrTargetBracketPublicChecks:vrMode?vrTargetBracketPublicChecks:null,
       vrTargetBracketCount:vrMode&&vrTargetBracket?.visible?vrTargetBracket.children.length:0,
