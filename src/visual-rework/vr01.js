@@ -1000,9 +1000,17 @@ function handleHandShortcut(ev){
  if(q('#arena .slot.legal')||q('#arena .slot.attack-target'))return;
  const index=ev.key==='0'?9:Number(ev.key)-1;
  const handCards=qa('#vr-hand .vr-card',ui),nativeCards=qa('#hand .hand-slot');
- const card=handCards[index];
- if(!card||!nativeCards[index]||handCards.length!==nativeCards.length||
-    card.disabled||getComputedStyle(card).visibility==='hidden')return;
+ const card=handCards[index],hand=q('#vr-hand',ui);
+ // VR01KZ: a queued numeric key must be rejected BEFORE suppressing
+ // the browser key event if native Phase21 has redrawn this public hand,
+ // or its mirrored card is inert, detached or no longer eligible.
+ if(!hand||hand.inert||ui.classList.contains('vr-hand-hotkeys-paused')||
+    !card||!card.isConnected||!nativeCards[index]||
+    handCards.length!==nativeCards.length||card.disabled||
+    getComputedStyle(card).visibility==='hidden'||
+    !matchesCurrentNativeHandCard(card,nativeCards[index])){
+   schedule();return;
+ }
  ev.preventDefault();
  ev.stopImmediatePropagation();
  card.click();
