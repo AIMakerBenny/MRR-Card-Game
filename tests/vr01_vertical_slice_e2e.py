@@ -461,6 +461,67 @@ try:
           'VR01KT stale keyboard hand navigation was not rejected',
           w,h,navigation_guard)
       assert snap()==baseline,('VR01KT public-only guards changed Phase21',w,h)
+      # VR01KX: queued UI clicks cannot escape the real Phase21 private
+      # handoff or act from a retired 3D scene. Also enforce inert hand
+      # click safety. Restore all native button methods in the same task.
+      stale_action_guard=page.evaluate("""() => {
+        const root=document.getElementById('gameScreen');
+        const overlay=document.getElementById('overlay');
+        const nativeEnd=document.getElementById('endTurn');
+        const vrEnd=document.getElementById('vr-end-turn');
+        const vrCancel=document.getElementById('vr-cancel');
+        const nativeCancel=document.querySelector(
+          '#inspectBody button[data-cancel-action]');
+        const hand=document.getElementById('vr-hand');
+        const mirror=hand?.querySelector('.vr-card');
+        const nativeHand=document.querySelector('#hand .hand-slot');
+        if(!root||!overlay||!nativeEnd||!vrEnd||!vrCancel||
+           !hand||!mirror||!nativeHand)return null;
+        const origHidden=overlay.classList.contains('hidden');
+        const origPlaying=root.classList.contains('mrr-vr-playing');
+        const origInert=hand.inert,origMirrorDisabled=mirror.disabled;
+        const origVrEndDisabled=vrEnd.disabled,origVrCancelDisabled=vrCancel.disabled;
+        const targets=[nativeEnd,nativeHand,...(nativeCancel?[nativeCancel]:[])];
+        const prior=targets.map(el=>({
+          el,hadOwn:Object.prototype.hasOwnProperty.call(el,'click'),
+          click:el.click,disabled:el.disabled
+        }));
+        let endCalls=0,handCalls=0,cancelCalls=0;
+        try{
+          nativeEnd.click=()=>{endCalls++;};nativeEnd.disabled=false;
+          nativeHand.click=()=>{handCalls++;};
+          if(nativeCancel){
+            nativeCancel.click=()=>{cancelCalls++;};
+            nativeCancel.disabled=false;
+          }
+          vrEnd.disabled=false;vrCancel.disabled=false;mirror.disabled=false;
+          hand.inert=true;mirror.click();
+          hand.inert=origInert;
+          overlay.classList.remove('hidden');
+          vrEnd.click();vrCancel.click();
+          overlay.classList.add('hidden');
+          root.classList.remove('mrr-vr-playing');
+          vrEnd.click();vrCancel.click();
+          return {endCalls,handCalls,cancelCalls,
+            nativeCancelPresent:!!nativeCancel};
+        }finally{
+          for(const item of prior){
+            if(item.hadOwn)item.el.click=item.click;
+            else delete item.el.click;
+            item.el.disabled=item.disabled;
+          }
+          overlay.classList.toggle('hidden',origHidden);
+          root.classList.toggle('mrr-vr-playing',origPlaying);
+          hand.inert=origInert;mirror.disabled=origMirrorDisabled;
+          vrEnd.disabled=origVrEndDisabled;
+          vrCancel.disabled=origVrCancelDisabled;
+        }
+      }""")
+      assert stale_action_guard and all(stale_action_guard[k]==0 for k in (
+        'endCalls','handCalls','cancelCalls')),(
+          'VR01KX stale native delegation during private or retired scene',
+          w,h,stale_action_guard)
+      assert snap()==baseline,('VR01KX presentation guard changed Phase21',w,h)
       # VR01KP: even a queued 3D hand click must not forward into
       # Phase21 while a REAL native slot is already targeting. A temporary
       # legal class plus a spy on that element's native click tests the
