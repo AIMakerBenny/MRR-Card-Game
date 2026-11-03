@@ -3996,6 +3996,15 @@ try:
         s.vrSourceAimLift>.21&&s.vrSourceAimLift<.33;
     }""",timeout=14000)
     assert snap()==baseline,'VR01HQ source preparation modified Phase21'
+    # VR01HT: genuine aiming emphasizes the selected source card's
+    # existing non-pickable frame, without claiming an attack occurred.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrSourceAimPoseActive===true &&
+        s.vrSourceAimEdgeOpacity>.28&&s.vrSourceAimEdgeOpacity<.34 &&
+        s.vrEdgeGlintPickSafe===true;
+    }""",timeout=14000)
+    assert snap()==baseline,'VR01HT aim frame changed Phase21'
     # VR01EY: identical real native selected/target slots must reuse the
     # exact 17-point 3D path instead of reuploading it on every sync.
     aim_cache=page.evaluate("""() => {

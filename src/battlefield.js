@@ -2471,6 +2471,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const flash=vrMode?vrHitFaceFlash.get(c.key):null;
       const validFlash=flash&&vrSamePublicIdentity(
         flash.publicId,flash.name,c.publicId,c.publicName);
+      // VR01HT: prepare the selected 3D frame ONLY for an existing,
+      // native-validated source-to-target lock, never a speculative shot.
+      const vrAimSource=vrMode&&!frozen&&c.key===selectedKey&&
+        vrTargetLock?.sourceKey===c.key&&attackArrow.visible&&
+        vrTargetLock.key===hoveredKey;
       // VR01FX: a real public impact can illuminate the same occupied
       // seat that is already used for genuine card inspection. The
       // existing confirmed FX event is the ONLY authority for this pulse.
@@ -2504,7 +2509,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       // VR01FP: side-frame light is independent for each public card,
       // time-eased without modifying the shared frame material or art.
       if(c.edgeGlint){
-        const focus=c.key===hoveredKey?1:c.key===selectedKey?.4:0;
+        const focus=c.key===hoveredKey?1:
+          vrAimSource?.72:c.key===selectedKey?.4:0;
         const nativeImpact=validFlash?.95:0;
         const edgeDelta=validFlash&&flash.shownFrames===0&&!frozen?
           Math.max(32,visualDelta):visualDelta;
@@ -2514,6 +2520,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.edgeGlint.visible=c.edgeAmount>.015;
         c.edgeGlintMaterial.opacity=.44*c.edgeAmount;
         c.edgeGlintMaterial.color.setHex(validFlash?0xffa476:
+          vrAimSource?0xffd69a:
           c.slot.owner===0?0xc5ffe8:0xffdfad);
         if(validFlash)vrNativeHitEdgePeak=Math.max(
           vrNativeHitEdgePeak,c.edgeGlintMaterial.opacity);
@@ -2578,12 +2585,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         vrHitFaceFlashPeak=Math.max(vrHitFaceFlashPeak,intensity);
       }
       const hover=c.key===hoveredKey;
-      // VR01HQ: only an already native-validated source/target lock can
-      // produce a subtle preparatory 3D stance. Aiming is NOT an attack,
-      // does not spend resources and cannot change the Phase21 outcome.
-      const vrAimSource=vrMode&&!frozen&&c.key===selectedKey&&
-        vrTargetLock?.sourceKey===c.key&&attackArrow.visible&&
-        vrTargetLock.key===hoveredKey;
+      // VR01HQ/HT: the native-validated source pose and edge light both
+      // follow vrAimSource, never a separate combat or target decision.
       // VR01ED: a per-card Three.js material, already unique for its public
       // texture, catches more of the existing scene lighting on inspection.
       // No duplicate artwork, hidden information, geometry or input layer.
@@ -2889,6 +2892,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.edgeGlint.children.every(m=>!pickMeshes.includes(m))):null,
       vrFullFrameGlint:vrMode?cards.every(c=>
         !c.edgeGlint||c.edgeGlint.children.length===4):null,
+      vrSourceAimEdgeOpacity:vrMode&&cardIndex.get(selectedKey)?.edgeGlint?
+        Number(cardIndex.get(selectedKey).edgeGlintMaterial.opacity.toFixed(3)):null,
       vrSelectedSeatCornersOpacity:vrMode&&cardIndex.get(selectedKey)?.seatCorners?
         Number(cardIndex.get(selectedKey).seatCornersMaterial.opacity.toFixed(3)):null,
       vrSeatCornersPickSafe:vrMode?cards.every(c=>
