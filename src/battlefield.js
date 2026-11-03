@@ -1449,11 +1449,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01FW: the visible Three.js card face supplies its own UV position.
   // This is only an inspection tilt, never a different pick or native click.
   let vrFaceHoverBias=0,vrFaceHoverBiasY=0,vrFaceHoverSamples=0;
+  // VR01ID: the physical top-rim glint should also follow the pointer
+  // when it is on the existing 3D FRAME rather than just the art face.
+  // Use a local hit coordinate, not private state or a new raycaster mesh.
+  const vrRimHitPoint=vrMode?new THREE.Vector3():null;
+  let vrRimPointerBias=0,vrRimPointerSamples=0;
   let vrStaleRaycastRejects=0;
   function publicHit(e){
     const rect=renderer.domElement.getBoundingClientRect();
     if(rect.width<10||rect.height<10||e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom){
-      if(vrMode){vrFaceHoverBias=0;vrFaceHoverBiasY=0;}
+      if(vrMode){vrFaceHoverBias=0;vrFaceHoverBiasY=0;vrRimPointerBias=0;}
       return null;
     }
     pointer.set((e.clientX-rect.left)/rect.width*2-1,-((e.clientY-rect.top)/rect.height*2-1));
@@ -1474,7 +1479,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           '"] .board-card .card-ui');
         const valid=vrMatchesNativePublicCard(cached,node);
         if(!valid){
-          vrStaleRaycastRejects++;vrFaceHoverBias=vrFaceHoverBiasY=0;
+          vrStaleRaycastRejects++;vrFaceHoverBias=vrFaceHoverBiasY=vrRimPointerBias=0;
           return null;
         }
       }
@@ -1489,6 +1494,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrFaceHoverBiasY=actualFace&&first.uv?
         Math.max(-1,Math.min(1,(first.uv.y-.5)*2)):0;
       if(actualFace&&first.uv)vrFaceHoverSamples++;
+      // VR01ID: both the original face and the original frame already
+      // participate in native-safe picking. Map that SAME public ray hit
+      // to its actual physical card x-axis for continuous top-rim shine.
+      const card=publicKey&&cardIndex.get(publicKey);
+      const rimHit=card&&first&&
+        (first.object===card.face||first.object===card.frame);
+      if(rimHit){
+        card.frame.worldToLocal(vrRimHitPoint.copy(first.point));
+        vrRimPointerBias=Math.max(-1,Math.min(1,vrRimHitPoint.x/1.04));
+        vrRimPointerSamples++;
+      }else vrRimPointerBias=0;
     }
     return first?.object.userData.mrrSlotKey||null;
   }
@@ -2097,7 +2113,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if((cardChanged||statusChanged)&&hoveredKey)setHover(hoveredKey,true);
   }
   function setHover(key,force=false){
-    if(vrMode&&!key){vrFaceHoverBias=0;vrFaceHoverBiasY=0;}
+    if(vrMode&&!key){vrFaceHoverBias=0;vrFaceHoverBiasY=0;vrRimPointerBias=0;}
     if(hoveredKey===key&&!force)return;
     const slot=document.querySelector('#arena [data-slot="'+(key||'')+'"]');
     // VR01N: acquire a target only on a TRUE native attack-target hover
@@ -2620,7 +2636,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.edgeSheenAmount=(c.edgeSheenAmount??0)+
           (target-(c.edgeSheenAmount??0))*alpha;
         const xTarget=over&&!frozen?Math.max(-.73,
-          Math.min(.73,vrFaceHoverBias*.73)):0;
+          Math.min(.73,vrRimPointerBias*.73)):0;
         c.edgeSheenX=(c.edgeSheenX??0)+
           (xTarget-(c.edgeSheenX??0))*alpha;
         c.edgeSheen.visible=c.edgeSheenAmount>.015;
@@ -3003,6 +3019,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }:null,
       vrFaceHoverBias:vrMode?Number(vrFaceHoverBias.toFixed(4)):null,
       vrFaceHoverSamples:vrMode?vrFaceHoverSamples:null,
+      vrRimPointerBias:vrMode?Number(vrRimPointerBias.toFixed(4)):null,
+      vrRimPointerSamples:vrMode?vrRimPointerSamples:null,
       vrHoveredCardYaw:vrMode&&cardIndex.has(hoveredKey)?
         Number(cardIndex.get(hoveredKey).group.rotation.y.toFixed(4)):null,
       vrSelectedCardYaw:vrMode&&cardIndex.has(selectedKey)?

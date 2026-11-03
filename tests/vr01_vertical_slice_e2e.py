@@ -3942,7 +3942,10 @@ try:
     page.wait_for_function("""() => {
       const s=MRRIntegrated.state.scene,sh=s.vrHoveredEdgeSheen;
       return s.hoveredKey&&s.vrEdgeSheenPickSafe===true &&
-        sh?.opacity>.24 && sh.opacity<.35 && Math.abs(sh.x)<=.74;
+        sh?.opacity>.24 && sh.opacity<.35 && Math.abs(sh.x)<=.74 &&
+        s.vrRimPointerSamples>=1 &&
+        Number.isFinite(s.vrRimPointerBias)&&
+        Math.abs(s.vrRimPointerBias)<=1;
     }""",timeout=14000)
     assert snap()==baseline,'VR01HW top-rim sheen changed Phase21'
     # VR01IA: the current native selected source keeps a quiet central
