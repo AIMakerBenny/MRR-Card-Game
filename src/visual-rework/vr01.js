@@ -614,7 +614,13 @@ function positionActiveOutcomes(){
   if(!open||!stage)return;
   const scene=window.MRRIntegrated?.scene;
   if(!scene)return;
-  for(const item of outcomeNodes)positionConfirmedOutcome(item.node,item.key,scene);
+  for(let i=outcomeNodes.length-1;i>=0;i--){
+    const item=outcomeNodes[i];
+    if(outcomeReplaced(item)){
+      item.node.remove();outcomeNodes.splice(i,1);continue;
+    }
+    positionConfirmedOutcome(item.node,item.key,scene);
+  }
 }
 // VR01JK: board slots are reusable. A new public occupant on the
 // same slot is never damage or healing to the previous card.
@@ -622,6 +628,18 @@ function samePublicOccupant(a,b){
   if(!a||!b)return false;
   if(a.id||b.id)return !!a.id&&!!b.id&&a.id===b.id;
   return !!a.name&&a.name===b.name;
+}
+// VR01JO: an existing impact badge belongs to the native FX's
+// public card, never to a later occupant of its reusable board slot.
+// A departed card may still show the final FX over its empty slot.
+function outcomeReplaced(item){
+  if(!item.publicIdentity)return false;
+  const slot=q('#arena [data-slot="'+item.key+'"]');
+  const card=slot?q('.board-card .card-ui',slot):null;
+  if(!card)return false;
+  const current={id:card.getAttribute('data-mrr-public-card-id')||null,
+    name:clean(q('.card-name',card)?.textContent)};
+  return !samePublicOccupant(item.publicIdentity,current);
 }
 function reconcileConfirmedOutcomes(){
   if(!open||!ui)return;
@@ -686,7 +704,11 @@ function reconcileConfirmedOutcomes(){
     // Subsequent FX still have their actual event-backed nonnumeric badge.
     if(exact)recentHpChanges.delete(event.key);
     if(matchMedia('(prefers-reduced-motion: reduce)').matches)node.classList.add('vr-no-motion');
-    host.append(node);outcomeNodes.push({node,key:event.key,at:now});
+    host.append(node);outcomeNodes.push({
+      node,key:event.key,at:now,
+      publicIdentity:event.id||event.name?
+        {id:event.id||null,name:event.name||''}:null
+    });
     lastOutcome={key:event.key,type:event.type,amount:exact?Math.abs(diff):null,label:msg};
     outcomeHistory.push(lastOutcome);if(outcomeHistory.length>16)outcomeHistory.shift();
     vrOutcomeCount++;
@@ -694,7 +716,7 @@ function reconcileConfirmedOutcomes(){
   lastCombatTime=Math.max(lastCombatTime,...events.map(x=>x.at||0));
   for(let i=outcomeNodes.length-1;i>=0;i--){
     const item=outcomeNodes[i];
-    if(now-item.at>=1500){
+    if(now-item.at>=1500||outcomeReplaced(item)){
       item.node.remove();outcomeNodes.splice(i,1);
       continue;
     }
