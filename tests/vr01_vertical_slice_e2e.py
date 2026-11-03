@@ -401,6 +401,51 @@ try:
       }""")
       assert tooltip_audit,('VR01BC publicly grounded hand tooltip mismatch',w,h)
       assert snap()==baseline,('VR01AW/AX inspection changed Phase21 state',w,h)
+      # VR01LB: a no-ID native card with the same printed values but
+      # different currently PUBLIC owner artwork must not be clickable.
+      # All temporary art and ID attributes are restored synchronously.
+      art_identity_guard=page.evaluate("""() => {
+        const original=document.querySelector('#hand .hand-slot');
+        const source=original?.querySelector('.card-ui');
+        const mirror=document.querySelector('#vr-hand .vr-card');
+        const artWell=original?.querySelector('.art-well');
+        if(!original||!source||!mirror||!artWell)return null;
+        const oldId=source.getAttribute('data-mrr-public-card-id');
+        const mirrorId=mirror.dataset.vrPublicId;
+        const oldClick=original.click;
+        const hadOwn=Object.prototype.hasOwnProperty.call(original,'click');
+        let art=artWell.querySelector('.mrr-owner-art'),inserted=false;
+        if(!art){
+          art=document.createElement('img');
+          art.className='mrr-owner-art';
+          artWell.append(art);inserted=true;
+        }
+        const oldAlt=art.getAttribute('alt');
+        let forwarded=0;
+        try{
+          original.click=()=>{forwarded++;};
+          source.removeAttribute('data-mrr-public-card-id');
+          mirror.dataset.vrPublicId='';
+          art.setAttribute('alt','VR01LB publicly changed artwork');
+          mirror.click();
+          return {forwarded,mirrorConnected:mirror.isConnected};
+        }finally{
+          if(inserted)art.remove();
+          else if(oldAlt===null)art.removeAttribute('alt');
+          else art.setAttribute('alt',oldAlt);
+          if(oldId===null)source.removeAttribute('data-mrr-public-card-id');
+          else source.setAttribute('data-mrr-public-card-id',oldId);
+          mirror.dataset.vrPublicId=mirrorId;
+          if(hadOwn)original.click=oldClick;
+          else delete original.click;
+        }
+      }""")
+      assert art_identity_guard and (
+        art_identity_guard['forwarded']==0 and
+        art_identity_guard['mirrorConnected']),(
+          'VR01LB no-ID public artwork mismatch clicked native Phase21',
+          w,h,art_identity_guard)
+      assert snap()==baseline,('VR01LB artwork-only guard changed game',w,h)
       # VR01KT: when an ID is absent, differing native PUBLIC cost,
       # rules or stats must never select an unrelated mirrored hand card.
       # Restore the original public DOM synchronously before the next frame.
