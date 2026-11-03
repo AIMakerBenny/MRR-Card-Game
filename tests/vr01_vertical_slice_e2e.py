@@ -229,10 +229,18 @@ try:
         const root=document.querySelector('#gameScreen');
         const entry=document.querySelector('#mrr-vr-open');
         const nativeEntry=document.querySelector('#mrr-integrated-open');
-        let nativeClicks=0;
-        nativeEntry.addEventListener('click',()=>{nativeClicks++;});
-        window.MRRIntegrated={state:{open:false},close(){}};
+        let nativeClicks=0,nativeCancels=0;
+        // VR01LH: model the ACTUAL native adapter's pending 3D loader.
+        // Its view is not open yet but its entry stays disabled until
+        // close() invalidates the native asynchronous generation.
+        nativeEntry.addEventListener('click',()=>{
+          nativeClicks++;nativeEntry.disabled=true;
+        });
+        window.MRRIntegrated={state:{open:false},close(){
+          nativeCancels++;nativeEntry.disabled=false;
+        }};
         const clean=()=>!MRRVR.status.open&&!entry.disabled&&
+          !nativeEntry.disabled&&
           !document.body.classList.contains('mrr-vr-active')&&
           !root.classList.contains('mrr-vr-playing');
         overlay.classList.remove('hidden');
@@ -241,26 +249,33 @@ try:
         overlay.classList.add('hidden');
         const pending=MRRVR.open();
         await new Promise(resolve=>setTimeout(resolve,25));
-        const pendingStarted=nativeClicks===1&&entry.disabled;
+        const pendingStarted=nativeClicks===1&&entry.disabled&&
+          nativeEntry.disabled;
         overlay.classList.remove('hidden');
         await pending;
-        const privateAborted={nativeClicks,clean:clean()};
+        const privateAborted={nativeClicks,nativeCancels,clean:clean()};
         overlay.classList.add('hidden');
         const second=MRRVR.open();
         await new Promise(resolve=>setTimeout(resolve,25));
-        const startedAgain=nativeClicks===2&&entry.disabled;
+        const startedAgain=nativeClicks===2&&entry.disabled&&
+          nativeEntry.disabled;
         MRRVR.close();
         await second;
-        const cancelled={nativeClicks,clean:clean()};
+        const cancelled={nativeClicks,nativeCancels,clean:clean()};
+        // An unrelated native view must not be closed when VR01 has
+        // no active or pending native request of its own.
+        MRRVR.close();
+        const idleClosePreserved=nativeCancels===2;
         return {blocked,pendingStarted,privateAborted,
-          startedAgain,cancelled};
+          startedAgain,cancelled,idleClosePreserved};
       }""")
       assert lifecycle=={
         'blocked':{'nativeClicks':0,'clean':True},
         'pendingStarted':True,
-        'privateAborted':{'nativeClicks':1,'clean':True},
+        'privateAborted':{'nativeClicks':1,'nativeCancels':1,'clean':True},
         'startedAgain':True,
-        'cancelled':{'nativeClicks':2,'clean':True}
+        'cancelled':{'nativeClicks':2,'nativeCancels':2,'clean':True},
+        'idleClosePreserved':True
       },('VR01LF stale async VR entry survived private handoff/close',lifecycle)
     finally:
       vr_lifecycle_page.close()
