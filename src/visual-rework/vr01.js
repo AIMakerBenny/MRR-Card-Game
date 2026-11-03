@@ -855,16 +855,19 @@ function refresh(){
  // during targeting or private handoff. Match the cues on the same genuine
  // current-player hand buttons without disabling mouse clicks or game rules.
  const handButtons=qa('#vr-hand .vr-card',ui);
+ const nativeHandButtons=qa('#hand .hand-slot');
  const handHotkeysActive=legalCount===0&&attackCount===0&&
    q('#overlay')?.classList.contains('hidden')&&
-   handButtons.length===qa('#hand .hand-slot').length;
+   handButtons.length===nativeHandButtons.length;
  ui.classList.toggle('vr-hand-hotkeys-paused',!handHotkeysActive);
- // VR01BD: even cards 11+ (without a numeric shortcut) must follow
- // the same inspection-title visibility gate during targeting and handoff.
- // Only the first ten receive genuine Phase21-delegating number hotkeys.
+ // VR01KV: if native Phase21 replaces or reorders a hand card before
+ // the mirror refresh, hide its stale shortcut and inspection tooltip.
+ // Only cards still matching the CURRENT public native face advertise keys.
  handButtons.forEach((card,i)=>{
    const key=i<10?(i===9?'0':String(i+1)):'';
-   if(handHotkeysActive&&!card.disabled){
+   const identityValid=handHotkeysActive&&
+     matchesCurrentNativeHandCard(card,nativeHandButtons[i]);
+   if(identityValid&&!card.disabled){
      if(key){
        if(card.getAttribute('aria-keyshortcuts')!==key)card.setAttribute('aria-keyshortcuts',key);
      }else card.removeAttribute('aria-keyshortcuts');
