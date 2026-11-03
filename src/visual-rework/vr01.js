@@ -240,6 +240,7 @@ function reflowHand(fan){
  }
  function updateHandTilt(card,ev){
    if(!open||!ui||ui.classList.contains('vr-placing')||
+       nativeInfoPanelOpen()||
        !q('#overlay')?.classList.contains('hidden')||
        window.matchMedia('(prefers-reduced-motion: reduce)').matches){
      resetHandTilt(card);return;
@@ -437,6 +438,8 @@ function updateHand(){
          !ui?.isConnected||!stage?.isConnected||
          !window.MRRIntegrated?.state.open||
          !card.isConnected||card.disabled||fan.inert||
+         // VR01LL: native card details/supply UI gets pointer priority.
+         nativeInfoPanelOpen()||
          nativeTargeting||ui.classList.contains('vr-placing')||
          !original||!original.isConnected||!source||!sameCard||
          nativeHand.length!==fan.children.length||
@@ -460,7 +463,9 @@ function updateHand(){
       }
       schedule();
     });
-    card.addEventListener('mouseenter',()=>card.classList.add('raised'));
+    card.addEventListener('mouseenter',()=>{
+      if(!nativeInfoPanelOpen())card.classList.add('raised');
+    });
     card.addEventListener('pointermove',ev=>updateHandTilt(card,ev));
     card.addEventListener('mouseleave',()=>{
       card.classList.remove('raised');resetHandTilt(card);
