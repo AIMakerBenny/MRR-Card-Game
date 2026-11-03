@@ -2957,6 +2957,15 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.edgeGlintMaterial.color.setHex(
           c.slot.owner===0?0xc5ffe8:0xffdfad);
       }
+      // VR01IK: the independent ground-level inspection contact ring
+      // must not preserve a previous public hover or native-hit glow
+      // in a paused battle. The original seat/raycast and card remain.
+      for(const c of cards)if(c.contactRing){
+        c.contactRing.visible=false;c.contactAmount=0;
+        c.contactRing.material.opacity=0;
+        c.contactRing.material.color.setHex(
+          c.slot.owner===0?0xa1f9d6:0xffc997);
+      }
       // A stopped scene has no inspection beam. The original lighting
       // smoothly reacquires public focus on the next genuine RAF frame.
       if(vrFocusLamp){vrFocusLamp.intensity=0;vrFocusedCardKey=null;}

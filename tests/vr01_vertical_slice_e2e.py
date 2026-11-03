@@ -3803,6 +3803,13 @@ try:
       return s.vrVisibleFrameGlintCount===0 &&
         s.vrEdgeGlintPickSafe===true && s.vrFullFrameGlint===true;
     }"""),'VR01IJ stopped scene retained a four-edge light'
+    # VR01IK: the already-existing physical inspection ground ring
+    # is another separate 3D material and must also be dark at stop.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrInspectionContactActiveKeys.length===0 &&
+        s.vrInspectionContactPickSafe===true;
+    }"""),'VR01IK paused stage retained public ground light'
     assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume,(
@@ -3851,6 +3858,13 @@ try:
         s.vrInspectionHoveredContactOpacity>.28;
     }""",arg=opponent,timeout=16000)
     assert snap()==baseline,'VR01FN inspection contact glint changed Phase21'
+    # VR01IK: restart restored real inspection contact from the new
+    # pointer move, without preserving the old paused material.
+    assert page.evaluate("""key => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrInspectionContactActiveKeys.includes(key)&&
+        s.vrInspectionHoveredContactOpacity>.28;
+    }""",opponent),'VR01IK resumed ground light failed to reacquire'
     # VR01HM: every true public card has a shared-texture contact shadow.
     # Hover lift broadens/softens its real 3D seat shadow without any
     # raycast target, private-hand read, or native gameplay mutation.
