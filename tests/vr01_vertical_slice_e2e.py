@@ -3542,6 +3542,41 @@ try:
     assert 'error' not in stale_gesture and stale_gesture['rejected'] and (
       stale_gesture['dragCleared']),stale_gesture
     assert snap()==baseline,'VR01GD stale pointer release changed Phase21'
+    # VR01HL: a genuine public attack target whose original Phase21
+    # attack-target class disappears during the pressed gesture must
+    # not receive a delayed delegated click when the cursor releases.
+    revoked_attack=page.evaluate("""key => {
+      const stage=document.querySelector('#mrr-integrated-stage');
+      const canvas=stage?.querySelector('canvas'),scene=MRRIntegrated.scene;
+      const slot=document.querySelector('#arena [data-slot="'+key+'"]');
+      if(!stage||!canvas||!slot?.classList.contains('attack-target'))
+        return {error:'missing genuine native attack target'};
+      const point=scene.projectCard(key),capture=stage.setPointerCapture;
+      const before=scene.state.vrRevokedAttackGestureRejects;
+      let began=false,rejected=false,clear=false;
+      stage.setPointerCapture=()=>{};
+      try{
+        canvas.dispatchEvent(new PointerEvent('pointerdown',{
+          bubbles:true,button:0,pointerId:999,
+          clientX:point.x,clientY:point.y}));
+        began=scene.state.vrPointerStartAttackTarget===true;
+        slot.classList.remove('attack-target');
+        canvas.dispatchEvent(new PointerEvent('pointerup',{
+          bubbles:true,button:0,pointerId:999,
+          clientX:point.x,clientY:point.y}));
+        const after=scene.state;
+        rejected=after.vrRevokedAttackGestureRejects===before+1;
+        clear=!after.vrPointerDragging&&
+          after.vrPointerStartAttackTarget===false;
+      }finally{
+        slot.classList.add('attack-target');
+        stage.setPointerCapture=capture;
+        scene.sync();
+      }
+      return {began,rejected,clear};
+    }""",opponent)
+    assert 'error' not in revoked_attack and all(revoked_attack.values()),revoked_attack
+    assert snap()==baseline,'VR01HL revoked native attack eligibility changed Phase21'
     # VR01HH: exercise all three real canvas pointer-safety guards
     # without calling a native engine click or changing game state.
     pointer_safety=page.evaluate("""key => {
