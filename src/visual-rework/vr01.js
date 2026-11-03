@@ -259,6 +259,15 @@ function matchesCurrentNativeHandCard(mirror,original){
  if(id||mirroredId)return !!(id&&mirroredId&&id===mirroredId);
  const nativeText=selector=>clean(q(selector,live)?.textContent);
  const mirrorText=selector=>clean(q(selector,face)?.textContent);
+ // VR01LA: two no-ID cards can share all printed stats while carrying
+ // different owner-supplied PUBLIC illustrations. Reject a stale art
+ // mirror until its Phase59 public asset has been reconciled.
+ const nativeArt=q('.art-well > .mrr-owner-art',original);
+ const mirroredArt=q('.vr-provided-art',face);
+ if(!!nativeArt!==!!mirroredArt)return false;
+ if(nativeArt&&mirroredArt&&
+   ['src','srcset','alt'].some(attr=>
+     nativeArt.getAttribute(attr)!==mirroredArt.getAttribute(attr)))return false;
  return (nativeText('.card-name')||'카드')===(mirrorText('.vr-name')||'카드')&&
    (nativeText('.card-kind')||'카드')===(mirrorText('.vr-kind')||'카드')&&
    (nativeText('.cost-bubble')||'0')===(mirrorText('.vr-mana')||'0')&&
