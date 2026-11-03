@@ -2565,6 +2565,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         vrHitFaceFlashPeak=Math.max(vrHitFaceFlashPeak,intensity);
       }
       const hover=c.key===hoveredKey;
+      // VR01HQ: only an already native-validated source/target lock can
+      // produce a subtle preparatory 3D stance. Aiming is NOT an attack,
+      // does not spend resources and cannot change the Phase21 outcome.
+      const vrAimSource=vrMode&&!frozen&&c.key===selectedKey&&
+        vrTargetLock?.sourceKey===c.key&&attackArrow.visible&&
+        vrTargetLock.key===hoveredKey;
       // VR01ED: a per-card Three.js material, already unique for its public
       // texture, catches more of the existing scene lighting on inspection.
       // No duplicate artwork, hidden information, geometry or input layer.
@@ -2593,7 +2599,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // selection. It never tilts the entire board or changes picking.
         // Reduced motion retains the original static card inclination.
         const targetPitch=frozen||c.deploy?0:hover?
-          .043+vrFaceHoverBiasY*.006:c.key===selectedKey?.014:0;
+          .043+vrFaceHoverBiasY*.006:c.key===selectedKey?
+            (vrAimSource?.027:.014):0;
         c.visualPitch=(c.visualPitch??0)+
           (targetPitch-(c.visualPitch??0))*alpha;
         // VR01HN: restrained second-axis parallax on the genuine public
@@ -2628,7 +2635,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         // Attack targets do not jump up into the neighboring native row
         // when the user aims. The separate card-focus inspector is the
         // full-size reading surface.
-        const targetLift=hover?(lockedTarget?.38:.86):c.key===selectedKey?.18:0;
+        const targetLift=hover?(lockedTarget?.38:.86):c.key===selectedKey?
+          (vrAimSource?.29:.18):0;
         // Time-based smoothing stays stable on low-FPS software WebGL.
         const blend=frozen?1:1-Math.exp(-visualDelta/115);
         c.visualScale=(c.visualScale??1.30)+(targetScale-(c.visualScale??1.30))*blend;
@@ -3009,6 +3017,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrAimPathReuses:vrMode?vrAimPathReuses:null,
       vrAimPathKey:vrMode?vrAimPathKey:null,
       vrAttackArcVisible:vrMode?attackArrow.visible:null,
+      vrSourceAimPoseActive:vrMode?!!(
+        !matchMedia('(prefers-reduced-motion: reduce)').matches&&
+        vrTargetLock&&vrTargetLock.sourceKey===selectedKey&&
+        vrTargetLock.key===hoveredKey&&attackArrow.visible):null,
+      vrSourceAimLift:vrMode&&cardIndex.get(selectedKey)?
+        Number((cardIndex.get(selectedKey).visualLift||0).toFixed(3)):null,
       vrAttackArcSamples:vrMode&&attackArrow.visible?attackArrowGeo.attributes.position.count:0,
       vrAttackArcPeakY:vrMode&&attackArrow.visible?
         Number(attackArrowGeo.attributes.position.getY(attackArcSegments/2).toFixed(3)):null,

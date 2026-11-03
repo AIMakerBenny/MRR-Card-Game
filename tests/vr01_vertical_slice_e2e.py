@@ -3979,6 +3979,14 @@ try:
         s.vrTargetFloorHaloOpacity<=.251;
     }""",timeout=14000)
     assert snap()==baseline,'VR01HP target floor halo changed Phase21'
+    # VR01HQ: a true native-validated attacking SOURCE gently readies
+    # its actual public mesh; no speculative combat, input or HP change.
+    page.wait_for_function("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrSourceAimPoseActive===true &&
+        s.vrSourceAimLift>.21&&s.vrSourceAimLift<.33;
+    }""",timeout=14000)
+    assert snap()==baseline,'VR01HQ source preparation modified Phase21'
     # VR01EY: identical real native selected/target slots must reuse the
     # exact 17-point 3D path instead of reuploading it on every sync.
     aim_cache=page.evaluate("""() => {
