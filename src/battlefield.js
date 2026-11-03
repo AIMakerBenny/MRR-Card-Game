@@ -1418,6 +1418,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01HY: a hover belongs to a visible PUBLIC card identity, not
   // merely to a slot which the native game may replace in place.
   let vrHoverPublicIdentity=null,vrHoverIdentityWithdrawals=0;
+  let vrStaleFocusLampWithdrawals=0;
   let vrSelectionBursts=0,vrSelectionBurst=null;
   let vrTargetLocks=0,vrTargetLock=null;
   let cardHealth=new Map(),healthIndicatorCount=0;
@@ -1949,7 +1950,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         vrHoverPublicIdentity.id,vrHoverPublicIdentity.name,
         occupant.cardId,occupant.name)){
         vrHoverIdentityWithdrawals++;
+        const oldHoverKey=hoveredKey;
         setHover(null,true);
+        // VR01HZ: visual focus must be withdrawn in the SAME native
+        // public sync as an identity replacement. Otherwise the single
+        // moving 3D lamp can illuminate the next card in the old seat
+        // for a frame, even though hover and targeting were revoked.
+        if(vrFocusLamp&&vrFocusedCardKey===oldHoverKey){
+          vrFocusLamp.intensity=0;
+          vrFocusedCardKey=null;
+          vrStaleFocusLampWithdrawals++;
+        }
       }
     }
     // VR01P: a departed card must not leave hover light or its inspector
@@ -2953,6 +2964,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
       vrHoverPublicIdentityKey:vrMode?vrHoverPublicIdentity?.key||null:null,
       vrHoverIdentityWithdrawals:vrMode?vrHoverIdentityWithdrawals:null,
+      vrStaleFocusLampWithdrawals:vrMode?vrStaleFocusLampWithdrawals:null,
       vrFocusedCardKey:vrMode?vrFocusedCardKey:null,
       vrFocusedLightIntensity:vrMode?Number(vrFocusLamp.intensity.toFixed(2)):null,
       vrFocusColourDelta:vrMode&&vrFocusedCardKey?Number(Math.max(

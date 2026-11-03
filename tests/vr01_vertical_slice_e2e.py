@@ -4078,8 +4078,9 @@ try:
       const before=stage.state.vrTargetLocks;
       const oldCarryRejects=stage.state.vrIdentityCarryRejects;
       const oldHoverWithdrawals=stage.state.vrHoverIdentityWithdrawals;
+      const oldFocusWithdrawals=stage.state.vrStaleFocusLampWithdrawals;
       let revoked=null,bracketGone=false,sparksGone=false,arcGone=false;
-      let hoverGone=false;
+      let hoverGone=false,focusGone=false;
       try{
         if(original)card.setAttribute('data-mrr-public-card-id',
           'vr01fz-temporary-public-identity');
@@ -4090,6 +4091,11 @@ try:
         // must withdraw that old card's hover, even in the same slot.
         hoverGone=stage.state.hoveredKey===null&&
           stage.state.vrHoverPublicIdentityKey===null;
+        // VR01HZ: invalidate the actual 3D light in this same public
+        // sync; no next RAF is needed to clear stale focus on a new ID.
+        focusGone=stage.state.vrFocusedCardKey===null&&
+          stage.state.vrFocusedLightIntensity===0&&
+          stage.state.vrStaleFocusLampWithdrawals>oldFocusWithdrawals;
         bracketGone=stage.state.vrTargetBracketKey===null&&
           stage.state.vrTargetBracketCount===0;
         sparksGone=stage.state.vrTargetSparkCount===0;
@@ -4100,7 +4106,7 @@ try:
         stage.sync();
       }
       return {revoked,remaining:stage.state.vrTargetLockKey,
-        bracketGone,sparksGone,arcGone,hoverGone,
+        bracketGone,sparksGone,arcGone,hoverGone,focusGone,
         hoverWithdrawn:stage.state.vrHoverIdentityWithdrawals>oldHoverWithdrawals,
         carryRejected:stage.state.vrIdentityCarryRejects>oldCarryRejects,
         count:stage.state.vrTargetLocks,before};
@@ -4109,7 +4115,7 @@ try:
       stale_lock['remaining'] is None and stale_lock['bracketGone'] and
       stale_lock['sparksGone'] and stale_lock['arcGone'] and
       stale_lock['hoverGone'] and stale_lock['hoverWithdrawn'] and
-      stale_lock['carryRejected'] and
+      stale_lock['focusGone'] and stale_lock['carryRejected'] and
       stale_lock['count']==stale_lock['before']),stale_lock
     assert snap()==baseline,'VR01FZ target identity guard modified Phase21'
     page.mouse.move(3,550)
