@@ -598,6 +598,13 @@ function positionActiveOutcomes(){
   if(!scene)return;
   for(const item of outcomeNodes)positionConfirmedOutcome(item.node,item.key,scene);
 }
+// VR01JK: board slots are reusable. A new public occupant on the
+// same slot is never damage or healing to the previous card.
+function samePublicOccupant(a,b){
+  if(!a||!b)return false;
+  if(a.id||b.id)return !!a.id&&!!b.id&&a.id===b.id;
+  return !!a.name&&a.name===b.name;
+}
 function reconcileConfirmedOutcomes(){
   if(!open||!ui)return;
   const scene=window.MRRIntegrated?.scene,st=scene?.state;
@@ -608,13 +615,23 @@ function reconcileConfirmedOutcomes(){
     if(!card)continue;
     const value=qa('.card-stats > span',card).map(n=>clean(n.textContent))
       .map(t=>t.match(/^체(?:력)?\s*(\d+)/)).find(Boolean);
-    if(value)current.set(slot.dataset.slot,Number(value[1]));
+    if(value)current.set(slot.dataset.slot,{
+      hp:Number(value[1]),
+      id:card.getAttribute('data-mrr-public-card-id')||null,
+      name:clean(q('.card-name',card)?.textContent)
+    });
   }
   // Retain a public HP change briefly until the matching native FX arrives,
   // regardless of which mutation observer runs first.
-  for(const [key,oldHp] of nativeHpSnapshot){
-    const hp=current.get(key);
-    if(hp!==oldHp)recentHpChanges.set(key,{before:oldHp,after:hp,at:now});
+  for(const [key,oldCard] of nativeHpSnapshot){
+    const card=current.get(key);
+    if(!samePublicOccupant(oldCard,card)){
+      recentHpChanges.delete(key);
+      continue;
+    }
+    if(card.hp!==oldCard.hp)recentHpChanges.set(key,{
+      before:oldCard.hp,after:card.hp,at:now,id:card.id,name:card.name
+    });
   }
   nativeHpSnapshot=current;
   for(const [key,item] of recentHpChanges)if(now-item.at>1800)recentHpChanges.delete(key);
