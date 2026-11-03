@@ -801,6 +801,18 @@ function updatePrivateHandoff(){
 }
 function refresh(){
  if(!open||!ui)return;
+ // VR01LE: the original integrated stage and native game screen own
+ // VR01's lifetime. Never retain a visible interactive 3D shell when
+ // Phase21 leaves the game or the native 3D adapter closes underneath it.
+ // A normal private pass overlay is NOT an exit: its privacy rules stay.
+ if(!root.isConnected||document.getElementById('gameScreen')!==root||
+    root.classList.contains('hidden')||
+    !root.classList.contains('mrr-vr-playing')||
+    !root.classList.contains('mrr-integrated-playing')||
+    !stage?.isConnected||!ui.isConnected||
+    !window.MRRIntegrated?.state.open){
+   closeUI();return;
+ }
  updatePrivateHandoff();
  reconcileConfirmedOutcomes();
  updateHand();syncNativeHandSelection();updateBacks();updatePublicPlaques();
@@ -1097,6 +1109,10 @@ async function openUI(focusOnEntry=false){
   // keep their existing focus behavior; no native game command is invoked.
   if(focusOnEntry)q('#vr-piles',ui)?.focus({preventScroll:true});
   observer=new MutationObserver(schedule);
+  // VR01LE: detect original game exit or native integrated closure
+  // immediately, instead of leaving a stale VR shell until the next
+  // 500ms reconciliation interval.
+  observer.observe(root,{attributes:true,attributeFilter:['class']});
   for(const s of ['#hand','#enemyHand','#arena','#myPortrait','#enemyPortrait','#myMana','#enemyMana','#endTurn','#overlay']){
     const target=q(s);if(target)observer.observe(target,{childList:true,characterData:true,attributes:true,subtree:true});
   }
