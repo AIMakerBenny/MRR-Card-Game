@@ -4123,13 +4123,18 @@ try:
       const oldHoverWithdrawals=stage.state.vrHoverIdentityWithdrawals;
       const oldFocusWithdrawals=stage.state.vrStaleFocusLampWithdrawals;
       let revoked=null,bracketGone=false,sparksGone=false,arcGone=false;
-      let hoverGone=false,focusGone=false;
+      let hoverGone=false,focusGone=false,targetRimGone=false;
       try{
         if(original)card.setAttribute('data-mrr-public-card-id',
           'vr01fz-temporary-public-identity');
         else nameNode.textContent=originalName+' temporary';
         stage.sync();
         revoked=stage.state.vrTargetLockKey;
+        // VR01IH: even before the next RAF, a revoked native
+        // acquisition cannot leave an amber rim on that target.
+        targetRimGone=stage.state.vrLastRevokedTargetRimHue!==0xffd6a0&&
+          stage.state.vrLastRevokedTargetRimHue!==null&&
+          stage.state.vrRevokedTargetRimResets>=1;
         // VR01HY: replacing a PUBLIC card under a stationary pointer
         // must withdraw that old card's hover, even in the same slot.
         hoverGone=stage.state.hoveredKey===null&&
@@ -4149,7 +4154,7 @@ try:
         stage.sync();
       }
       return {revoked,remaining:stage.state.vrTargetLockKey,
-        bracketGone,sparksGone,arcGone,hoverGone,focusGone,
+        bracketGone,sparksGone,arcGone,hoverGone,focusGone,targetRimGone,
         hoverWithdrawn:stage.state.vrHoverIdentityWithdrawals>oldHoverWithdrawals,
         carryRejected:stage.state.vrIdentityCarryRejects>oldCarryRejects,
         count:stage.state.vrTargetLocks,before};
@@ -4158,7 +4163,8 @@ try:
       stale_lock['remaining'] is None and stale_lock['bracketGone'] and
       stale_lock['sparksGone'] and stale_lock['arcGone'] and
       stale_lock['hoverGone'] and stale_lock['hoverWithdrawn'] and
-      stale_lock['focusGone'] and stale_lock['carryRejected'] and
+      stale_lock['focusGone'] and stale_lock['targetRimGone'] and
+      stale_lock['carryRejected'] and
       stale_lock['count']==stale_lock['before']),stale_lock
     assert snap()==baseline,'VR01FZ target identity guard modified Phase21'
     page.mouse.move(3,550)
