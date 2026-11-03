@@ -404,9 +404,16 @@ function updateHand(){
       // before the next mirrored-hand repaint. Neither a queued pointer
       // click nor element.click() may switch an active Phase21 action.
       const nativeTargeting=!!q('#arena .slot.legal, #arena .slot.attack-target');
-      if(!open||busy||root.classList.contains('hidden')||
+      // VR01KU: a detached/disabled/inert mirror or native stage must
+      // never dispatch an original Phase21 card click, even when a
+      // stale event handler is invoked programmatically or after close.
+      if(!open||busy||!root.isConnected||root.classList.contains('hidden')||
+         !root.classList.contains('mrr-vr-playing')||
+         !ui?.isConnected||!stage?.isConnected||
+         !window.MRRIntegrated?.state.open||
+         !card.isConnected||card.disabled||fan.inert||
          nativeTargeting||ui.classList.contains('vr-placing')||
-         !original||!source||!sameCard||
+         !original||!original.isConnected||!source||!sameCard||
          nativeHand.length!==fan.children.length||
          fan.children[d.i]!==card||
          !q('#overlay')?.classList.contains('hidden')){
