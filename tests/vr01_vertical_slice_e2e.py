@@ -4205,7 +4205,10 @@ try:
         bracketGone=stage.state.vrTargetBracketKey===null&&
           stage.state.vrTargetBracketCount===0;
         sparksGone=stage.state.vrTargetSparkCount===0;
-        arcGone=!stage.state.vrAttackArcVisible;
+        // VR01IN: the old animated 3D projectile-preview motes
+        // also disappear synchronously, without an extra RAF.
+        arcGone=!stage.state.vrAttackArcVisible&&
+          stage.state.vrAttackArcMoteCount===0;
       }finally{
         if(original)card.setAttribute('data-mrr-public-card-id',original);
         else nameNode.textContent=originalName;
@@ -4309,7 +4312,8 @@ try:
         cancelled=during.vrTargetLockKey===null;
         hidden=during.vrTargetBracketCount===0&&
           during.vrTargetSparkCount===0;
-        arcGone=!during.vrAttackArcVisible;
+        arcGone=!during.vrAttackArcVisible&&
+          during.vrAttackArcMoteCount===0;
       }finally{
         slot.classList.add('selected-slot');
         scene.sync();

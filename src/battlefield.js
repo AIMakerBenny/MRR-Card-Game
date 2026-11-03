@@ -2116,10 +2116,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       (!vrMode||vrTargetLock?.key===hoveredKey));
     if(vrMode)vrTargetBracketPublicChecks++;
     attackArrow.visible=attackTip.visible=arrowVisible;
-    // VR01FY: native target withdrawal also immediately removes the
-    // decorative orbit markers instead of waiting for the next RAF.
-    if(vrMode&&!arrowVisible)
+    // VR01IN: if the original native attack target is revoked,
+    // retire ALL decorative flight markers in this same public sync.
+    // Slow Chromium may otherwise keep a stale 3D mote floating at
+    // an enemy even after its legal target class or identity changes.
+    if(vrMode&&!arrowVisible){
       for(const spark of vrTargetSparks)spark.visible=false;
+      for(const mote of vrAttackMotes)mote.visible=false;
+    }
     if(arrowVisible){
       const pathKey=selectedKey+'>'+hoveredKey;
       if(!vrMode||pathKey!==vrAimPathKey){
