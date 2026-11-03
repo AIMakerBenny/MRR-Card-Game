@@ -1062,13 +1062,36 @@ try:
         !!target && !target.hidden &&
         target.querySelector('img')?.src.startsWith('data:image/png;base64,');
     }""",arg=mine,timeout=18000)
-    assert snap()==baseline,'Card magnification must not change original gameplay'
+    # VR01KH: the VR01KE image-decode path must actually resolve an
+    # authentic native public canvas texture before taking a screenshot.
+    page.wait_for_function("""() => {
+      const preview=document.querySelector('#mrr-vr-card-focus img');
+      return !!preview&&preview.complete&&preview.naturalWidth>0;
+    }""",timeout=12000)
+    # VR01KD/KG: the HP track is visual only and may appear only when
+    # Phase21 has rendered a real public HP-bar fill with numeric width.
+    public_hp_meter=page.evaluate("""key => {
+      const fill=document.querySelector('#arena [data-slot="'+key+
+        '"] .board-card .hpbar > div');
+      return !!fill&&Number.isFinite(parseFloat(fill.style.width));
+    }""",mine)
+    if public_hp_meter:
+      page.wait_for_function("""() => {
+        const meter=document.querySelector(
+          '#mrr-vr-card-focus .vr-focus-hp-meter');
+        return !!meter&&meter.getBoundingClientRect().width>0;
+      }""",timeout=12000)
+    assert snap()==baseline,'Public preview decode/HP meter altered original gameplay'
     focus_box=page.locator('#mrr-vr-card-focus').bounding_box()
     assert focus_box and focus_box['width']>=200 and focus_box['height']>=270,focus_box
     dock=page.locator('#mrr-vr-card-focus').get_attribute('data-dock')
     assert dock in ('left','right'),dock
     focus_occlusion=page.evaluate('Number(document.querySelector("#mrr-vr-card-focus").dataset.publicOcclusion)')
     assert focus_occlusion>=0,focus_occlusion
+    # VR01JZ/KC: only actual visible native HUD controls influence
+    # docking. The score must be finite and may not affect Phase21.
+    hud_occlusion=page.evaluate('Number(document.querySelector("#mrr-vr-card-focus").dataset.hudOcclusion)')
+    assert 0<=hud_occlusion<1e12,hud_occlusion
     main_card=page.evaluate('key=>MRRIntegrated.scene.projectCardBounds(key)',mine)
     assert main_card and (focus_box['x']+focus_box['width']<=main_card['left']+8 or
       focus_box['x']>=main_card['right']-8 or
@@ -1093,6 +1116,18 @@ try:
       return state.selectedKey===key&&state.vrSelectionBursts===1;
     }""",arg=mine,timeout=12000)
     assert page.evaluate('MRRIntegrated.state.scene.pickableCount')>=30
+    # VR01KG: the inspected selected card must reflect the actual
+    # Phase21 selected-slot class, never a synthetic 3D action.
+    page.mouse.move(xy['x'],xy['y'])
+    page.wait_for_function("""key => {
+      const card=document.querySelector('#arena [data-slot="'+key+'"]');
+      const magnifier=document.querySelector('#mrr-vr-card-focus');
+      return card?.classList.contains('selected-slot')&&
+        !!magnifier&&!magnifier.hidden&&
+        magnifier.dataset.nativeRole==='selected'&&
+        magnifier.querySelector('.vr-focus-action-status')?.textContent==='선택 카드';
+    }""",arg=mine,timeout=14000)
+    assert snap()==baseline,'Selected-card inspection modified original gameplay'
     page.wait_for_function("""() => {
       const s=MRRIntegrated.state.scene;
       return s.vrSelectionBurstKey===null &&
