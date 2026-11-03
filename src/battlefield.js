@@ -1999,6 +1999,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // VR01HE: only a gesture that BEGINS on the same native board slot
   // may end in a delegated click. Empty/outside press is never a click.
   let vrPointerStartKey=null,vrInvalidOriginGestureRejects=0;
+  let vrUntrackedReleaseDrags=0;
   let vrForeignPointerEventsIgnored=0,vrPausedInputEventsIgnored=0;
   let vrLostPointerCaptures=0;
   function updateCamera(){
@@ -2066,6 +2067,13 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     // Only the pointer that started this drag may finish a native click.
     if(vrMode&&e.pointerId!==vrActivePointerId){
       vrForeignPointerEventsIgnored++;return;
+    }
+    // VR01HF: a fast mouse release can be delivered without an
+    // intermediate pointermove. Check the FINAL displacement too, so
+    // a drag does not become a native click by missing a move event.
+    if(vrMode&&!moved&&
+      Math.hypot(e.clientX-startX,e.clientY-startY)>6){
+      moved=true;vrUntrackedReleaseDrags++;
     }
     drag=false;vrActivePointerId=null;
     const picked=publicHit(e);
@@ -2696,6 +2704,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrGestureIdentityRejects:vrMode?vrGestureIdentityRejects:null,
       vrVanishedLegalGestureRejects:vrMode?vrVanishedLegalGestureRejects:null,
       vrInvalidOriginGestureRejects:vrMode?vrInvalidOriginGestureRejects:null,
+      vrUntrackedReleaseDrags:vrMode?vrUntrackedReleaseDrags:null,
       vrPointerStartKey:vrMode?vrPointerStartKey:null,
       vrInterruptedPointerGestures:vrMode?vrInterruptedPointerGestures:null,
       vrForeignPointerEventsIgnored:vrMode?vrForeignPointerEventsIgnored:null,
