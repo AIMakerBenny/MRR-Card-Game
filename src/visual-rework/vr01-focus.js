@@ -71,6 +71,10 @@
       currentCaption=captionText;
     }
     currentKey=key;currentIdentity=identity;
+    // VR01JT: a hidden display:none frame always measures zero.
+    // Show it for DOM measurement within this same frame, then
+    // choose the dock from its REAL current artwork/caption height.
+    frame.hidden=false;
     const width=frame.offsetWidth||260,height=frame.offsetHeight||375;
     const cx=where.x-box.left,cy=where.y-box.top;
     // VR01F: choose a side inspection dock with the least overlap against
@@ -79,9 +83,15 @@
       .map(card=>card.closest('[data-slot]')?.getAttribute('data-slot'))
       .filter(Boolean).map(slot=>({key:slot,bounds:scene.projectCardBounds?.(slot)}))
       .filter(p=>p.bounds);
-    const yMin=box.height<830?85:100,yMax=Math.max(yMin,box.height-height-88);
+    // VR01JT: short PC viewports and long public sigils may leave
+    // less usable height than the old fixed 375px estimate.
+    const margin=12;
+    const yEnd=Math.max(margin,box.height-height-88);
+    const yMin=Math.min(box.height<830?85:100,yEnd);
+    const yMax=Math.max(yMin,yEnd);
     const targetY=Math.max(yMin,Math.min(yMax,cy-height/2));
-    const xs=[12,box.width-width-12],ys=[targetY,yMin,yMax];
+    const leftDock=margin,rightDock=Math.max(margin,box.width-width-margin);
+    const xs=[leftDock,rightDock],ys=[targetY,yMin,yMax];
     let chosen=null;
     for(const x of xs)for(const y of ys){
       let occlusion=0;
@@ -97,7 +107,7 @@
     }
     frame.style.left=chosen.x+'px';
     frame.style.top=chosen.y+'px';
-    frame.dataset.dock=chosen.x===xs[0]?'left':'right';
+    frame.dataset.dock=chosen.x===leftDock?'left':'right';
     frame.dataset.publicOcclusion=Math.round(chosen.occlusion).toString();
     frame.hidden=false;
   }
