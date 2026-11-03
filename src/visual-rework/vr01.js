@@ -883,6 +883,11 @@ function refresh(){
 // the original local two-player privacy overlay.
 function handleHandShortcut(ev){
  if(!open||busy||!ui||ev.defaultPrevented||ev.repeat||ev.ctrlKey||ev.altKey||ev.metaKey)return;
+ // VR01KS: a queued hotkey must not act on a detached, hidden or
+ // no-longer-active 3D scene during native turn transitions.
+ if(!root.isConnected||root.classList.contains('hidden')||
+    !root.classList.contains('mrr-vr-playing')||!ui.isConnected||
+    !window.MRRIntegrated?.state.open)return;
  if(ev.target?.closest?.('input,textarea,select,[contenteditable],[role="textbox"]'))return;
  if(!q('#overlay')?.classList.contains('hidden'))return;
  const key=ev.key.toLowerCase();
@@ -902,10 +907,17 @@ function handleHandShortcut(ev){
    const cards=qa('#vr-hand .vr-card',ui);
    // VR01BS: genuine hand redraws may change native count before
    // the 3D mirror's next frame. Never navigate a stale index map.
-   if(cards.length!==qa('#hand .hand-slot').length)return;
-   const i=cards.indexOf(current);
-   const next=cards[i+(ev.key==='ArrowRight'?1:-1)];
-   if(i<0||!next||next.disabled)return;
+   const nativeCards=qa('#hand .hand-slot');
+   if(cards.length!==nativeCards.length)return;
+   const i=cards.indexOf(current),nextIndex=i+(ev.key==='ArrowRight'?1:-1);
+   const next=cards[nextIndex];
+   // VR01KS: a real draw or reorder can change native card identity
+   // before mirror reflow; reject stale focus navigation.
+   if(i<0||!next||next.disabled||
+      !matchesCurrentNativeHandCard(current,nativeCards[i])||
+      !matchesCurrentNativeHandCard(next,nativeCards[nextIndex])){
+     schedule();return;
+   }
    ev.preventDefault();ev.stopImmediatePropagation();
    // VR01BQ: mouseenter may leave a stale .raised marker on the
    // previously inspected card. Clear that marker when keyboard navigation
@@ -923,9 +935,15 @@ function handleHandShortcut(ev){
       ui.classList.contains('vr-hand-hotkeys-paused'))return;
    const cards=qa('#vr-hand .vr-card',ui);
    // VR01BS: apply the same immediate native-count guard to Home/End.
-   if(cards.length!==qa('#hand .hand-slot').length)return;
-   const next=ev.key==='Home'?cards[0]:cards[cards.length-1];
-   if(!next||next.disabled)return;
+   const nativeCards=qa('#hand .hand-slot');
+   if(cards.length!==nativeCards.length)return;
+   const nextIndex=ev.key==='Home'?0:cards.length-1;
+   const next=cards[nextIndex],currentIndex=cards.indexOf(current);
+   if(!next||next.disabled||currentIndex<0||
+      !matchesCurrentNativeHandCard(current,nativeCards[currentIndex])||
+      !matchesCurrentNativeHandCard(next,nativeCards[nextIndex])){
+     schedule();return;
+   }
    ev.preventDefault();ev.stopImmediatePropagation();
    // VR01BQ: mouseenter may leave a stale .raised marker on the
    // previously inspected card. Clear that marker when keyboard navigation
