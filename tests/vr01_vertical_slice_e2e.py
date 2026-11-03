@@ -711,7 +711,13 @@ try:
       # VR01DT: actual Chromium pointer movement tilts only the inspected
       # card face. Native selection/state and all neighboring cards stay intact.
       inspected_index=page.locator('#vr-hand .vr-card').count()//2
-      page.locator('#vr-hand .vr-card').nth(inspected_index).hover(force=True)
+      # VR01LR: the earlier synthetic navigation test must leave no
+      # keyboard-focused card before verifying pointer-only perspective.
+      page.evaluate('document.activeElement?.blur()')
+      assert not page.evaluate("""() =>
+        !!document.querySelector('#vr-hand .vr-card:focus-visible')""")
+      page.locator('#vr-hand .vr-card').nth(inspected_index).hover(
+        force=True,position={'x':20,'y':20})
       page.wait_for_function("""index => {
         const cards=[...document.querySelectorAll('#vr-hand .vr-card')];
         const card=cards[index],face=card?.querySelector('.vr-card-face');
@@ -1411,6 +1417,17 @@ try:
     for control_id,panel_class in (
         ('mrr-integrated-inspector','mrr-integrated-inspector-open'),
         ('mrr-integrated-rail','mrr-integrated-rail-open')):
+      # VR01LR: emulate an ALREADY raised visual hand at the instant the
+      # actual native panel opens, with no pointermove afterward.
+      prior_hover=page.evaluate("""() => {
+        const card=document.querySelector('#vr-hand .vr-card');
+        if(!card)return false;
+        card.classList.add('raised');
+        card.style.setProperty('--vr-tilt-x','2deg');
+        card.style.setProperty('--vr-glint-x','80%');
+        return true;
+      }""")
+      assert prior_hover,'VR01LR native-panel hover test lacks visible hand'
       opened=page.evaluate("""args => {
         const control=document.getElementById(args.control);
         if(!control||control.disabled||control.hidden)return false;
@@ -1418,6 +1435,12 @@ try:
         return document.getElementById('gameScreen')?.classList.contains(args.panel);
       }""",{'control':control_id,'panel':panel_class})
       assert opened,('native panel did not open',control_id)
+      page.wait_for_function("""() =>
+        [...document.querySelectorAll('#vr-hand .vr-card')].every(card=>
+          !card.classList.contains('raised')&&
+          !card.style.getPropertyValue('--vr-tilt-x')&&
+          !card.style.getPropertyValue('--vr-glint-x'))
+      """,timeout=12000)
       page.wait_for_function("""panel => {
         const host=document.getElementById('gameScreen');
         const focus=document.getElementById('mrr-vr-card-focus');
