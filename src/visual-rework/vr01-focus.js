@@ -262,7 +262,10 @@
     // VR01KF: never cover the hovered PUBLIC source card when any
     // physically valid dock leaves its actual projected face free.
     // Retain the weighted-score fallback only for cramped viewports.
-    let chosen=null,fallback=null;
+    // VR01KJ: retain the last safe side while scores are almost equal.
+    // Minor public camera drift must not flip the magnifier left/right.
+    const priorDock=frame.dataset.dock;
+    let chosen=null,fallback=null,priorSafe=null,priorFallback=null;
     for(const x of xs)for(const y of ys){
       let occlusion=0,sourceOcclusion=0;
       for(const card of cardRects){
@@ -286,7 +289,21 @@
       const candidate={x,y,score,occlusion,hudOcclusion,sourceOcclusion};
       if(!fallback||score<fallback.score)fallback=candidate;
       if(sourceOcclusion<.5&&(!chosen||score<chosen.score))chosen=candidate;
+      const sameSide=priorDock===(x===leftDock?'left':'right');
+      if(sameSide){
+        if(!priorFallback||score<priorFallback.score)priorFallback=candidate;
+        if(sourceOcclusion<.5&&
+           (!priorSafe||score<priorSafe.score))priorSafe=candidate;
+      }
     }
+    // Prior side may win ONLY inside the current safety category.
+    // Source-card non-overlap always outranks visual stability.
+    const hysteresis=Math.max(400,Math.min(2400,width*height*.025));
+    if(chosen&&priorSafe&&priorSafe.score<=chosen.score+hysteresis)
+      chosen=priorSafe;
+    if(!chosen&&fallback&&priorFallback&&
+       priorFallback.score<=fallback.score+hysteresis)
+      fallback=priorFallback;
     chosen=chosen||fallback;
     frame.style.left=chosen.x+'px';
     frame.style.top=chosen.y+'px';
