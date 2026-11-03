@@ -1453,12 +1453,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // when it is on the existing 3D FRAME rather than just the art face.
   // Use a local hit coordinate, not private state or a new raycaster mesh.
   const vrRimHitPoint=vrMode?new THREE.Vector3():null;
-  let vrRimPointerBias=0,vrRimPointerSamples=0;
+  let vrRimPointerBias=0,vrRimPointerHeight=0,vrRimPointerSamples=0;
   let vrStaleRaycastRejects=0;
   function publicHit(e){
     const rect=renderer.domElement.getBoundingClientRect();
     if(rect.width<10||rect.height<10||e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom){
-      if(vrMode){vrFaceHoverBias=0;vrFaceHoverBiasY=0;vrRimPointerBias=0;}
+      if(vrMode){vrFaceHoverBias=0;vrFaceHoverBiasY=0;vrRimPointerBias=vrRimPointerHeight=0;}
       return null;
     }
     pointer.set((e.clientX-rect.left)/rect.width*2-1,-((e.clientY-rect.top)/rect.height*2-1));
@@ -1479,7 +1479,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           '"] .board-card .card-ui');
         const valid=vrMatchesNativePublicCard(cached,node);
         if(!valid){
-          vrStaleRaycastRejects++;vrFaceHoverBias=vrFaceHoverBiasY=vrRimPointerBias=0;
+          vrStaleRaycastRejects++;vrFaceHoverBias=vrFaceHoverBiasY=vrRimPointerBias=vrRimPointerHeight=0;
           return null;
         }
       }
@@ -1503,8 +1503,11 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       if(rimHit){
         card.frame.worldToLocal(vrRimHitPoint.copy(first.point));
         vrRimPointerBias=Math.max(-1,Math.min(1,vrRimHitPoint.x/1.04));
+        // VR01IE: read the same physical public hit height so an
+        // upper-rim reflection brightens as the real cursor approaches.
+        vrRimPointerHeight=Math.max(-1,Math.min(1,vrRimHitPoint.y/1.42));
         vrRimPointerSamples++;
-      }else vrRimPointerBias=0;
+      }else vrRimPointerBias=vrRimPointerHeight=0;
     }
     return first?.object.userData.mrrSlotKey||null;
   }
@@ -1641,6 +1644,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           seatShadowReveal:c.seatShadowReveal,
           contact:c.contactAmount,edge:c.edgeAmount,
           sheen:c.edgeSheenAmount,sheenX:c.edgeSheenX,
+          sheenOpacity:c.edgeSheenMaterial?.opacity,
           sheenColor:c.edgeSheenMaterial?.color.getHex(),
           corners:c.seatCornerAmount,
           roughness:c.face.material.roughness,
@@ -1845,7 +1849,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           // current public card ID/name still matches exactly.
           if(item.edgeSheen&&Number.isFinite(item.edgeSheenAmount)){
             item.edgeSheen.visible=item.edgeSheenAmount>.015;
-            item.edgeSheenMaterial.opacity=.34*item.edgeSheenAmount;
+            item.edgeSheenMaterial.opacity=Number.isFinite(visual.sheenOpacity)?
+              visual.sheenOpacity:.34*item.edgeSheenAmount;
             item.edgeSheen.position.x=item.edgeSheenX||0;
             if(Number.isFinite(visual.sheenColor))
               item.edgeSheenMaterial.color.setHex(visual.sheenColor);
@@ -2113,7 +2118,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if((cardChanged||statusChanged)&&hoveredKey)setHover(hoveredKey,true);
   }
   function setHover(key,force=false){
-    if(vrMode&&!key){vrFaceHoverBias=0;vrFaceHoverBiasY=0;vrRimPointerBias=0;}
+    if(vrMode&&!key){vrFaceHoverBias=0;vrFaceHoverBiasY=0;vrRimPointerBias=vrRimPointerHeight=0;}
     if(hoveredKey===key&&!force)return;
     const slot=document.querySelector('#arena [data-slot="'+(key||'')+'"]');
     // VR01N: acquire a target only on a TRUE native attack-target hover
@@ -2640,7 +2645,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         c.edgeSheenX=(c.edgeSheenX??0)+
           (xTarget-(c.edgeSheenX??0))*alpha;
         c.edgeSheen.visible=c.edgeSheenAmount>.015;
-        c.edgeSheen.material.opacity=.34*c.edgeSheenAmount;
+        // VR01IE: the current public pointer height changes only the
+        // reflection, not selected state, strike validation or hitboxes.
+        const upperFactor=over&&!frozen?.85+.15*(vrRimPointerHeight+1)/2:1;
+        c.edgeSheen.material.opacity=.34*c.edgeSheenAmount*upperFactor;
         c.edgeSheen.material.color.setHex(hit>.02?0xffba8e:
           c.slot.owner===0?0xeefff8:0xffeccc);
         c.edgeSheen.position.x=c.edgeSheenX;
@@ -3020,6 +3028,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrFaceHoverBias:vrMode?Number(vrFaceHoverBias.toFixed(4)):null,
       vrFaceHoverSamples:vrMode?vrFaceHoverSamples:null,
       vrRimPointerBias:vrMode?Number(vrRimPointerBias.toFixed(4)):null,
+      vrRimPointerHeight:vrMode?Number(vrRimPointerHeight.toFixed(4)):null,
       vrRimPointerSamples:vrMode?vrRimPointerSamples:null,
       vrHoveredCardYaw:vrMode&&cardIndex.has(hoveredKey)?
         Number(cardIndex.get(hoveredKey).group.rotation.y.toFixed(4)):null,

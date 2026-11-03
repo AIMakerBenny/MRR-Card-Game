@@ -3945,7 +3945,9 @@ try:
         sh?.opacity>.24 && sh.opacity<.35 && Math.abs(sh.x)<=.74 &&
         s.vrRimPointerSamples>=1 &&
         Number.isFinite(s.vrRimPointerBias)&&
-        Math.abs(s.vrRimPointerBias)<=1;
+        Math.abs(s.vrRimPointerBias)<=1 &&
+        Number.isFinite(s.vrRimPointerHeight)&&
+        Math.abs(s.vrRimPointerHeight)<=1;
     }""",timeout=14000)
     assert snap()==baseline,'VR01HW top-rim sheen changed Phase21'
     # VR01IA: the current native selected source keeps a quiet central
