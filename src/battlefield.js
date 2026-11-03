@@ -3001,6 +3001,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrLandingGuideKey=null;
       for(const m of vrLandingPillars)m.visible=false;
       for(const m of vrTargetSparks)m.visible=false;
+      // VR01IQ: every decorative slot halo or selected ring has a
+      // time-eased 3D scale independent of native Phase21 targeting.
+      // A stopped canvas must not retain its old pulsing geometry.
+      // Keep the actual visible/selected/legal native statuses intact.
+      for(const slot of boardSlots.values()){
+        slot.halo.scale.setScalar(1);
+        if(slot.focusRing)slot.focusRing.scale.setScalar(1);
+      }
       vrTargetBracketKey=null;
     }
     // VR01HA: pause/exit revokes an unconfirmed cosmetic strike.
@@ -3328,6 +3336,9 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrSelectionBurstKey:vrMode?vrSelectionBurst?.key||null:null,
       vrSelectionRingScale:vrMode&&selectedKey?
         Number((boardSlots.get(selectedKey)?.focusRing?.scale.x||1).toFixed(4)):null,
+      vrPausedSlotScalesNeutral:vrMode&&!running?[...boardSlots.values()].every(slot=>
+        Math.abs(slot.halo.scale.x-1)<.0001&&
+        (!slot.focusRing||Math.abs(slot.focusRing.scale.x-1)<.0001)):null,
       vrActiveHitReactions:vrMode?cards.filter(c=>!!c.hitReaction).length:null,
       healthHudRevision:52,healthIndicatorCount,cardHealth:Object.fromEntries(cardHealth),
       previewRevision:53,previewReadyCards:cardIndex.size,

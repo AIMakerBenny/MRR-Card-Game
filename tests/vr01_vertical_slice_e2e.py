@@ -3832,6 +3832,12 @@ try:
         s.vrRimPointerBias===0&&s.vrRimPointerHeight===0&&
         s.vrHoverPublicIdentityKey===null;
     }"""),'VR01IP stopped 3D pointer preserved stale public ray data'
+    # VR01IQ: do not freeze pulsing 3D slot geometry at a stale
+    # oversized zoom while retaining the real native selected state.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrPausedSlotScalesNeutral===true&&!!s.selectedKey;
+    }"""),'VR01IQ stopped decorative slot pulse was not neutral'
     assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume,(
