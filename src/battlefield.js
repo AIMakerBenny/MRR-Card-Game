@@ -2816,6 +2816,18 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       vrTargetLock=null;
       attackArrow.visible=attackTip.visible=false;
       vrAimPathKey=null;
+      // VR01HX: stop immediately withdraws transient top-rim glare;
+      // cancelled RAF must not strand a lit public hover on the board.
+      // Real selected state, current cards and native target classes stay.
+      for(const c of cards)if(c.edgeSheen){
+        c.edgeSheen.visible=false;
+        c.edgeSheenAmount=0;c.edgeSheenX=0;
+        c.edgeSheenMaterial.opacity=0;
+        c.edgeSheen.position.x=0;
+      }
+      // A stopped scene has no inspection beam. The original lighting
+      // smoothly reacquires public focus on the next genuine RAF frame.
+      if(vrFocusLamp){vrFocusLamp.intensity=0;vrFocusedCardKey=null;}
       if(vrTargetBracket)vrTargetBracket.visible=false;
       if(vrTargetFloorHalo)vrTargetFloorHalo.visible=false;
       for(const m of vrLandingPillars)m.visible=false;
@@ -2949,6 +2961,8 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         !c.edgeGlint||c.edgeGlint.children.length===4):null,
       vrEdgeSheenPickSafe:vrMode?cards.every(c=>
         !c.edgeSheen||!pickMeshes.includes(c.edgeSheen)):null,
+      vrVisibleEdgeSheenCount:vrMode?cards.filter(c=>
+        c.edgeSheen?.visible).length:null,
       vrHoveredEdgeSheen:vrMode&&cardIndex.get(hoveredKey)?.edgeSheen?{
         opacity:Number(cardIndex.get(hoveredKey).edgeSheenMaterial.opacity.toFixed(3)),
         x:Number(cardIndex.get(hoveredKey).edgeSheen.position.x.toFixed(3))

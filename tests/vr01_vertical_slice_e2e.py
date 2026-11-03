@@ -3788,6 +3788,14 @@ try:
     }""")
     assert paused_events['ignored']==4 and paused_events['dragging'] is False and (
       paused_events['distanceBefore']==paused_events['distanceAfter']),paused_events
+    # VR01HX: a stopped, fully cancelled RAF cannot leave a hover shine
+    # or a live public focus lamp stranded on the frozen 3D stage.
+    assert page.evaluate("""() => {
+      const s=MRRIntegrated.state.scene;
+      return s.vrVisibleEdgeSheenCount===0 &&
+        s.vrFocusedCardKey===null && s.vrFocusedLightIntensity===0 &&
+        s.vrEdgeSheenPickSafe===true;
+    }"""),'VR01HX stopped 3D stage retained a transient rim shine'
     assert snap()==baseline,'VR01FH stopped scene dispatched a native action'
     page.wait_for_timeout(160)
     assert page.evaluate('MRRIntegrated.state.scene.frames')==before_resume,(
@@ -3810,6 +3818,14 @@ try:
     lock_count=page.evaluate('MRRIntegrated.state.scene.vrTargetLocks')
     assert lock_count>=2,lock_count
     assert snap()==baseline,'VR01FJ real mouse reacquisition mutated Phase21'
+    # VR01HX: a NEW real public hover reacquires its original light after
+    # the stop/resume transition; no old highlight is resurrected.
+    page.wait_for_function("""key => {
+      const s=MRRIntegrated.state.scene;
+      return s.hoveredKey===key&&s.vrVisibleEdgeSheenCount===1&&
+        s.vrFocusedCardKey===key&&s.vrFocusedLightIntensity>10;
+    }""",arg=opponent,timeout=16000)
+    assert snap()==baseline,'VR01HX resumed hover mutated Phase21'
     # VR01FN: the existing public target card gains a gently eased 3D
     # seat-contact glint. It is never raycastable, and every occupied
     # native public card has exactly one glint, no matter the viewport.
