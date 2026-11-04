@@ -822,6 +822,23 @@ function updatePrivateHandoff(){
    }else host.removeAttribute('aria-hidden');
  }
 }
+// VR01LX: the VR01 deck and card-detail controls are real toggles
+// for the original Phase76 panels. Mirror the native class state so the
+// pressed appearance and screen-reader status cannot drift after native
+// toolbar actions, privacy transitions, or an outside panel close.
+function syncNativePanelButtons(){
+ const inspector=root.classList.contains('mrr-integrated-inspector-open');
+ const rail=root.classList.contains('mrr-integrated-rail-open');
+ for(const [selector,active] of [
+   ['#vr-inspector',inspector],['#vr-piles',rail],
+   ['#vr-token-deck',rail],['#vr-token-grave',rail],
+   ['#vr-token-exile',rail]
+ ]){
+   const control=q(selector,ui);if(!control)continue;
+   control.setAttribute('aria-pressed',String(active));
+   control.classList.toggle('vr-panel-active',active);
+ }
+}
 function refresh(){
  if(!open||!ui)return;
  // VR01LE: the original integrated stage and native game screen own
@@ -837,6 +854,7 @@ function refresh(){
    closeUI();return;
  }
  updatePrivateHandoff();
+ syncNativePanelButtons();
  // VR01LP: an open native card-detail/supply panel also revokes any
  // ALREADY raised 3D hand inspection. Suppressing only new hover events
  // leaves an old card visually raised with a stale glint behind the panel.
