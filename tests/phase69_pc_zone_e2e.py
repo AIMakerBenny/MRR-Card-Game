@@ -35,7 +35,21 @@ try:
                i,cost:Number(e.querySelector('.cost-bubble')?.textContent||99),
                board:/type-(몬스터|시설|영웅유닛)/.test(e.querySelector('.card-ui')?.className||'')
             }))""")
-            affordable=next((c for c in hand if c['board'] and c['cost']<=2),None)
+            candidates=[c for c in hand if c['board'] and c['cost']<=2]
+            affordable=None
+            # Phase69 QA: the displayed mana cost and card type alone do
+            # not prove that the original engine allows a destination.
+            # Qualify each seed against genuine .slot.legal, then cancel
+            # without playing/spending the card before the visual review.
+            for candidate in candidates:
+                page.locator('#hand .hand-slot').nth(candidate['i']).evaluate('e=>e.click()')
+                if page.locator('#arena .slot.legal').count():
+                    affordable=candidate
+                    page.locator('#inspectBody button[data-cancel-action]').evaluate('e=>e.click()')
+                    assert not page.locator('#arena .slot.legal').count()
+                    break
+                cancel=page.locator('#inspectBody button[data-cancel-action]')
+                if cancel.count():cancel.evaluate('e=>e.click()')
             if affordable:break
         assert affordable,'No real affordable original field card found'
         def snap():
@@ -73,7 +87,63 @@ try:
             assert snap()==baseline,(w,h,'Viewport changed original game state')
             print('PHASE69 ZONE',w,h,'WebGL scene/hand/engine unchanged',flush=True)
         page.set_viewport_size({'width':1920,'height':1080})
-        page.locator('#hand .hand-slot').nth(affordable['i']).evaluate('e=>e.click()')
+        # VR01FC: repeat the REAL visible hand gesture after the three
+        # viewport checks. Clicking a folded native hand by script is not
+        # representative of the integrated PC controls and gave an
+        # unexplained intermittent timeout on Actions run 41461816172.
+        tab=page.locator('#mrr-integrated-hand-tab')
+        assert tab.is_visible() and tab.is_enabled(),(
+            'Native Phase69 hand reveal is unavailable before placement')
+        tab.click()
+        assert tab.get_attribute('aria-expanded')=='true'
+        card=page.locator('#hand .hand-slot').nth(affordable['i'])
+        assert card.is_visible(),'Qualified native hand card is not visible'
+        # VR01GO: the original Phase21 hand is a genuine overlapping fan.
+        # Playwright's default CENTER click can hit the neighboring card's
+        # SVG even though the desired card is visible and enabled. Find a
+        # physically exposed pixel belonging to this exact native card,
+        # then issue a real mouse click there, not a synthetic DOM click.
+        def exposed_point():
+            return page.evaluate("""idx => {
+              const card=document.querySelectorAll('#hand .hand-slot')[idx];
+              if(!card)return null;
+              const r=card.getBoundingClientRect();
+              for(const yy of [.5,.28,.72,.12,.88])
+                for(const xx of [.02,.07,.15,.25,.4,.6,.75,.88,.98]){
+                  const x=r.left+r.width*xx,y=r.top+r.height*yy;
+                  if(x<0||y<0||x>=innerWidth||y>=innerHeight)continue;
+                  if(document.elementFromPoint(x,y)?.closest('.hand-slot')===card)
+                    return {x,y,probeX:xx,probeY:yy};
+                }
+              return null;
+            }""",affordable['i'])
+        point=exposed_point()
+        assert point,('Native hand fan fully obscures intended card',
+                      affordable,page.locator('#hand .hand-slot').count())
+        page.mouse.move(point['x'],point['y'])
+        point=exposed_point()
+        assert point,('Hover animation obscured native card',affordable)
+        page.mouse.click(point['x'],point['y'])
+        assert tab.get_attribute('aria-expanded')=='false',(
+            'Native hand fan did not fold after clicking the genuine card')
+        try:
+            page.wait_for_function("""() => document.querySelectorAll(
+                '#arena .slot.legal').length>0""",timeout=13000)
+        except Exception:
+            diagnostic=page.evaluate("""() => ({
+                handCards:document.querySelectorAll('#hand .hand-slot').length,
+                legal:document.querySelectorAll('#arena .slot.legal').length,
+                attackTargets:document.querySelectorAll('#arena .slot.attack-target').length,
+                selected:document.querySelectorAll('#arena .slot.selected-slot').length,
+                handOpen:document.getElementById('gameScreen')
+                    ?.classList.contains('mrr-integrated-hand-open'),
+                overlayHidden:!!document.querySelector('#overlay.hidden'),
+                handTabDisabled:document.querySelector('#mrr-integrated-hand-tab')?.disabled,
+                inspector:document.querySelector('#inspectBody')?.textContent?.trim().slice(0,180)
+            })""")
+            print('VR01FC Phase69 genuine native card click diagnostic',
+                diagnostic,flush=True)
+            raise
         target=page.locator('#arena .slot.legal').first.get_attribute('data-slot')
         assert target
         pt=page.evaluate('(key)=>MRRIntegrated.scene.projectSlot(key)',target)

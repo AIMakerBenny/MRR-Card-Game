@@ -3,6 +3,12 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+# VR01KY: preserve both push and PR checks while cancelling superseded
+# runs of the SAME workflow/event/branch. New gameplay commits must not
+# accumulate hours of stale full-Chromium jobs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,6 +27,14 @@ jobs:
           npm run vendor
       - name: Build phase 76
         run: python build.py
+      # VR01GV: fail fast on source/fixture parser errors instead of
+      # installing a full browser and spending minutes in Chromium.
+      # This is additive; the original byte-identical engine audit and
+      # every real gameplay E2E test still run unchanged.
+      - name: Preflight JavaScript and Python browser fixture syntax
+        run: |
+          node --check src/battlefield.js
+          python -m py_compile tests/vr01_vertical_slice_e2e.py tests/vr01p_finish_e2e.py tests/phase76_field_focus_e2e.py tests/phase69_pc_zone_e2e.py
       - name: Install testing dependencies
         run: |
           python -m pip install --upgrade pip
@@ -28,7 +42,15 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Check byte-identical game engine
         run: python tests/static_audit.py
+      - name: VR01 Chromium desktop composition and real engine gameplay QA
+        run: python tests/vr01_vertical_slice_e2e.py
+      # VR01GR: preserve independent browser evidence when a prior
+      # long VR01 test fails. GitHub still reports the failed step.
+      - name: VR01P real lethal combat, departure cleanup and reduced motion
+        if: ${{ success() || failure() }}
+        run: python tests/vr01p_finish_e2e.py
       - name: Phase73-76 native selection, target focus, reduced-motion and real attack Chromium QA
+        if: ${{ success() || failure() }}
         run: python tests/phase76_field_focus_e2e.py
       - name: Phase72 animated legal-slot halo, native placement, 3 PC viewport Chromium QA
         run: python tests/phase72_legal_slot_pulse_e2e.py
@@ -36,7 +58,11 @@ jobs:
         run: python tests/phase71_action_semantics_e2e.py
       - name: Phase70 stable card context button during hover, genuine attack and 3-resolution Chromium QA
         run: python tests/phase70_stable_context_e2e.py
+      # VR01GN: Phase69 is an independent real-game browser regression.
+      # Run it even when earlier VR01 Chromium QA fails; report both failures
+      # without falsely marking the overall build as successful.
       - name: Phase69 3-zone visual hierarchy, native placement and screenshot Chromium QA
+        if: ${{ success() || failure() }}
         run: python tests/phase69_pc_zone_e2e.py
       - name: Phase68 native hand fan reveal, automatic legal target collapse and 3 viewport Chromium QA
         run: python tests/phase68_pc_hand_fan_e2e.py

@@ -9,18 +9,20 @@ original = (ROOT/'legacy/Phase21_Original.html').read_bytes()
 sha = hashlib.sha256(original).hexdigest()
 source = original.decode('utf-8')
 assert source.count('</head>') == 1 and source.count('</body>') == 1
-css = (ROOT/'src/depth.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/integrated.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/phase56.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/pc-batch-polish.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/phase68-hand-fan.css').read_text(encoding='utf-8')
+css = (ROOT/'src/depth.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/integrated.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/phase56.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/pc-batch-polish.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/phase68-hand-fan.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/visual-rework/vr01.css').read_text(encoding='utf-8')+'\n'+(ROOT/'src/visual-rework/vr01-focus.css').read_text(encoding='utf-8')
 scene = (ROOT/'src/scene.js').read_text(encoding='utf-8')
 cinema = (ROOT/'src/cinema.js').read_text(encoding='utf-8')
 battlefield = (ROOT/'src/battlefield.js').read_text(encoding='utf-8')
 integrated = (ROOT/'src/integrated.js').read_text(encoding='utf-8')
 boot = (ROOT/'src/boot.js').read_text(encoding='utf-8')
+vr01 = (ROOT/'src/visual-rework/vr01.js').read_text(encoding='utf-8')
+vr01_focus = (ROOT/'src/visual-rework/vr01-focus.js').read_text(encoding='utf-8')
 owner_art_registry, owner_art_ids = bundle(ROOT)
 card_art_identity = (ROOT/'src/card_art_identity.js').read_text(encoding='utf-8')
-assert '</script' not in integrated.lower() and '</script' not in scene.lower() and '</script' not in cinema.lower() and '</script' not in battlefield.lower() and '</script' not in boot.lower() and '</script' not in card_art_identity.lower()
+assert '</script' not in integrated.lower() and '</script' not in scene.lower() and '</script' not in cinema.lower() and '</script' not in battlefield.lower() and '</script' not in boot.lower() and '</script' not in card_art_identity.lower() and '</script' not in vr01.lower() and '</script' not in vr01_focus.lower()
 source = source.replace('<title>MARORONG CARD WAR · Phase 21 UI Fixed</title>', '<title>MARORONG CARD WAR · Phase 76 PC Field Focus Finish</title>')
 source = source.replace('</head>',f'<style id="mcw3d-extension-css">\n{css}\n</style>\n</head>')
-source = source.replace('</body>', f'<script type="module" id="mcw3d-extension-js">\n{owner_art_registry}{card_art_identity}\n{scene}\n{cinema}\n{battlefield}\n{integrated}\n{boot}\n</script>\n</body>')
+source = source.replace('</body>', f'<script type="module" id="mcw3d-extension-js">\n{owner_art_registry}{card_art_identity}\n{scene}\n{cinema}\n{battlefield}\n{integrated}\n{boot}\n{vr01}\n{vr01_focus}\n</script>\n</body>')
 output = ROOT/'Marorong_Card_War_Phase76_3D_Prototype.html'
 output.write_text(source, encoding='utf-8')
 # Retain the prior artifact path for pre-existing, unmodified regression scripts.
@@ -43,7 +45,7 @@ output.write_text(source, encoding='utf-8')
 (ROOT/'Marorong_Card_War_Phase74_3D_Prototype.html').write_bytes(output.read_bytes())
 (ROOT/'Marorong_Card_War_Phase75_3D_Prototype.html').write_bytes(output.read_bytes())
 manifest = {
-    'build': 'Phase76 focused public field and accessible native targeting',
+    'build': 'Phase76 preserved with new VR01 desktop presentation',
     'source': 'Phase21_UI_Fixed',
     'source_sha256': sha,
     'output_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
@@ -51,6 +53,8 @@ manifest = {
     'changes_to_rules': False,
     'pc_batch_phases': [60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76],
     'pc_field_guide_revision': 76,
+    'visual_rework_revision': 'VR01',
+    'visual_rework_fallback_to_phase76': True,
     'pc_native_selected_focus_revision': 73,
     'pc_native_attack_target_pulse_revision': 74,
     'pc_hover_focus_revision': 75,

@@ -8,21 +8,22 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // Phase55: use a dedicated art direction only in the main PC gameplay view.
   // The older 3D modal and authoritative HTML engine remain unchanged.
   const tabletop=mount.id==='mrr-integrated-stage';
+  const vrMode=tabletop&&document.body.classList.contains('mrr-vr-active');
   const scene=new THREE.Scene();
-  scene.background=new THREE.Color(tabletop?0x261a15:0x080f1a);
-  scene.fog=new THREE.FogExp2(tabletop?0x261a15:0x080f1a,tabletop?.009:.018);
-  const camera=new THREE.PerspectiveCamera(44,1,.1,130);
+  scene.background=new THREE.Color(vrMode?0x0b2024:tabletop?0x261a15:0x080f1a);
+  scene.fog=new THREE.FogExp2(vrMode?0x0b2024:tabletop?0x261a15:0x080f1a,tabletop?.008:.018);
+  const camera=new THREE.PerspectiveCamera(vrMode?40:44,1,.1,130);
   const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=tabletop?1.22:1.47;
+  renderer.toneMappingExposure=vrMode?1.06:tabletop?1.22:1.47;
   renderer.shadowMap.enabled=true;
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   renderer.domElement.setAttribute('aria-label','실시간 공개 카드 3D 전장');
   renderer.domElement.style.cssText='width:100%;height:100%;display:block';
   mount.appendChild(renderer.domElement);
-  scene.add(new THREE.HemisphereLight(tabletop?0xffe5c3:0xbad8e8,tabletop?0x49301f:0x423440,tabletop?2.4:2.0));
-  const sun=new THREE.DirectionalLight(tabletop?0xffe1b1:0xffe2b1,tabletop?3.3:4.2);
+  scene.add(new THREE.HemisphereLight(vrMode?0xb6d8d2:tabletop?0xffe5c3:0xbad8e8,vrMode?0x1b3539:tabletop?0x49301f:0x423440,tabletop?2.4:2.0));
+  const sun=new THREE.DirectionalLight(vrMode?0xc4dacc:tabletop?0xffe1b1:0xffe2b1,tabletop?3.3:4.2);
   sun.position.set(-8,18,13);sun.castShadow=true;
   sun.shadow.mapSize.set(2048,2048);
   sun.shadow.camera.left=-22;sun.shadow.camera.right=22;
@@ -32,8 +33,21 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   enemyLamp.position.set(0,3,-9.5);scene.add(enemyLamp);
   const friendlyLamp=new THREE.PointLight(tabletop?0xc5d0b0:0x51cdea,tabletop?50:95,29);
   friendlyLamp.position.set(0,3,9.5);scene.add(friendlyLamp);
+  // VR01DY: one shared real 3D spotlight for the public card currently
+  // inspected. It never touches picking, gameplay or the legacy 3D modal.
+  const vrFocusLamp=vrMode?new THREE.PointLight(0xffd3a0,0,8,2):null;
+  // VR01HR: cache one reusable colour target for the existing scene lamp.
+  // Cross-team inspection now changes hue gradually instead of flashing.
+  const vrFocusColorGoal=vrMode?new THREE.Color(0xffd3a0):null;
+  let vrFocusedCardKey=null;
+  if(vrFocusLamp){
+    vrFocusLamp.castShadow=false;
+    vrFocusLamp.position.set(0,4.15,0);
+    scene.add(vrFocusLamp);
+  }
 
   const madeGeometry=[],madeMaterials=[],madeTextures=[];
+  let vrDisposedTextureCount=0;
   const material=(options,physical=false)=>{
     const m=physical?new THREE.MeshPhysicalMaterial(options):new THREE.MeshStandardMaterial(options);
     madeMaterials.push(m);return m;
@@ -56,7 +70,12 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const seam=kind==='wood'?Math.min(y%145,145-y%145):100;
       for(let x=0;x<n;x++){
         const k=(y*n+x)*4,noise=(rand()-.5)*23;
-        if(kind==='wood'){
+        if(kind==='parchment'&&vrMode){
+          const grain=Math.sin(x*.051+y*.011)*2.8+Math.cos(y*.037)*2.6;
+          pix.data[k]=Math.max(0,26+noise*.22+grain);
+          pix.data[k+1]=Math.max(0,53+noise*.22+grain);
+          pix.data[k+2]=Math.max(0,57+noise*.22+grain);
+        }else if(kind==='wood'){
           const grain=Math.sin(x*.083+Math.sin(y*.028)*3.4)*6+
             Math.sin(x*.012+y*.035)*4;
           const knot=((plank*17)%7)*2;
@@ -76,7 +95,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     ctx.putImageData(pix,0,0);
-    if(kind==='parchment'){
+    if(kind==='parchment'&&!vrMode){
       // Hand-drawn, low-contrast atlas: cartographic circles, compass rays,
       // border filigree and opposing zones. Slot hit targets live above it.
       ctx.save();ctx.strokeStyle='rgba(86,58,40,.24)';ctx.lineWidth=3;
@@ -122,13 +141,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   const woodSurface=tabletop?material({map:tabletopTexture('wood'),color:0xffffff,roughness:.83}):null;
   const parchmentSurface=tabletop?material({map:tabletopTexture('parchment'),color:0xffffff,roughness:.98}):null;
+  // VR01 has no constant, loudly outlined empty cells. Slot pick meshes are
+  // retained and raycastable; only their passive appearance changes.
+  const vrGround=vrMode?material({color:0x12282d,roughness:.94,metalness:.06}):null;
   const woodEdge=tabletop?material({color:0x51301d,roughness:.82}):null;
   // Phase69: quiet but readable physical placement beds. Distinguish the
   // two publicly visible territories without adding GUI panels or cards.
   // These are non-textured, non-interactive materials; no hidden data.
-  const allySlot=tabletop?material({color:0x497b79,roughness:.94,transparent:true,opacity:.16}):null;
-  const enemySlot=tabletop?material({color:0x946451,roughness:.94,transparent:true,opacity:.16}):null;
-  const parchmentInk=tabletop?material({color:0x80603b,roughness:.9,transparent:true,opacity:.20}):null;
+  const allySlot=tabletop?material({color:0x497b79,roughness:.94,transparent:true,opacity:vrMode?.008:.16}):null;
+  const enemySlot=tabletop?material({color:0x946451,roughness:.94,transparent:true,opacity:vrMode?.008:.16}):null;
+  const parchmentInk=tabletop?material({color:vrMode?0x6d9992:0x80603b,roughness:.9,transparent:true,opacity:vrMode?.005:.20}):null;
+  // Pick meshes are invisible to the GPU but remain fully raycastable in VR.
+  // Transparent depth-writing tiles otherwise cut 30 black holes in terrain.
+  const vrSlotHitMaterial=vrMode?material({color:0xffffff,transparent:true,
+    opacity:0,depthWrite:false,colorWrite:false}):null;
   const softZone=tabletop?material({color:0x9a7150,metalness:.25,roughness:.77}):null;
 
   const black=material({color:0x223746,metalness:.18,roughness:.72});
@@ -141,15 +167,16 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const edgeGeo=geometry(new THREE.BoxGeometry(2.38,tabletop?.023:.08,2.58));
   const platformGeo=geometry(new THREE.BoxGeometry(22,.65,22.1));
   const floor=new THREE.Mesh(geometry(new THREE.PlaneGeometry(180,180)),tabletop?woodSurface:black);
+  if(vrMode)floor.material=vrGround;
   floor.rotation.x=-Math.PI/2;floor.position.y=-.52;floor.receiveShadow=true;scene.add(floor);
-  const platform=new THREE.Mesh(platformGeo,tabletop?woodEdge:stone);
+  const platform=new THREE.Mesh(platformGeo,vrMode?vrGround:tabletop?woodEdge:stone);
   platform.position.y=-.22;platform.receiveShadow=true;scene.add(platform);
   if(tabletop){
     const sheet=new THREE.Mesh(geometry(new THREE.PlaneGeometry(21.95,21.94)),parchmentSurface);
     sheet.rotation.x=-Math.PI/2;sheet.position.y=.113;
     sheet.receiveShadow=true;scene.add(sheet);
   }
-  const border=new THREE.Mesh(geometry(new THREE.BoxGeometry(22.45,.17,22.55)),bronze);
+  const border=new THREE.Mesh(geometry(new THREE.BoxGeometry(22.45,.17,22.55)),vrMode?stone:bronze);
   border.position.y=-.58;scene.add(border);
   for(const sx of [-1,1]){
     const rail=new THREE.Mesh(geometry(new THREE.BoxGeometry(.17,.24,22.2)),gold);
@@ -179,7 +206,7 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   }
   // Small dimensional tabletop props fill the unused PC desktop margins.
   // Purely decorative; they never enter the board raycaster or game state.
-  if(tabletop){
+  if(tabletop&&!vrMode){
     const leather=material({color:0x533022,roughness:.75,metalness:.08});
     const paper=material({color:0xe3c9a0,roughness:.95});
     const ink=material({color:0x242622,roughness:.26,metalness:.35});
@@ -234,20 +261,93 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // Phase73: secondary, physically separate golden focus ring on PC only.
   // Render-only mesh: it is deliberately absent from slotPickMeshes.
   const pcFocusGeo=tabletop?geometry(new THREE.TorusGeometry(1.32,.055,8,48)):null;
+  // Occupied-card staging is tied to PUBLIC mesh lifetimes. Empty legal
+  // positions remain an unobstructed physical arena, never thirty boxes.
+  const vrSeatSurface=vrMode?geometry(new THREE.BoxGeometry(2.54,.12,2.64)):null;
+  const vrSeatEdge=vrMode?geometry(new THREE.BoxGeometry(2.66,.035,2.76)):null;
+  const vrSeatBase=vrMode?material({color:0x132c30,metalness:.43,roughness:.59}):null;
+  const vrSeatFriendly=vrMode?material({color:0x7ebbb1,metalness:.48,roughness:.37,
+    emissive:0x174947,emissiveIntensity:.33}):null;
+  const vrSeatEnemy=vrMode?material({color:0xc49a79,metalness:.48,roughness:.39,
+    emissive:0x56342d,emissiveIntensity:.32}):null;
+  // VR01FN: a real Three.js contact glint grounds a hovered or selected
+  // PUBLIC card on its occupied seat. Shared geometry, unique fade material,
+  // no raycast surfaces, fabricated targets or changes to the native board.
+  const vrInspectionContactGeo=vrMode?
+    geometry(new THREE.RingGeometry(1.12,1.24,52)):null;
+  // VR01HM: one reusable radial texture and geometry supply a soft physical
+  // shadow beneath each genuinely PUBLIC 3D card. It spreads and fades as
+  // that card rises for inspection; it cannot intercept native slot clicks.
+  const vrLiftShadowGeo=vrMode?
+    geometry(new THREE.PlaneGeometry(3.35,3.65)):null;
+  const vrLiftShadowMap=vrMode?(()=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=canvas.height=128;
+    const ctx=canvas.getContext('2d');
+    const radial=ctx.createRadialGradient(64,64,3,64,64,63);
+    radial.addColorStop(0,'rgba(0,0,0,.78)');
+    radial.addColorStop(.42,'rgba(0,0,0,.52)');
+    radial.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=radial;ctx.fillRect(0,0,128,128);
+    const texture=new THREE.CanvasTexture(canvas);
+    tabletopTextures.push(texture);
+    return texture;
+  })():null;
+  // VR01FP: shared, slim 3D frame-edge highlights appear only while a
+  // REAL public card is inspected. Never cover its illustration or pick face.
+  const vrEdgeGlintGeo=vrMode?
+    geometry(new THREE.BoxGeometry(.035,2.51,.025)):null;
+  // VR01HO: a 3D public card's inspection glint rounds its four edges.
+  // Two horizontal caps share the same GPU geometry and opacity material
+  // as the side rails; none of these decorative meshes accept clicks.
+  const vrEdgeCapGlintGeo=vrMode?
+    geometry(new THREE.BoxGeometry(2.08,.032,.025)):null;
+  // VR01HW: one narrow highlight moves along a real PUBLIC card's
+  // top metal rim when its existing Three.js face is inspected.
+  const vrEdgeSheenGeo=vrMode?
+    geometry(new THREE.BoxGeometry(.46,.054,.034)):null;
+  // VR01FQ: world-space seat corner strokes make the currently native
+  // selected public card legible without adding an HTML panel or hitbox.
+  // These four pairs are shared GPU geometry for every occupied card.
+  const vrSeatCornersGeo=vrMode?(()=>{
+    const vertices=[],w=1.35,d=1.42,l=.32;
+    for(const sx of [-1,1])for(const sz of [-1,1]){
+      const x=sx*w,z=sz*d;
+      vertices.push(x,0,z,x-sx*l,0,z);
+      vertices.push(x,0,z,x,0,z-sz*l);
+    }
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+    return geometry(g);
+  })():null;
   const cardGeometry=geometry(new THREE.BoxGeometry(tabletop?2.22:2.08,2.84,.22));
   const cardFaceGeometry=geometry(new THREE.PlaneGeometry(tabletop?2.10:1.96,2.71));
   // Phase57: dimensional gilt trims are scenery, not selectable meshes.
   const pcGilt=tabletop?material({color:0xc49c62,metalness:.73,roughness:.26,emissive:0x251406}):null;
   const pcSide=tabletop?geometry(new THREE.BoxGeometry(.046,2.89,.075)):null;
   const pcEnd=tabletop?geometry(new THREE.BoxGeometry(2.23,.046,.075)):null;
+  // VR01JD: small raised metal inlays finish the four physical corners
+  // of each truly PUBLIC VR01 card. Shared GPU geometry and original
+  // gilt material, outside the artwork slot and never in pickMeshes.
+  const vrCornerInlayGeo=vrMode?
+    geometry(new THREE.BoxGeometry(.15,.15,.047)):null;
   // Phase52: public-health display floats above each card, never reads G.
   const healthBackGeo=geometry(new THREE.BoxGeometry(2.18,.22,.075));
   const healthFillGeo=geometry(new THREE.BoxGeometry(2.04,.15,.084));
   const statusGeo=geometry(new THREE.SphereGeometry(.135,12,8));
+  // VR01JE: a real metal bezel grounds the existing PUBLIC native status
+  // orb on its card. One shared torus, no derived hidden status or input.
+  const vrStatusBezelGeo=vrMode?
+    geometry(new THREE.TorusGeometry(.185,.027,8,28)):null;
   const healthBackMat=material({color:0x061820,emissive:0x0d2a31,emissiveIntensity:.4});
   const healthHealthyMat=material({color:0x76f0c6,emissive:0x17bd8c,emissiveIntensity:.78});
   const healthWarnMat=material({color:0xf7c46b,emissive:0xdb8a24,emissiveIntensity:.9});
   const healthDangerMat=material({color:0xff7771,emissive:0xe54444,emissiveIntensity:1});
+  // VR01EH: a delayed warm damage segment behind the real public-health
+  // fill. Shared geometry/material, never a clickable object or HP source.
+  const vrDamageTrailMat=vrMode?material({color:0xf8a36f,
+    emissive:0xbd4c24,emissiveIntensity:.72,roughness:.5}):null;
+  let vrDamageTrailsStarted=0;
   const readyMat=material({color:0x96e9ff,emissive:0x1875c2,emissiveIntensity:.7});
   const actedMat=material({color:0x708090,emissive:0x1f2c32,emissiveIntensity:.25});
   const wardMat=material({color:0xffe39e,emissive:0xf2ba53,emissiveIntensity:.75});
@@ -255,13 +355,14 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   for(const lane of lanes){
     const laneMaterial=tabletop?softZone:(lane.owner===0?blue:red);
     const laneBorder=new THREE.Mesh(stripGeo,laneMaterial);
-    laneBorder.position.set(0,tabletop?.15:.17,lane.z-1.36);scene.add(laneBorder);
+    laneBorder.position.set(0,tabletop?.15:.17,lane.z-1.36);
+    if(!vrMode)scene.add(laneBorder);
     for(let col=0;col<5;col++){
       const x=(col-2)*3.37;
       const inset=new THREE.Mesh(edgeGeo,tabletop?parchmentInk:bronze);inset.position.set(x,tabletop?.134:.15,lane.z);
-      inset.receiveShadow=true;scene.add(inset);
-      const base=new THREE.Mesh(tileGeo,tabletop?(lane.owner===0?allySlot:enemySlot):black);base.position.set(x,tabletop?.156:.23,lane.z);
-      base.receiveShadow=true;scene.add(base);
+      inset.receiveShadow=!vrMode;if(vrMode)inset.visible=false;scene.add(inset);
+      const base=new THREE.Mesh(tileGeo,vrMode?vrSlotHitMaterial:tabletop?(lane.owner===0?allySlot:enemySlot):black);base.position.set(x,tabletop?.156:.23,lane.z);
+      base.receiveShadow=!vrMode;scene.add(base);
       const key=lane.owner+':'+lane.row+':'+col;
       base.userData.mrrSlotKey=key;slotPickMeshes.push(base);
       const halo=new THREE.Mesh(glowGeo,legalGlow);
@@ -274,18 +375,242 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         focusRing.visible=false;scene.add(focusRing);
       }
       const crest=new THREE.Mesh(geometry(new THREE.TorusGeometry(.5,.035,7,32)),tabletop?parchmentInk:laneMaterial);
-      crest.rotation.x=-Math.PI/2;crest.position.set(x,tabletop?.175:.32,lane.z);scene.add(crest);
+      crest.rotation.x=-Math.PI/2;crest.position.set(x,tabletop?.175:.32,lane.z);
+      if(vrMode)crest.visible=false;scene.add(crest);
       boardSlots.set(key,{x,z:lane.z,owner:lane.owner,row:lane.row,col,base,halo,focusRing});
     }
   }
+  // VR01-B: the game world is an arena, not a 30-box grid. These physical
+  // surfaces are never added to pickMeshes, and all 30 original coordinates
+  // remain exactly where the Phase21 renderer expects them.
+  if(vrMode){
+    const enemyInk=material({color:0x976b5b,roughness:.76,metalness:.11,transparent:true,opacity:.23});
+    const allyInk=material({color:0x73b4a6,roughness:.72,metalness:.13,transparent:true,opacity:.25});
+    const brassInlay=material({color:0xb9a57b,metalness:.61,roughness:.35,transparent:true,opacity:.65});
+    const emboss=material({color:0x19373e,roughness:.66,metalness:.4});
+    // Two distinct territorial fabrics and three subtly carved paths per
+    // side. The background is generated geometrically, not supplied card art.
+    for(const [owner,tint] of [[1,[94,52,55]],[0,[25,95,92]]]){
+      const surface=document.createElement('canvas');
+      surface.width=1024;surface.height=512;
+      const c=surface.getContext('2d');
+      const wash=c.createLinearGradient(0,0,0,512);
+      const rgba=(alpha)=>'rgba('+tint.join(',')+','+alpha+')';
+      wash.addColorStop(0,rgba('.03'));
+      wash.addColorStop(.26,rgba('.44'));
+      wash.addColorStop(.75,rgba('.39'));
+      wash.addColorStop(1,rgba('.03'));
+      c.fillStyle=wash;c.fillRect(0,0,1024,512);
+      // Wide woven strips imply physical ranks, without outlining empty cells.
+      for(let i=0;i<3;i++){
+        const cy=84+i*169;
+        const lane=c.createLinearGradient(0,cy-56,0,cy+56);
+        lane.addColorStop(0,'rgba(230,221,188,0)');
+        lane.addColorStop(.5,'rgba(216,224,195,.055)');
+        lane.addColorStop(1,'rgba(230,221,188,0)');
+        c.fillStyle=lane;c.fillRect(25,cy-57,974,114);
+        c.lineWidth=1;c.strokeStyle='rgba(207,199,172,.11)';
+        c.beginPath();c.moveTo(45,cy-74);c.lineTo(979,cy-74);c.stroke();
+        // Stone direction markers, symmetric but unobtrusive.
+        for(const side of [-1,1]){
+          const x=side<0?47:977;
+          c.fillStyle='rgba(209,192,154,.30)';
+          c.beginPath();c.moveTo(x,cy-10);
+          c.lineTo(x-side*11,cy);c.lineTo(x,cy+10);c.closePath();c.fill();
+        }
+      }
+      // Fine diagonal fabric fibers are batched into one texture.
+      c.strokeStyle='rgba(242,231,207,.045)';c.lineWidth=1;
+      for(let x=-512;x<1500;x+=26){
+        c.beginPath();c.moveTo(x,0);c.lineTo(x+512,512);c.stroke();
+      }
+      const tex=new THREE.CanvasTexture(surface);
+      tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;
+      // Long-lived terrain belongs to scene resources, not per-card textures.
+      tabletopTextures.push(tex);
+      const mat=material({map:tex,transparent:true,depthWrite:false,roughness:.84,
+        metalness:.08,side:THREE.DoubleSide});
+      const carpet=new THREE.Mesh(geometry(new THREE.PlaneGeometry(20.72,10.05)),mat);
+      carpet.rotation.x=-Math.PI/2;
+      carpet.position.set(0,.129,owner===1?-5.54:5.54);
+      scene.add(carpet);
+    }
+    // The center emblem visually divides territories. All it does is reflect
+    // existing world ownership; combat simulation and pathing never read it.
+    const medallion=new THREE.Group();
+    medallion.position.set(0,.155,0);
+    const disc=new THREE.Mesh(geometry(new THREE.CylinderGeometry(1.11,1.16,.048,64)),emboss);
+    disc.position.y=.04;medallion.add(disc);
+    for(const radius of [1.23,.93]){
+      const ring=new THREE.Mesh(geometry(new THREE.TorusGeometry(radius,.045,8,80)),brassInlay);
+      ring.rotation.x=-Math.PI/2;ring.position.y=.087;medallion.add(ring);
+    }
+    for(let i=0;i<8;i++){
+      const a=i*Math.PI/4;
+      const stud=new THREE.Mesh(geometry(new THREE.BoxGeometry(.075,.028,.23)),brassInlay);
+      stud.rotation.y=-a;stud.position.set(Math.sin(a)*1.05,.094,Math.cos(a)*1.05);
+      medallion.add(stud);
+    }
+    scene.add(medallion);
+    // Lanes are engraved on the physical side edge, not empty slot frames.
+    for(const lane of lanes){
+      const ally=lane.owner===0;
+      const m=ally?allyInk:enemyInk;
+      for(const side of [-1,1]){
+        const block=new THREE.Mesh(geometry(new THREE.BoxGeometry(.64,.035,1.62)),m);
+        block.position.set(side*9.92,.145,lane.z);scene.add(block);
+        const dot=new THREE.Mesh(geometry(new THREE.CylinderGeometry(.075,.075,.023,18)),brassInlay);
+        dot.position.set(side*9.92,.188,lane.z);scene.add(dot);
+      }
+    }
+    // A thin metallic fracture between two territories, below every card.
+    const borderline=new THREE.Mesh(geometry(new THREE.BoxGeometry(20.5,.014,.07)),brassInlay);
+    borderline.position.set(0,.155,0);scene.add(borderline);
+  }
+  // VR01DU: a single reusable 3D native attack trajectory. The 17 samples
+  // only exist in VR01; Phase55 keeps its original 2-point straight arrow.
+  // This line never enters pickMeshes and has no gameplay callback.
+  const attackArcSegments=vrMode?16:1;
   const attackArrowGeo=geometry(new THREE.BufferGeometry());
-  attackArrowGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));
+  attackArrowGeo.setAttribute('position',new THREE.BufferAttribute(
+    new Float32Array((attackArcSegments+1)*3),3));
   const attackArrowMat=new THREE.LineBasicMaterial({color:0xffc074,transparent:true,opacity:.95});
   madeMaterials.push(attackArrowMat);
   const attackArrow=new THREE.Line(attackArrowGeo,attackArrowMat);
   attackArrow.visible=false;scene.add(attackArrow);
   const attackTip=new THREE.Mesh(geometry(new THREE.ConeGeometry(.28,.69,10)),attackGlow);
   attackTip.visible=false;scene.add(attackTip);
+  // VR01EY: the native visual arc is a world-space path. Stat/HP
+  // refreshes with the same publicly selected and target slots should
+  // not re-upload identical GPU position buffers or recreate vectors.
+  let vrAimPathKey=null,vrAimPathBuilds=0,vrAimPathReuses=0;
+  const vrAimTangent=new THREE.Vector3(),vrAimAxis=new THREE.Vector3(0,1,0);
+  // VR01EM: all confirmed strike afterimages share ONE geometry for this
+  // scene. Only short-lived per-impact opacity materials need disposal.
+  const vrProjectileGeo=vrMode?geometry(new THREE.IcosahedronGeometry(.24,1)):null;
+  // VR01EC: three shared, non-pickable sparks flow along ONLY the native
+  // attack-target preview. Reuse GPU resources and keep reduced motion still.
+  const vrAttackMotes=[];
+  if(vrMode){
+    const moteGeo=geometry(new THREE.SphereGeometry(.115,10,6));
+    const moteMat=new THREE.MeshBasicMaterial({color:0xffe2b1,
+      transparent:true,opacity:.78,depthWrite:false,blending:THREE.AdditiveBlending});
+    madeMaterials.push(moteMat);
+    for(let i=0;i<3;i++){
+      const mote=new THREE.Mesh(moteGeo,moteMat);
+      mote.visible=false;scene.add(mote);vrAttackMotes.push(mote);
+    }
+  }
+  // VR01DV: one reusable, non-pickable 3D landing guide. It follows only a
+  // currently vacant slot marked .legal by the real Phase21 game renderer.
+  // No per-slot meshes, invented legal targets or new input actions.
+  const vrLandingGuide=vrMode?new THREE.Group():null;
+  let vrLandingGuideKey=null,vrLandingGuideBorn=0,vrLandingGuideReveals=0;
+  // VR01JF: a single card-sized line footprint previews only the real
+  // native .legal EMPTY destination beneath the existing landing guide.
+  // The plane is visual, never a new card or pickable placement target.
+  const vrLandingFootprint=vrMode?(()=>{
+    const w=1.035,d=1.315,y=.15;
+    const corners=[-w,y,-d, w,y,-d, w,y,d, -w,y,d];
+    const verts=[];
+    for(let i=0;i<4;i++){
+      const a=i*3,b=((i+1)%4)*3;
+      verts.push(...corners.slice(a,a+3),...corners.slice(b,b+3));
+    }
+    const geo=geometry(new THREE.BufferGeometry());
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+    const mat=new THREE.LineBasicMaterial({color:0xb9ffeb,
+      transparent:true,opacity:0,depthWrite:false});
+    madeMaterials.push(mat);
+    return new THREE.LineSegments(geo,mat);
+  })():null;
+  if(vrLandingGuide){
+    const arc=new THREE.Mesh(
+      geometry(new THREE.TorusGeometry(.83,.055,8,52,Math.PI*1.5)),
+      material({color:0xb9ffeb,emissive:0x45d9b3,emissiveIntensity:1.25,
+        metalness:.1,roughness:.34,transparent:true,opacity:.94,depthWrite:false}));
+    arc.rotation.x=-Math.PI/2;arc.position.y=.13;
+    const floorMark=new THREE.Mesh(
+      geometry(new THREE.RingGeometry(.29,.72,48)),
+      material({color:0x71dbc0,emissive:0x258b78,emissiveIntensity:.8,
+        transparent:true,opacity:.32,side:THREE.DoubleSide,depthWrite:false}));
+    floorMark.rotation.x=-Math.PI/2;floorMark.position.y=.11;
+    const lightColumn=new THREE.Mesh(
+      geometry(new THREE.CylinderGeometry(.53,.78,1.08,32,1,true)),
+      material({color:0x75d6c5,emissive:0x237c70,emissiveIntensity:.6,
+        transparent:true,opacity:.13,side:THREE.DoubleSide,depthWrite:false}));
+    lightColumn.position.y=.62;
+    vrLandingGuide.add(arc,floorMark,lightColumn);
+    // Preserve original child indices 0-2 used by earlier visual QA.
+    if(vrLandingFootprint)vrLandingGuide.add(vrLandingFootprint);
+    vrLandingGuide.visible=false;scene.add(vrLandingGuide);
+  }
+  // VR01FU: four slim real-world corner beacons rise from the original
+  // vacant .legal slot. One shared mesh shape/material, no extra slot
+  // selection surface and no assumption about permitted destinations.
+  const vrLandingPillars=[];
+  if(vrMode){
+    const postGeo=geometry(new THREE.CylinderGeometry(.025,.045,.62,7));
+    const postMat=new THREE.MeshBasicMaterial({
+      color:0xa9ffe8,transparent:true,opacity:.62,depthWrite:false,
+      blending:THREE.AdditiveBlending
+    });
+    madeMaterials.push(postMat);
+    for(const sx of [-1,1])for(const sz of [-1,1]){
+      const post=new THREE.Mesh(postGeo,postMat);
+      post.userData.cornerX=sx;post.userData.cornerZ=sz;
+      post.visible=false;scene.add(post);vrLandingPillars.push(post);
+    }
+  }
+  // VR01EI: a single camera-visible 3D four-corner target bracket. The
+  // authority remains Phase21's .attack-target class; this object is not
+  // a raycast input surface and is not regenerated per opponent card.
+  const vrTargetBracket=vrMode?new THREE.Group():null;
+  let vrTargetBracketKey=null,vrTargetBracketPublicChecks=0;
+  if(vrTargetBracket){
+    const barX=geometry(new THREE.BoxGeometry(.50,.065,.060));
+    const barZ=geometry(new THREE.BoxGeometry(.060,.065,.50));
+    const bronzeLight=new THREE.MeshBasicMaterial({color:0xffd197,
+      transparent:true,opacity:.85,depthWrite:false});
+    madeMaterials.push(bronzeLight);
+    for(const sx of [-1,1])for(const sz of [-1,1]){
+      const xbar=new THREE.Mesh(barX,bronzeLight);
+      xbar.position.set(sx*.77,0,sz*1.09);
+      const zbar=new THREE.Mesh(barZ,bronzeLight);
+      zbar.position.set(sx*1.01,0,sz*.85);
+      vrTargetBracket.add(xbar,zbar);
+    }
+    vrTargetBracket.visible=false;
+    scene.add(vrTargetBracket);
+  }
+  // VR01HP: a quiet world-space floor halo appears ONLY while the real
+  // Phase21 attack-target lock remains valid. Shared GPU resources, no
+  // clickable mesh, invented damage, extra DOM queries or private hand.
+  const vrTargetFloorHalo=vrMode?new THREE.Mesh(
+    geometry(new THREE.RingGeometry(.72,.83,48)),
+    material({color:0xffc98c,transparent:true,opacity:.22,
+      depthWrite:false,side:THREE.DoubleSide,
+      blending:THREE.AdditiveBlending})):null;
+  if(vrTargetFloorHalo){
+    vrTargetFloorHalo.rotation.x=-Math.PI/2;
+    vrTargetFloorHalo.visible=false;scene.add(vrTargetFloorHalo);
+  }
+  // VR01FT: two restrained world-space motes accompany only an actual
+  // Phase21 attack-target lock. They are NOT bracket children, keeping
+  // its eight tested corner meshes and original raycaster unchanged.
+  const vrTargetSparks=[];
+  if(vrMode){
+    const sparkGeo=geometry(new THREE.OctahedronGeometry(.12,0));
+    const sparkMat=new THREE.MeshBasicMaterial({
+      color:0xffdaaa,transparent:true,opacity:.79,depthWrite:false,
+      blending:THREE.AdditiveBlending
+    });
+    madeMaterials.push(sparkMat);
+    for(let i=0;i<2;i++){
+      const spark=new THREE.Mesh(sparkGeo,sparkMat);
+      spark.visible=false;scene.add(spark);vrTargetSparks.push(spark);
+    }
+  }
   const center=new THREE.Mesh(geometry(new THREE.BoxGeometry(21,.035,.1)),tabletop?parchmentInk:gold);
   center.position.y=.19;scene.add(center);
   const seal=new THREE.Mesh(geometry(new THREE.TorusGeometry(1.06,.055,8,80)),tabletop?parchmentInk:bronze);
@@ -613,11 +938,62 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   const impactLamp=new THREE.PointLight(0xffffff,0,17,2);
   impactLamp.position.set(0,2,0);scene.add(impactLamp);
   let pendingStrike=null,cinemaImpact=null,confirmedStrikes=0,cinematicFrameCount=0;
+  // VR01GT: preserve bounded public-input timing diagnostics without
+  // touching the original Phase21 combat execution.
+  let vrStagedAttacks=0,vrStrikeTimeouts=0,vrUnpairedNativeHits=0;
+  let vrLastUnpairedHit=null,vrStaleStrikeSourceRejects=0;
+  let vrPausedStrikeWithdrawals=0,vrStoppedStrikeRejects=0;
+  let vrStaleStrikeTargetRejects=0,vrStrikeMissingPublicRejects=0;
+  // VR01GW: record only a publicly rendered native occupant's ID/name.
+  // The visual source must never be borrowed by a different occupant
+  // while an earlier attack awaits native fx-hit confirmation.
+  function readStrikePublicCard(key){
+    const card=document.querySelector('#arena [data-slot="'+key+
+      '"] .board-card .card-ui');
+    const name=card?.querySelector('.card-name')?.textContent?.trim()||'';
+    return name?{id:card.getAttribute('data-mrr-public-card-id')||null,name}:null;
+  }
+  // VR01EA: an afterimage belongs to a CONFIRMED native strike only.
+  let vrConfirmedProjectileStarted=0;
+  let vrHitReactions=0,vrLandingDustStarted=0;
+  let vrHealthBarTransitions=0;
+  let vrImpactSpringPeak=0,vrHitRecoilRenderFrames=0;
+  let vrNativeHitEdgePeak=0,vrNativeHitContactPeak=0;
+  // VR01DX: confirmed native hit FX may illuminate a CURRENT public face.
+  // A short-lived keyed event survives HP-text texture reconstruction, but
+  // an unrelated replacement with a different public card ID cannot glow.
+  const vrHitFaceFlash=new Map(),vrPendingPublicHits=new Map();
+  let vrHitFaceFlashCount=0,vrHitFaceFlashPeak=0,vrDeferredHitApplied=0;
+  let vrHitWithoutPublicCard=0;
+  let vrTransientPublicIndexBuilds=0,vrTransientPublicComparisons=0;
+  const vrLandingDust=[],vrDepartBursts=[];
+  let vrDepartCount=0;
   let latestCombat=null;
   const nativeCombatEvents=[];
+  // VR01GS: the native game may emit its REAL CSS hit after slow
+  // software WebGL paints. Keep the staged visual source long enough
+  // for that native FX, but only a true native hit ever confirms it.
+  // Phase55 keeps the original 2.8-second limit.
+  const nativeStrikeWindow=vrMode?12000:2800;
   function stageAttack(sourceKey,targetKey){
+    // VR01HB: even a native click routed through a paused canvas must
+    // never arm a future decorative 3D strike. The original native
+    // Phase21 click remains the only owner of actual game actions.
+    if(vrMode&&(!running||disposed)){vrStoppedStrikeRejects++;return false;}
     if(!boardSlots.has(sourceKey)||!boardSlots.has(targetKey)||sourceKey===targetKey)return false;
-    pendingStrike={sourceKey,targetKey,at:performance.now()};
+    const sourcePublic=vrMode?readStrikePublicCard(sourceKey):null;
+    const targetPublic=vrMode?readStrikePublicCard(targetKey):null;
+    // VR01GY: a stale visual selected/target key without BOTH public
+    // cards cannot stage a projectile. This never blocks the native click
+    // or substitutes a hidden card / gameplay action.
+    if(vrMode&&(!sourcePublic||!targetPublic)){
+      vrStrikeMissingPublicRejects++;
+      pendingStrike=null;
+      return false;
+    }
+    pendingStrike={sourceKey,targetKey,at:performance.now(),
+      sourcePublic,targetPublic};
+    if(vrMode)vrStagedAttacks++;
     return true;
   }
   function cinematicLight(type,key,at){
@@ -628,7 +1004,10 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     latestCombat={type,key,at};
   }
   function advanceCinematics(now){
-    if(pendingStrike&&now-pendingStrike.at>2800)pendingStrike=null;
+    if(pendingStrike&&now-pendingStrike.at>nativeStrikeWindow){
+      if(vrMode)vrStrikeTimeouts++;
+      pendingStrike=null;
+    }
     if(!cinemaImpact){impactLamp.intensity=0;return;}
     const p=(now-cinemaImpact.at)/(cinemaImpact.type==='hit'?540:880);
     if(p>=1){
@@ -650,21 +1029,73 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
   // Observe only real native fx-* class transitions, never compute damage or healing.
   const liveEffects=[],effectsReceived={hit:0,heal:0,summon:0};
   let peakLiveFxCount=0;
+  // VR01EV: a native CSS FX is one transition onto a real slot, NOT an
+  // arbitrary class change while that slot still has the same fx-* class.
+  let vrFxClassNoiseIgnored=0,vrFxRisingEdges=0,vrFxBatchedTransitions=0;
+  let vrFxRapidNativeEdges=0,vrDetachedFxRecordsIgnored=0;
+  // VR01GM: low-cost forensic trace of genuine public native class
+  // transitions. Keep only the most recent eight events, and never read
+  // private Phase21 battle state or record a detached DOM card as a hit.
+  const vrNativeFxAudit=[];
   const recentFx=new Map();
   const effectColors={hit:0xffa96e,heal:0x7affbd,summon:0x69d8ef};
   const fxObserver=new MutationObserver(records=>{
     if(disposed)return;
+    // VR01EW: MutationObserver fires after a BATCH of class changes. Use
+    // the next change's oldValue as this change's post-state, not the
+    // final classList, which may already have lost a short native FX.
+    const nextClass=new WeakMap(),afterClass=new Map();
+    for(let i=records.length-1;i>=0;i--){
+      const record=records[i];
+      if(record.type!=='attributes'||record.attributeName!=='class')continue;
+      const node=record.target;
+      afterClass.set(record,nextClass.has(node)?
+        nextClass.get(node):(node.getAttribute('class')||''));
+      nextClass.set(node,record.oldValue||'');
+    }
     for(const record of records){
       if(record.type!=='attributes'||record.attributeName!=='class')continue;
       const node=record.target;
-      if(!(node instanceof Element)||!node.matches('#arena [data-slot]'))continue;
+      if(!(node instanceof Element))continue;
+      // VR01FL: native re-render may remove an old slot in the same
+      // mutation batch that added fx-hit. Detached slot classes are no
+      // longer visible public actions and must never create combat FX.
+      if(vrMode&&!node.isConnected){
+        vrDetachedFxRecordsIgnored++;continue;
+      }
+      if(!node.matches('#arena [data-slot]'))continue;
       const key=node.getAttribute('data-slot');
       if(!boardSlots.has(key))continue;
+      const before=(record.oldValue||'').split(/\s+/);
+      const after=(afterClass.get(record)||'').split(/\s+/);
       for(const type of ['hit','heal','summon']){
-        if(!node.classList.contains('fx-'+type))continue;
-        // Even multiple DOM writes in a single native frame are one visible effect.
+        const fxClass='fx-'+type;
+        if(before.includes(fxClass)){
+          if(vrMode&&after.includes(fxClass))vrFxClassNoiseIgnored++;
+          continue;
+        }
+        if(!after.includes(fxClass))continue;
+        if(vrMode){
+          vrFxRisingEdges++;
+          if(!node.classList.contains(fxClass))vrFxBatchedTransitions++;
+          const card=node.querySelector('.board-card .card-ui');
+          vrNativeFxAudit.push({
+            key,type,id:card?.getAttribute('data-mrr-public-card-id')||null,
+            name:card?.querySelector('.card-name')?.textContent?.trim()||null,
+            classStillVisible:node.classList.contains(fxClass)
+          });
+          if(vrNativeFxAudit.length>8)vrNativeFxAudit.shift();
+        }
         const stamp=key+'|'+type,now=performance.now();
-        if(now-(recentFx.get(stamp)||-9999)<95)continue;
+        const previousAt=recentFx.get(stamp);
+        // VR01EZ: the ordered oldValue/afterValue proof is already
+        // a real native FX rising edge. A second real pulse inside 95ms
+        // must NOT vanish just because an earlier visual happened recently.
+        // Preserve the older Phase55 timer gate outside the VR01 PC view.
+        if(vrMode){
+          if(previousAt!==undefined&&now-previousAt<95)
+            vrFxRapidNativeEdges++;
+        }else if(previousAt!==undefined&&now-previousAt<95)continue;
         recentFx.set(stamp,now);
         triggerNativeFx(type,key,now);
       }
@@ -701,10 +1132,80 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     beacon.position.y=1.2;group.add(beacon);
     scene.add(group);
     cinematicLight(type,key,now);
+    // VR01F: a card visibly recoils ONLY after the original game actually
+    // emits fx-hit, never on mouse hover, speculative click or targeting.
+    // The original Phase76 3D presentation is untouched.
+    if(vrMode&&type==='hit'){
+      const victim=cardIndex.get(key);
+      // VR01EK: the native renderer can replace public HP text before
+      // Three.js sync recreates its face. The CURRENT public DOM identity
+      // takes precedence; never use a stale slot occupant or hidden state.
+      const face=document.querySelector('#arena [data-slot="'+key+'"] .board-card .card-ui');
+      const nativeName=face?.querySelector('.card-name')?.textContent?.trim()||'';
+      const nativeId=face?.getAttribute('data-mrr-public-card-id')||null;
+      // VR01FD: a missing real public face is NOT evidence that the old
+      // Three.js mesh is still this slot's occupant. Destruction or native
+      // removal may precede the MutationObserver callback. Never light a
+      // departed card using its stale cached name or identity.
+      // VR01GU: a native identity cannot fall back to a matching name
+      // when the cached Three.js occupant has a DIFFERENT public ID.
+      // This guard applies to true native hit recoil as well as to the
+      // presentation carry checks added in VR01GJ.
+      const sameCard=!!(victim&&vrSamePublicIdentity(nativeId,nativeName,
+        victim.publicId,victim.publicName));
+      const id=nativeId||(sameCard?victim.publicId:null);
+      const name=nativeName;
+      if(!name)vrHitWithoutPublicCard++;
+      if(name){
+        vrHitFaceFlash.set(key,{at:now,publicId:id,name,shownFrames:0});
+        vrHitFaceFlashCount++;
+      }
+      const from=pendingStrike?.targetKey===key?boardSlots.get(pendingStrike.sourceKey):null;
+      const dx=spot.x-(from?.x??spot.x+.4),dz=spot.z-(from?.z??spot.z+1);
+      const length=Math.hypot(dx,dz)||1;
+      const reaction={born:now,dx:dx/length,dz:dz/length,shownFrames:0};
+      if(sameCard&&!victim.deploy){
+        victim.hitReaction=reaction;
+        vrHitReactions++;
+      }else if(name&&!victim?.deploy){
+        vrPendingPublicHits.set(key,{id,name,reaction});
+      }
+    }
     // Attack vectors originate from the player's actual delegated selection.
     // The beam is committed only when the original engine emits fx-hit.
-    const strike=type==='hit'&&pendingStrike?.targetKey===key &&
-      now-pendingStrike.at<2800?pendingStrike:null;
+    const candidate=type==='hit'&&pendingStrike?.targetKey===key &&
+      now-pendingStrike.at<nativeStrikeWindow?pendingStrike:null;
+    const originalSource=candidate?.sourcePublic;
+    const liveSource=originalSource?
+      readStrikePublicCard(candidate.sourceKey):null;
+    // A replacement with a DIFFERENT public identity cannot inherit
+    // the previous native attack's 3D originating projectile.
+    const sourceReplaced=!!(vrMode&&originalSource&&liveSource&&
+      !vrSamePublicIdentity(originalSource.id,originalSource.name,
+        liveSource.id,liveSource.name));
+    if(sourceReplaced)vrStaleStrikeSourceRejects++;
+    // VR01GX: a DIFFERENT target occupant in the same board slot must
+    // not inherit the previously staged 3D attack projectile. The real
+    // Phase21 hit, including lethal target removal, remains authoritative.
+    const originalTarget=candidate?.targetPublic;
+    const liveTarget=originalTarget?
+      readStrikePublicCard(candidate.targetKey):null;
+    const targetReplaced=!!(vrMode&&originalTarget&&liveTarget&&
+      !vrSamePublicIdentity(originalTarget.id,originalTarget.name,
+        liveTarget.id,liveTarget.name));
+    if(targetReplaced)vrStaleStrikeTargetRejects++;
+    const strike=sourceReplaced||targetReplaced?null:candidate;
+    // The original game confirmed this hit, but the decorative staged
+    // source was absent, expired, or aimed at a different public slot.
+    // Record why no 3D projectile was attached; never invent a strike.
+    if(vrMode&&type==='hit'&&!strike){
+      vrUnpairedNativeHits++;
+      vrLastUnpairedHit={key,
+        stagedTarget:pendingStrike?.targetKey||null,
+        stagedAgeMs:pendingStrike?
+          Math.round(now-pendingStrike.at):null};
+    }
+    let confirmedProjectile=null;
     if(strike){
       const source=boardSlots.get(strike.sourceKey),delta=new THREE.Vector3(source.x-spot.x,0,source.z-spot.z);
       const origin=new THREE.Vector3(delta.x,1.3,delta.z),end=new THREE.Vector3(0,1.3,0);
@@ -720,6 +1221,20 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         group.userData.beams||=[];group.userData.beams.push(beam);
         group.userData.beamResources||=[];group.userData.beamResources.push(beamGeo,beamMat);
       }
+      if(vrMode&&!matchMedia('(prefers-reduced-motion: reduce)').matches){
+        // VR01EM: a confirmed Phase21 hit may produce a lightweight
+        // afterimage, but never a second attack or an extra hitbox.
+        // Share its GPU geometry and skip the moving orb if the user
+        // requests reduced motion.
+        const orbMat=new THREE.MeshBasicMaterial({color:0xffe2ad,transparent:true,
+          opacity:.9,depthWrite:false,blending:THREE.AdditiveBlending});
+        const orb=new THREE.Mesh(vrProjectileGeo,orbMat);
+        orb.position.copy(origin);
+        group.add(orb);
+        group.userData.projectileResources=[orbMat];
+        confirmedProjectile={mesh:orb,from:origin.clone(),to:end.clone()};
+        vrConfirmedProjectileStarted++;
+      }
       confirmedStrikes++;pendingStrike=null;
     }
     // Soft additive volumetric core creates readable summon/heal silhouettes.
@@ -734,10 +1249,21 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     group.userData.columnResources=[columnGeo,columnMat];
     const life=type==='summon'?1150:type==='heal'?1040:820;
     liveEffects.push({type,key,group,ring,sparkGeo,sparkMat,beacon,
-      velocity,born:now,life,resources:[ringGeo,ringMat,sparkGeo,sparkMat,beaconGeo,beaconMat,...(group.userData.beamResources||[]),...(group.userData.columnResources||[])]});
+      projectile:confirmedProjectile,velocity,born:now,life,
+      resources:[ringGeo,ringMat,sparkGeo,sparkMat,beaconGeo,beaconMat,
+        ...(group.userData.beamResources||[]),...(group.userData.columnResources||[]),
+        ...(group.userData.projectileResources||[])]});
     peakLiveFxCount=Math.max(peakLiveFxCount,liveEffects.length);
     effectsReceived[type]++;
-    const combatEntry={type,key,name:document.querySelector('#arena [data-slot="'+key+'"] .card-name')?.textContent?.trim()||'',at:now,confirmedStrike:!!strike};
+    // VR01JL: carry the publicly rendered card identity with the
+    // already-confirmed Phase21 FX. The VR UI can then reject numeric
+    // damage from a different occupant that reused the same slot.
+    const fxPublicCard=document.querySelector('#arena [data-slot="'+key+
+      '"] .board-card .card-ui');
+    const combatEntry={type,key,
+      id:fxPublicCard?.getAttribute('data-mrr-public-card-id')||null,
+      name:fxPublicCard?.querySelector('.card-name')?.textContent?.trim()||'',
+      at:now,confirmedStrike:!!strike};
     nativeCombatEvents.push(combatEntry);
     if(nativeCombatEvents.length>12)nativeCombatEvents.shift();
     events.onCombat?.(combatEntry);
@@ -747,10 +1273,123 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     scene.remove(fx.group);
     for(const res of fx.resources)res.dispose();
   }
-  function advanceEffects(now){
+  // Ground-contact dust is triggered only after a confirmed Phase21 hand
+  // placement actually FINISHES its 3D arrival. Not a second summon event.
+  // No rings, click surfaces or extra canvas textures.
+  function spawnVrLandingDust(slot,at){
+    if(!vrMode||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    const count=18,coords=new Float32Array(count*3),velocity=new Float32Array(count*3);
+    for(let i=0;i<count;i++){
+      const angle=i*2.399963229728653,spread=.45+(i%5)*.085;
+      velocity[i*3]=Math.cos(angle)*spread*2.6;
+      velocity[i*3+1]=.45+(i%4)*.16;
+      velocity[i*3+2]=Math.sin(angle)*spread*2.6;
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(coords,3));
+    const mat=new THREE.PointsMaterial({color:slot.owner===0?0x9fc4b9:0xc0a18b,
+      size:.14,transparent:true,opacity:.68,depthWrite:false,sizeAttenuation:true});
+    const points=new THREE.Points(geo,mat);
+    points.position.set(slot.x,.35,slot.z);scene.add(points);
+    vrLandingDust.push({points,geo,mat,velocity,born:at,life:520});
+    vrLandingDustStarted++;
+  }
+  function advanceVrLandingDust(now){
+    for(let i=vrLandingDust.length-1;i>=0;i--){
+      const f=vrLandingDust[i],p=Math.max(0,(now-f.born)/f.life);
+      if(p>=1){
+        scene.remove(f.points);f.geo.dispose();f.mat.dispose();vrLandingDust.splice(i,1);continue;
+      }
+      const pos=f.geo.attributes.position;
+      for(let j=0;j<f.velocity.length/3;j++){
+        const k=j*3;
+        pos.setXYZ(j,f.velocity[k]*p,
+          f.velocity[k+1]*p-.35*p*p,
+          f.velocity[k+2]*p);
+      }
+      pos.needsUpdate=true;f.mat.opacity=Math.pow(1-p,1.6)*.68;
+    }
+  }
+  // VR01O: the public board has actually LOST a card. A short neutral
+  // departure/dissolve is valid for destruction, sacrifice or recall;
+  // NEVER claim a kill from DOM removal alone or keep a ghost pick mesh.
+  // Visual-only: a native public-card departure leaves a short, low profile
+  // ground ripple alongside the existing particle burst. It is not a kill
+  // assertion, target, or game rule event.
+  function removeVrDeparture(fx){
+    scene.remove(fx.points,fx.halo);
+    fx.geo.dispose();fx.mat.dispose();
+    fx.halo.geometry.dispose();fx.halo.material.dispose();
+  }
+  let vrDepartHaloCount=0;
+  function spawnVrDeparture(slot,at){
+    if(!vrMode||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    if(vrDepartBursts.length>=7)return;
+    const count=16,geo=new THREE.BufferGeometry();
+    const coords=new Float32Array(count*3),velocity=new Float32Array(count*3);
+    for(let i=0;i<count;i++){
+      const a=i*2.399963229728653,rad=.18+(i%5)*.13;
+      velocity[i*3]=Math.cos(a)*rad*2.5;
+      velocity[i*3+1]=.55+(i%7)*.16;
+      velocity[i*3+2]=Math.sin(a)*rad*2.5;
+    }
+    geo.setAttribute('position',new THREE.BufferAttribute(coords,3));
+    const mat=new THREE.PointsMaterial({color:slot.owner===0?0x9cc8ba:0xe7ae83,
+      size:.18,transparent:true,opacity:.76,depthWrite:false,sizeAttenuation:true});
+    const points=new THREE.Points(geo,mat);
+    points.position.set(slot.x,1.2,slot.z);
+    const halo=new THREE.Mesh(
+      new THREE.RingGeometry(.43,.51,36),
+      new THREE.MeshBasicMaterial({color:slot.owner===0?0x9cc8ba:0xe7ae83,
+        transparent:true,opacity:.40,depthWrite:false,side:THREE.DoubleSide}));
+    halo.rotation.x=-Math.PI/2;
+    halo.position.set(slot.x,.16,slot.z);
+    scene.add(points,halo);
+    vrDepartBursts.push({points,halo,geo,mat,velocity,born:at,life:650});
+    vrDepartCount++;vrDepartHaloCount++;
+  }
+  function advanceVrDeparture(now){
+    for(let i=vrDepartBursts.length-1;i>=0;i--){
+      const fx=vrDepartBursts[i],p=Math.max(0,(now-fx.born)/fx.life);
+      if(p>=1){
+        removeVrDeparture(fx);
+        vrDepartBursts.splice(i,1);continue;
+      }
+      const pos=fx.geo.attributes.position;
+      for(let j=0;j<fx.velocity.length/3;j++){
+        const k=j*3;
+        pos.setXYZ(j,fx.velocity[k]*p,
+          fx.velocity[k+1]*p-.5*p*p,fx.velocity[k+2]*p);
+      }
+      pos.needsUpdate=true;fx.mat.opacity=.76*Math.pow(1-p,1.55);
+      fx.halo.scale.setScalar(.85+p*.95);
+      fx.halo.material.opacity=.40*Math.pow(1-p,1.7);
+    }
+  }
+  function advanceEffects(now,reducedMotion=false){
     for(let i=liveEffects.length-1;i>=0;i--){
       const f=liveEffects[i],p=Math.max(0,(now-f.born)/f.life);
       if(p>=1){removeFx(f);liveEffects.splice(i,1);continue;}
+      // VR01ES: respect system reduced-motion in the real PC battlefield.
+      // Keep the native FX event and its static colour cue, but never move
+      // sparks, beams, shockwaves or a projectile during this preference.
+      // Normal motion and the older Phase76 modal retain existing behavior.
+      if(reducedMotion){
+        const fade=1-p;
+        f.ring.scale.setScalar(.9);f.ring.material.opacity=.32*fade;
+        if(f.group.userData.column){
+          const column=f.group.userData.column;
+          column.material.opacity=.18*fade;
+          column.scale.set(1,1,1);
+        }
+        f.beacon.scale.setScalar(.7);
+        f.beacon.material.opacity=.26*fade;
+        f.sparkMat.opacity=0;
+        if(f.projectile)f.projectile.mesh.visible=false;
+        if(f.group.userData.beams)for(const beam of f.group.userData.beams)
+          beam.material.opacity=0;
+        continue;
+      }
       const ease=Math.sin(Math.PI*p);
       f.ring.scale.setScalar(.7+p*1.55);
       if(f.group.userData.column){
@@ -770,6 +1409,17 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
       pos.needsUpdate=true;
       f.sparkMat.opacity=(1-p)*.9;
+      if(f.projectile){
+        const orb=f.projectile.mesh;
+        const t=Math.max(0,Math.min(1,(now-f.born)/420));
+        const from=f.projectile.from,to=f.projectile.to;
+        orb.position.set(from.x+(to.x-from.x)*t,
+          from.y+(to.y-from.y)*t+.8*Math.sin(Math.PI*t),
+          from.z+(to.z-from.z)*t);
+        orb.visible=t<1;
+        orb.scale.setScalar(1+.65*Math.sin(Math.PI*t));
+        orb.material.opacity=.9*(1-t);
+      }
       if(f.group.userData.beams)for(const beam of f.group.userData.beams){
         beam.material.opacity=Math.max(0,1-p)*(beam.geometry.parameters.radiusTop>.1?.30:.92);
         beam.scale.set(1+p*.22,1,1+p*.22);
@@ -777,49 +1427,248 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     }
   }
   let cards=[],signature='',publicCardCount=0,lastSync=0;
+  let vrPendingDeploy=null,vrDeployTransitions=0,vrReusedCards=0;
+  let vrLandingShadowReveals=0;
+  let vrPresentationCarryTransfers=0,vrIdentityCarryRejects=0;
+  let vrNeighborPairChecks=0,vrNeighborCacheRebuilds=0;
+  let vrNeighborOccupancyKey='',vrNeighborCache=new Map();
+  // A hand click only arms a presentation. Neither it nor this animation
+  // creates a unit: the public Phase21 board must confirm placement first.
+  function armDeployment(request){
+    if(!vrMode||!request||typeof request.name!=='string'||!request.name.trim())return false;
+    const r=renderer.domElement.getBoundingClientRect();
+    const screenX=Number(request.x),screenY=Number(request.y);
+    if(!Number.isFinite(screenX)||!Number.isFinite(screenY))return false;
+    const nx=(screenX-r.left)/r.width*2-1,ny=1-(screenY-r.top)/r.height*2;
+    const rayPoint=new THREE.Vector3(nx,ny,.5).unproject(camera);
+    const direction=rayPoint.sub(camera.position).normalize();
+    const distanceToStage=(1.76-camera.position.y)/direction.y;
+    const start=distanceToStage>0?camera.position.clone().addScaledVector(direction,distanceToStage):
+      new THREE.Vector3(0,1.76,15);
+    vrPendingDeploy={name:request.name.trim(),born:performance.now(),
+      origin:new THREE.Vector3(Math.max(-11,Math.min(11,start.x)),4.7,
+        Math.max(9.7,Math.min(17,start.z)))};
+    return true;
+  }
+  const vrCardFingerprint=p=>JSON.stringify([p.cardId,p.name,p.kind,p.cost,p.stats,p.sigil]);
   let hoveredKey=null,selectedKey=null,legalCount=0,attackTargetCount=0,statusSignature='';
+  // VR01HY: a hover belongs to a visible PUBLIC card identity, not
+  // merely to a slot which the native game may replace in place.
+  let vrHoverPublicIdentity=null,vrHoverIdentityWithdrawals=0;
+  let vrStaleFocusLampWithdrawals=0;
+  let vrSelectionBursts=0,vrSelectionBurst=null;
+  let vrTargetLocks=0,vrTargetLock=null;
+  // VR01IH: audit the same-sync withdrawal of a native-verified target
+  // rim hue; no cosmetic lock may persist after the source is revoked.
+  let vrRevokedTargetRimResets=0,vrLastRevokedTargetRimHue=null;
+  let vrRevokedSourceRimResets=0,vrLastRevokedSourceRimHue=null;
   let cardHealth=new Map(),healthIndicatorCount=0;
   let pickMeshes=slotPickMeshes.slice(),cardIndex=new Map();
+  // VR01GJ: one symmetric identity check for transient presentation.
+  // A visible ID cannot silently fall back to a matching card name when
+  // the original public card was replaced or the ID was withdrawn.
+  function vrSamePublicIdentity(idA,nameA,idB,nameB){
+    if(idA||idB)return !!idA&&!!idB&&idA===idB;
+    return !!nameA&&nameA===nameB;
+  }
+  // VR01GE: a public ID must never silently degrade into a name-only
+  // comparison when a live native element loses that ID. Centralize
+  // the same strict identity rule for inspector, quick action and hits.
+  function vrMatchesNativePublicCard(item,node){
+    if(!item||!node)return false;
+    const realId=node.getAttribute('data-mrr-public-card-id')||null;
+    const realName=node.querySelector('.card-name')?.textContent?.trim()||'';
+    if(!realName)return false;
+    return vrSamePublicIdentity(realId,realName,
+      item.publicId,item.publicName);
+  }
+  // VR01EU: card labels, selection and dense layout can project the same
+  // public card many times. Reuse one temporary vector across synchronous
+  // project calls instead of allocating a THREE.Vector3 for every corner.
+  const vrProjectionPoint=new THREE.Vector3();
+  let vrProjectionSamples=0,vrStalePreviewRejected=0,vrStaleCardQueriesRejected=0;
+  // VR01FW: the visible Three.js card face supplies its own UV position.
+  // This is only an inspection tilt, never a different pick or native click.
+  let vrFaceHoverBias=0,vrFaceHoverBiasY=0,vrFaceHoverSamples=0;
+  // VR01ID: the physical top-rim glint should also follow the pointer
+  // when it is on the existing 3D FRAME rather than just the art face.
+  // Use a local hit coordinate, not private state or a new raycaster mesh.
+  const vrRimHitPoint=vrMode?new THREE.Vector3():null;
+  let vrRimPointerBias=0,vrRimPointerHeight=0,vrRimPointerSamples=0;
+  let vrStaleRaycastRejects=0;
   function publicHit(e){
     const rect=renderer.domElement.getBoundingClientRect();
-    if(rect.width<10||rect.height<10||e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)return null;
+    if(rect.width<10||rect.height<10||e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom){
+      if(vrMode){vrFaceHoverBias=0;vrFaceHoverBiasY=0;vrRimPointerBias=vrRimPointerHeight=0;}
+      return null;
+    }
     pointer.set((e.clientX-rect.left)/rect.width*2-1,-((e.clientY-rect.top)/rect.height*2-1));
     raycaster.setFromCamera(pointer,camera);
     const hits=raycaster.intersectObjects(pickMeshes,false);
-    return hits[0]?.object.userData.mrrSlotKey||null;
+    // While the new model is arriving from the hand it cannot steal a click
+    // from the actual legal native slot beneath it.
+    const first=hits.find(hit=>!hit.object.userData.mrrDeploying);
+    if(vrMode&&first){
+      // VR01GH: THREE raycasting may hit the slot floor before the card.
+      // Every hit at an OCCUPIED cached public slot must be checked against
+      // the current native occupant, regardless of which mesh was nearest.
+      // Truly vacant native slots remain governed by Phase21's legal class.
+      const key=first.object.userData.mrrSlotKey;
+      const cached=cardIndex.get(key);
+      if(cached){
+        const node=document.querySelector('#arena [data-slot="'+key+
+          '"] .board-card .card-ui');
+        const valid=vrMatchesNativePublicCard(cached,node);
+        if(!valid){
+          vrStaleRaycastRejects++;vrFaceHoverBias=vrFaceHoverBiasY=vrRimPointerBias=vrRimPointerHeight=0;
+          return null;
+        }
+      }
+    }
+    if(vrMode){
+      const publicKey=first?.object.userData.mrrSlotKey;
+      const actualFace=!!publicKey&&cardIndex.get(publicKey)?.face===first.object;
+      vrFaceHoverBias=actualFace&&first.uv?
+        Math.max(-1,Math.min(1,(first.uv.x-.5)*2)):0;
+      // VR01HN: Y UV of the same genuine 3D public face is presentational.
+      // Never infer a pointer bias from an empty slot or a private hand.
+      vrFaceHoverBiasY=actualFace&&first.uv?
+        Math.max(-1,Math.min(1,(first.uv.y-.5)*2)):0;
+      if(actualFace&&first.uv)vrFaceHoverSamples++;
+      // VR01ID: both the original face and the original frame already
+      // participate in native-safe picking. Map that SAME public ray hit
+      // to its actual physical card x-axis for continuous top-rim shine.
+      const card=publicKey&&cardIndex.get(publicKey);
+      const rimHit=card&&first&&
+        (first.object===card.face||first.object===card.frame);
+      if(rimHit){
+        card.frame.worldToLocal(vrRimHitPoint.copy(first.point));
+        vrRimPointerBias=Math.max(-1,Math.min(1,vrRimHitPoint.x/1.04));
+        // VR01IE: read the same physical public hit height so an
+        // upper-rim reflection brightens as the real cursor approaches.
+        vrRimPointerHeight=Math.max(-1,Math.min(1,vrRimHitPoint.y/1.42));
+        vrRimPointerSamples++;
+      }else vrRimPointerBias=vrRimPointerHeight=0;
+    }
+    return first?.object.userData.mrrSlotKey||null;
   }
   function projectCard(key){
     const c=cardIndex.get(key);
     if(!c)return null;
     c.group.updateMatrixWorld(true);
-    const point=c.group.localToWorld(new THREE.Vector3(0,.12,.15)).project(camera);
+    vrProjectionSamples++;
+    const point=c.group.localToWorld(vrProjectionPoint.set(0,.12,.15)).project(camera);
     const r=renderer.domElement.getBoundingClientRect();
     return {x:r.left+(point.x+1)*r.width/2,y:r.top+(1-point.y)*r.height/2};
+  }
+  // VR01-D: the public card's four REAL projected face corners. Dynamic
+  // nameplates use these bounds instead of an arbitrary offset from the slot
+  // center, so zoom, card count and camera pitch do not desync the labels.
+  function projectCardBounds(key){
+    if(!vrMode)return null;
+    const item=cardIndex.get(key);
+    if(!item)return null;
+    item.group.updateMatrixWorld(true);
+    const rect=renderer.domElement.getBoundingClientRect();
+    const halfW=1.05,halfH=1.355;
+    let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;
+    for(let i=0;i<4;i++){
+      const x=i===1||i===2?halfW:-halfW,y=i>=2?halfH:-halfH;
+      const p=item.face.localToWorld(vrProjectionPoint.set(x,y,.002)).project(camera);
+      vrProjectionSamples++;
+      const px=rect.left+(1+p.x)*rect.width/2;
+      const py=rect.top+(1-p.y)*rect.height/2;
+      if(!Number.isFinite(px)||!Number.isFinite(py))return null;
+      left=Math.min(left,px);right=Math.max(right,px);
+      top=Math.min(top,py);bottom=Math.max(bottom,py);
+    }
+    return {left,right,top,bottom};
   }
   // Phase53: render the exact card-face canvas already shown on the public
   // WebGL mesh. No second artwork catalogue or hidden-game data.
   function getCardPreview(key){
     const item=cardIndex.get(key);
     if(!item)return null;
+    // VR01FK: a native card can leave or be replaced BEFORE our next
+    // timed public sync. Never return the departed mesh's cached preview
+    // to an inspector now pointing at an empty or different public slot.
+    const node=document.querySelector('#arena [data-slot="'+key+'"] .board-card .card-ui');
+    if(vrMode){
+      if(!vrMatchesNativePublicCard(item,node)){
+        vrStalePreviewRejected++;return null;
+      }
+    }
     if(!item.previewUrl){
       const canvas=item.face.material.map?.image;
       if(!(canvas instanceof HTMLCanvasElement))return null;
       item.previewUrl=canvas.toDataURL('image/png');
     }
-    const node=document.querySelector('#arena [data-slot="'+key+'"] .card-ui');
-    return {key,artData:item.previewUrl,
+    // VR01JI: show the current PUBLIC HP-bar fill and visible native
+    // status chip in the optional inspector. A CSS fill percentage is
+    // presentation only, never interpreted as absolute Phase21 health.
+    const bar=node?.closest('.board-card')?.querySelector('.hpbar > div');
+    const percent=bar?Number.parseFloat(bar.style.width):NaN;
+    const hpBarPercent=Number.isFinite(percent)?
+      Math.max(0,Math.min(100,percent)):null;
+    const statusChip=node?.closest('.board-card')?.
+      querySelector('.status-chip')?.textContent?.trim()||'';
+    return {key,artData:item.previewUrl,hpBarPercent,statusChip,
+      // VR01JC: pin an already public ID, never a slot key alone.
+      publicId:item.publicId,
       name:node?.querySelector('.card-name')?.textContent?.trim()||'',
       kind:node?.querySelector('.card-kind')?.textContent?.trim()||'',
+      // VR01KK: optional rules copy comes ONLY from an already
+      // visible PUBLIC battlefield card, never a hidden card registry.
+      summary:node?.querySelector('.card-summary')?.textContent?.trim()||'',
       stats:node?.querySelector('.card-stats')?.textContent?.trim()||'',
-      cost:node?.querySelector('.cost-bubble')?.textContent?.trim()||''};
+      cost:node?.querySelector('.cost-bubble')?.textContent?.trim()||'',
+      // VR01JB: include only the sigil already printed on the PUBLIC card.
+      // No hidden card rules, hand information or new data source.
+      sigil:node?.querySelector('.sigil-text')?.textContent?.trim()||''};
   }
-  function hasCard(key){return cardIndex.has(key);}
+  function hasCard(key){
+    const item=cardIndex.get(key);
+    if(!item)return false;
+    if(!vrMode)return true;
+    // VR01FM: quick actions and preview-pin buttons must never rely on
+    // a stale 3D mesh after native Phase21 replaced its actual occupant.
+    const real=document.querySelector('#arena [data-slot="'+key+'"] .board-card .card-ui');
+    const valid=vrMatchesNativePublicCard(item,real);
+    if(!valid)vrStaleCardQueriesRejected++;
+    return valid;
+  }
   function projectSlot(key){
     const c=boardSlots.get(key);
     if(!c)return null;
-    const point=new THREE.Vector3(c.x,.4,c.z).project(camera);
+    vrProjectionSamples++;
+    const point=vrProjectionPoint.set(c.x,.4,c.z).project(camera);
     const r=renderer.domElement.getBoundingClientRect();
     return {x:r.left+(point.x+1)*r.width/2,y:r.top+(1-point.y)*r.height/2};
+  }
+  // VR01HS: cumulative diagnostic for shadows reacting to confirmed
+  // native public hits. Never count hover, targeting or an empty slot.
+  let vrNativeHitShadowPeak=0,vrNativeHitRimSheenPeak=0;
+  function updateVrLiftShadow(card,impact=0,delta=0,frozen=false){
+    if(!card.seatShadow)return;
+    // VR01HU: a REAL Phase21-confirmed arrival has no ground shadow
+    // while airborne; after physical landing its original seat shadow
+    // fades in. Never invent a card, legal seat or deployment event.
+    const before=Number.isFinite(card.seatShadowReveal)?
+      card.seatShadowReveal:1;
+    const target=card.deploy?0:1;
+    const alpha=delta<=0?0:frozen?1:1-Math.exp(-delta/165);
+    card.seatShadowReveal=before+(target-before)*alpha;
+    // The footprint also reacts to visual inspection and an existing
+    // public-identity-checked Phase21 fx-hit, never estimated damage.
+    const spread=Math.max(0,Math.min(1,
+      ((card.visualLift||0)-(card.vrPressAmount||0)*.115)/.86));
+    const contact=Math.max(0,Math.min(1,impact));
+    card.seatShadow.visible=!card.deploy&&card.seatShadowReveal>.012;
+    card.seatShadow.scale.setScalar(.94+.26*spread-.065*contact);
+    card.seatShadowMaterial.opacity=(.53-.22*spread+.10*contact+.075*(card.vrPressAmount||0))*
+      card.seatShadowReveal;
+    if(card.seatShadow.visible&&contact>0)
+      vrNativeHitShadowPeak=Math.max(vrNativeHitShadowPeak,contact);
   }
   function sync(){
     const list=publicSnapshot();
@@ -830,10 +1679,74 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     const cardChanged=cardsSignature!==signature;
     if(cardChanged){
       signature=cardsSignature;
-      for(const c of cards){scene.remove(c.group);if(c.face.material.map){c.face.material.map.userData.artDisposed=true;c.face.material.map.dispose();}c.face.material.dispose();}
-      cards=[];madeTextures.length=0;cardIndex=new Map();pickMeshes=slotPickMeshes.slice();
+      // Preserve unchanged public 3D cards. Previously any new card replaced
+      // every mesh and texture, making a crowded board visibly flicker.
+      const reuse=new Map(),hitReactionCarry=new Map(),healthBarCarry=new Map();
+      const presentationCarry=new Map();
+      const occupiedNext=new Set(list.filter(p=>!!p.name).map(p=>p.key));
+      // Public HP/stat text can change after fx-hit and force a fresh
+      // texture. Preserve the old card's visual-only physical reaction
+      // only for the SAME public identity occupying the same native slot.
+      if(vrMode)for(const c of cards){
+        if(c.hitReaction)hitReactionCarry.set(c.key,{
+          id:c.publicId,name:c.publicName,reaction:c.hitReaction});
+        if(Number.isFinite(c.visualHealth))healthBarCarry.set(c.key,{
+          id:c.publicId,name:c.publicName,value:c.visualHealth,
+          trail:c.damageTrail,trailAt:c.damageTrailAt});
+        // VR01FR: a public stat or HP text refresh can rebuild the 3D
+        // face without replacing its actual native occupant. Preserve
+        // only visual interpolation data for the same public identity.
+        presentationCarry.set(c.key,{
+          id:c.publicId,name:c.publicName,
+          scale:c.visualScale,lift:c.visualLift,yaw:c.visualYaw,
+          pitch:c.visualPitch,roll:c.visualRoll,press:c.vrPressAmount,
+          pressX:c.vrPressBiasX,pressY:c.vrPressBiasY,
+          seatShadowReveal:c.seatShadowReveal,
+          contact:c.contactAmount,edge:c.edgeAmount,
+          sheen:c.edgeSheenAmount,sheenX:c.edgeSheenX,
+          sheenOpacity:c.edgeSheenMaterial?.opacity,
+          sheenColor:c.edgeSheenMaterial?.color.getHex(),
+          corners:c.seatCornerAmount,
+          roughness:c.face.material.roughness,
+          metalness:c.face.material.metalness
+        });
+      }
+      if(vrMode)for(const p of list){
+        const old=cardIndex.get(p.key);
+        if(p.name&&old?.fingerprint===vrCardFingerprint(p))reuse.set(p.key,old);
+      }
+      for(const c of cards){
+        if(reuse.get(c.key)===c)continue;
+        if(vrMode&&!occupiedNext.has(c.key))
+          spawnVrDeparture(c.slot,performance.now());
+        // Remove the real old mesh IMMEDIATELY. The ephemeral particles
+        // are non-pickable, bounded, and never counted as occupied cards.
+        scene.remove(c.group);if(c.seat)scene.remove(c.seat);
+        if(c.contactRing)c.contactRing.material.dispose();
+        if(c.seatShadowMaterial)c.seatShadowMaterial.dispose();
+        if(c.edgeGlintMaterial)c.edgeGlintMaterial.dispose();
+        if(c.edgeSheenMaterial)c.edgeSheenMaterial.dispose();
+        if(c.seatCornersMaterial)c.seatCornersMaterial.dispose();
+        if(c.face.material.map){
+          const tex=c.face.material.map;tex.userData.artDisposed=true;tex.dispose();
+          if(vrMode){
+            const pos=madeTextures.indexOf(tex);
+            if(pos!==-1)madeTextures.splice(pos,1);
+          }
+        }
+        c.face.material.dispose();
+      }
+      cards=[];if(!vrMode)madeTextures.length=0;
+      cardIndex=new Map();pickMeshes=slotPickMeshes.slice();publicCardCount=0;
+      vrReusedCards=reuse.size;
       for(const p of list){
         if(!p.name)continue;
+        const retained=reuse.get(p.key);
+        if(retained){
+          cards.push(retained);cardIndex.set(p.key,retained);
+          pickMeshes.push(retained.frame,retained.face);publicCardCount++;
+          continue;
+        }
         const slot=boardSlots.get(p.key);
         const group=new THREE.Group();
         group.position.set(slot.x,1.76,slot.z);group.rotation.x=-.74;
@@ -850,27 +1763,341 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
           for(const y of [-1.427,1.427]){
             const trim=new THREE.Mesh(pcEnd,pcGilt);trim.position.set(0,y,.161);group.add(trim);
           }
+          if(vrMode){
+            // Four physical corner caps follow the real card's hover,
+            // press, deployment and impact as existing group children.
+            for(const sx of [-1,1])for(const sy of [-1,1]){
+              const cap=new THREE.Mesh(vrCornerInlayGeo,pcGilt);
+              cap.position.set(sx*1.065,sy*1.342,.217);
+              cap.rotation.z=Math.PI/4;
+              group.add(cap);
+            }
+          }
         }
         const stand=new THREE.Mesh(cardGeometry,bronze);
         stand.position.z=-.065;stand.scale.set(1.055,1.05,.18);group.add(stand);
+        let edgeGlint=null,edgeGlintMaterial=null;
+        let edgeSheen=null,edgeSheenMaterial=null;
+        if(vrMode){
+          edgeGlintMaterial=new THREE.MeshBasicMaterial({
+            color:slot.owner===0?0xc5ffe8:0xffdfad,
+            transparent:true,opacity:0,depthWrite:false,
+            blending:THREE.AdditiveBlending
+          });
+          edgeGlint=new THREE.Group();
+          for(const x of [-1.09,1.09]){
+            const stripe=new THREE.Mesh(vrEdgeGlintGeo,edgeGlintMaterial);
+            stripe.position.set(x,0,.202);
+            edgeGlint.add(stripe);
+          }
+          for(const y of [-1.35,1.35]){
+            const cap=new THREE.Mesh(vrEdgeCapGlintGeo,edgeGlintMaterial);
+            cap.position.set(0,y,.202);
+            edgeGlint.add(cap);
+          }
+          edgeGlint.visible=false;
+          group.add(edgeGlint);
+          edgeSheenMaterial=new THREE.MeshBasicMaterial({
+            color:slot.owner===0?0xeefff8:0xffeccc,
+            transparent:true,opacity:0,depthWrite:false,
+            blending:THREE.AdditiveBlending
+          });
+          edgeSheen=new THREE.Mesh(vrEdgeSheenGeo,edgeSheenMaterial);
+          edgeSheen.position.set(0,1.35,.226);
+          edgeSheen.visible=false;group.add(edgeSheen);
+        }
         // Parent the indicators to the 3D card so tilt, hover and focus
         // transform the art and health/status as a single visible object.
         const hpBg=new THREE.Mesh(healthBackGeo,healthBackMat);
         hpBg.position.set(0,1.66,.2);group.add(hpBg);
         const hpFill=new THREE.Mesh(healthFillGeo,healthHealthyMat);
         hpFill.position.set(0,1.66,.265);group.add(hpFill);
+        let hpDamageTrail=null;
+        if(vrMode){
+          hpDamageTrail=new THREE.Mesh(healthFillGeo,vrDamageTrailMat);
+          hpDamageTrail.position.set(0,1.66,.245);
+          hpDamageTrail.visible=false;
+          group.add(hpDamageTrail);
+        }
         const statusDot=new THREE.Mesh(statusGeo,readyMat);
         statusDot.position.set(1.22,1.67,.26);group.add(statusDot);
+        let statusBezel=null;
+        if(vrMode){
+          statusBezel=new THREE.Mesh(vrStatusBezelGeo,pcGilt);
+          statusBezel.position.set(1.22,1.67,.215);
+          statusBezel.visible=false;group.add(statusBezel);
+        }
         scene.add(group);
-        const item={key:p.key,group,face,frame,slot,hpBg,hpFill,statusDot};
+        let seat=null,contactRing=null,seatShadow=null,seatShadowMaterial=null,
+          seatCorners=null,seatCornersMaterial=null;
+        if(vrMode){
+          seat=new THREE.Group();
+          seat.position.set(slot.x,.25,slot.z);
+          const rim=new THREE.Mesh(vrSeatEdge,slot.owner===0?vrSeatFriendly:vrSeatEnemy);
+          rim.position.y=-.035;seat.add(rim);
+          const bed=new THREE.Mesh(vrSeatSurface,vrSeatBase);
+          bed.position.y=.017;bed.receiveShadow=true;seat.add(bed);
+          // Slightly above the seat bed and below the existing focus ring.
+          // The cached alpha map costs one texture regardless of card count.
+          seatShadowMaterial=new THREE.MeshBasicMaterial({
+            map:vrLiftShadowMap,transparent:true,opacity:.53,
+            depthWrite:false,side:THREE.DoubleSide
+          });
+          seatShadow=new THREE.Mesh(vrLiftShadowGeo,seatShadowMaterial);
+          seatShadow.rotation.x=-Math.PI/2;
+          seatShadow.position.y=.094;
+          seat.add(seatShadow);
+          const glintMat=new THREE.MeshBasicMaterial({
+            color:slot.owner===0?0xa1f9d6:0xffc997,transparent:true,
+            opacity:0,depthWrite:false,side:THREE.DoubleSide,
+            blending:THREE.AdditiveBlending
+          });
+          contactRing=new THREE.Mesh(vrInspectionContactGeo,glintMat);
+          contactRing.rotation.x=-Math.PI/2;
+          contactRing.position.y=.105;
+          contactRing.visible=false;
+          seat.add(contactRing);
+          seatCornersMaterial=new THREE.LineBasicMaterial({
+            color:slot.owner===0?0xcfffea:0xffdb9d,
+            transparent:true,opacity:0,depthWrite:false,
+            blending:THREE.AdditiveBlending
+          });
+          seatCorners=new THREE.LineSegments(vrSeatCornersGeo,seatCornersMaterial);
+          seatCorners.position.y=.13;
+          seatCorners.visible=false;
+          seat.add(seatCorners);
+          // Position is decorative: card clicks still hit the pre-existing
+          // raycast list and no seat surface is ever part of pickMeshes.
+          scene.add(seat);
+        }
+        const item={key:p.key,group,face,frame,seat,contactRing,
+          seatShadow,seatShadowMaterial,
+          edgeGlint,edgeGlintMaterial,edgeSheen,edgeSheenMaterial,
+          seatCorners,seatCornersMaterial,slot,hpBg,hpFill,
+          hpDamageTrail,statusDot,statusBezel,publicId:p.cardId,publicName:p.name,
+          fingerprint:vrCardFingerprint(p)};
+        const carry=vrMode?hitReactionCarry.get(p.key):null;
+        if(carry&&vrSamePublicIdentity(carry.id,carry.name,p.cardId,p.name))
+          item.hitReaction=carry.reaction;
+        const hpCarry=vrMode?healthBarCarry.get(p.key):null;
+        if(hpCarry&&vrSamePublicIdentity(hpCarry.id,hpCarry.name,
+          p.cardId,p.name)){
+          item.visualHealth=hpCarry.value;
+          item.damageTrail=hpCarry.trail;
+          item.damageTrailAt=hpCarry.trailAt;
+        }
+        const visual=vrMode?presentationCarry.get(p.key):null;
+        // Never transfer a preceding occupant's hover or selection FX
+        // onto a different public card in the same Phase21 native slot.
+        const samePublicIdentity=visual&&
+          vrSamePublicIdentity(visual.id,visual.name,p.cardId,p.name);
+        if(visual&&!samePublicIdentity)vrIdentityCarryRejects++;
+        if(samePublicIdentity){
+          for(const [field,value] of [
+            ['visualScale',visual.scale],['visualLift',visual.lift],
+            ['visualYaw',visual.yaw],['visualPitch',visual.pitch],
+            ['visualRoll',visual.roll],['vrPressAmount',visual.press],
+            ['vrPressBiasX',visual.pressX],['vrPressBiasY',visual.pressY],
+            ['seatShadowReveal',visual.seatShadowReveal],
+            ['contactAmount',visual.contact],['edgeAmount',visual.edge],
+            ['edgeSheenAmount',visual.sheen],['edgeSheenX',visual.sheenX],
+            ['seatCornerAmount',visual.corners]
+          ])if(Number.isFinite(value))item[field]=value;
+          if(Number.isFinite(visual.roughness))
+            item.face.material.roughness=visual.roughness;
+          if(Number.isFinite(visual.metalness))
+            item.face.material.metalness=visual.metalness;
+          // VR01FS: transfer the already-eased light onto the NEW public
+          // rendering object immediately. Numeric interpolation alone is
+          // insufficient: the first WebGL frame otherwise shows dark
+          // materials despite preserved animation amounts.
+          if(item.contactRing&&Number.isFinite(item.contactAmount)){
+            item.contactRing.visible=item.contactAmount>.012;
+            item.contactRing.material.opacity=.68*item.contactAmount;
+            item.contactRing.scale.setScalar(.91+.09*item.contactAmount);
+          }
+          if(item.edgeGlint&&Number.isFinite(item.edgeAmount)){
+            item.edgeGlint.visible=item.edgeAmount>.015;
+            item.edgeGlintMaterial.opacity=.44*item.edgeAmount;
+          }
+          // VR01IC: replacing public HP/stat texture must not reset an
+          // actual native-hit amber rim glint to its idle team color for
+          // one WebGL frame. Copy visual material state only when the
+          // current public card ID/name still matches exactly.
+          if(item.edgeSheen&&Number.isFinite(item.edgeSheenAmount)){
+            item.edgeSheen.visible=item.edgeSheenAmount>.015;
+            item.edgeSheenMaterial.opacity=Number.isFinite(visual.sheenOpacity)?
+              visual.sheenOpacity:.34*item.edgeSheenAmount;
+            item.edgeSheen.position.x=item.edgeSheenX||0;
+            if(Number.isFinite(visual.sheenColor))
+              item.edgeSheenMaterial.color.setHex(visual.sheenColor);
+          }
+          if(item.seatCorners&&Number.isFinite(item.seatCornerAmount)){
+            item.seatCorners.visible=item.seatCornerAmount>.012;
+            item.seatCornersMaterial.opacity=.62*item.seatCornerAmount;
+          }
+          vrPresentationCarryTransfers++;
+        }
+        // Only newly confirmed, friendly, matching real cards can launch
+        // from the last player hand click. Old cards never animate again.
+        if(vrMode&&slot.owner===0&&vrPendingDeploy&&
+          vrPendingDeploy.name===p.name&&
+          performance.now()-vrPendingDeploy.born<18000){
+          if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
+            item.deploy={started:performance.now(),from:vrPendingDeploy.origin.clone()};
+            item.seatShadowReveal=0;
+            frame.userData.mrrDeploying=face.userData.mrrDeploying=true;
+            vrDeployTransitions++;
+          }
+          vrPendingDeploy=null;
+        }
+        updateVrLiftShadow(item);
         cards.push(item);cardIndex.set(p.key,item);
         pickMeshes.push(frame,face);publicCardCount++;
       }
+      // VR01EQ: public HP/stat texture updates must not rescan unchanged
+      // occupied slots. Rebuild the exact VR01EJ neighbor graph only on
+      // genuine native occupancy changes, then restore cached mesh flags.
+      if(vrMode){
+        const occupancy=cards.map(c=>c.key).sort().join('|');
+        if(occupancy!==vrNeighborOccupancyKey){
+          vrNeighborOccupancyKey=occupancy;
+          vrNeighborCache=new Map(cards.map(c=>[c.key,{column:false,row:false}]));
+          vrNeighborPairChecks=0;vrNeighborCacheRebuilds++;
+          for(let i=0;i<cards.length;i++)for(let j=i+1;j<cards.length;j++){
+            const a=cards[i],b=cards[j];
+            vrNeighborPairChecks++;
+            if(Math.abs(a.slot.x-b.slot.x)<.65&&Math.abs(a.slot.z-b.slot.z)<3.05)
+              vrNeighborCache.get(a.key).column=vrNeighborCache.get(b.key).column=true;
+            if(Math.abs(a.slot.x-b.slot.x)<3.43&&Math.abs(a.slot.z-b.slot.z)<.65)
+              vrNeighborCache.get(a.key).row=vrNeighborCache.get(b.key).row=true;
+          }
+        }
+        for(const c of cards){
+          const near=vrNeighborCache.get(c.key);
+          c.vrNearColumn=near?.column||false;
+          c.vrNearRow=near?.row||false;
+        }
+      }
     }
-    selectedKey=list.find(p=>p.selected)?.key||null;
+    // VR01FA: both deferred impact and hit-face highlights reconcile
+    // against ONE immutable public DOM snapshot. It avoids separate slot
+    // scans and ensures identity checks are evaluated on the same frame.
+    const transientByKey=vrMode&&
+      (vrPendingPublicHits.size||vrHitFaceFlash.size)?
+      new Map(list.filter(p=>!!p.name).map(p=>[p.key,p])):null;
+    if(transientByKey)vrTransientPublicIndexBuilds++;
+    // VR01EO: deferred native hits can arrive after a public DOM paint
+    // without changing the card fingerprint. Reconcile every public sync,
+    // not only on card construction. Never carry FX to another card ID.
+    if(vrMode&&vrPendingPublicHits.size){
+      for(const [key,pending] of vrPendingPublicHits){
+        const p=transientByKey.get(key),item=cardIndex.get(key);
+        vrTransientPublicComparisons++;
+        if(!p||!item||
+          !vrSamePublicIdentity(pending.id,pending.name,p.cardId,p.name)){
+          vrPendingPublicHits.delete(key);continue;
+        }
+        if(item.deploy)continue;
+        item.hitReaction=pending.reaction;
+        vrPendingPublicHits.delete(key);
+        vrDeferredHitApplied++;
+        vrHitReactions++;
+      }
+    }
+    // VR01FA: visual glow never persists on a removed/replaced card.
+    if(transientByKey)for(const [key,fx] of vrHitFaceFlash){
+      const publicCard=transientByKey.get(key);
+      vrTransientPublicComparisons++;
+      if(!publicCard||
+        !vrSamePublicIdentity(fx.publicId,fx.name,
+          publicCard.cardId,publicCard.name))vrHitFaceFlash.delete(key);
+    }
+    const nextSelectedKey=list.find(p=>p.selected)?.key||null;
+    // VR01M: a grounded selection response starts ONLY on a native
+    // .selected-slot transition. Never synthesize a click or an attack.
+    if(vrMode&&nextSelectedKey!==selectedKey){
+      vrSelectionBurst=nextSelectedKey?{key:nextSelectedKey,at:performance.now()}:null;
+      if(nextSelectedKey)vrSelectionBursts++;
+    }
+    selectedKey=nextSelectedKey;
     legalCount=list.filter(p=>p.legal).length;
     cardHealth=new Map();healthIndicatorCount=0;
     attackTargetCount=list.filter(p=>p.attackTarget).length;
+    // A target lock is a PURELY visual cue, valid only while the original
+    // game itself still marks this exact public card as attack-target.
+    // VR01FZ: a target glow belongs to an actual PUBLIC occupant,
+    // not merely a reusable native board slot. HP or stat updates keep
+    // it; a replaced card ID/name or revoked attack class retires it.
+    if(vrMode&&vrTargetLock&&(
+      vrTargetLock.sourceKey!==selectedKey||
+      // VR01GG: a new occupant in the SAME native source slot must
+      // not inherit the prior selected card's old target glints. The
+      // initial source is recorded using only public Phase21 identity.
+      (vrTargetLock.sourceName&&!list.some(p=>
+        p.key===vrTargetLock.sourceKey&&p.selected&&p.name&&
+        (vrTargetLock.sourceId?
+          p.cardId===vrTargetLock.sourceId:
+          !p.cardId&&p.name===vrTargetLock.sourceName)))||
+      !list.some(p=>
+      p.key===vrTargetLock.key&&p.attackTarget&&p.name&&
+      (vrTargetLock.id?
+        p.cardId===vrTargetLock.id:
+        !p.cardId&&p.name===vrTargetLock.name)))){
+      // VR01IH: sync can invalidate an old target before the next
+      // browser frame. Immediately return its existing rim to the
+      // ordinary owner hue instead of leaving an amber acquisition cue
+      // on a stale or newly substituted public card.
+      const oldTargetKey=vrTargetLock.key;
+      const oldSourceKey=vrTargetLock.sourceKey;
+      vrTargetLock=null;
+      // VR01II: the same public-sync transition must also revoke the
+      // selected source's old amber 3D rim. It may remain selected by
+      // the native engine, but it no longer owns a valid attack lock.
+      const oldSourceMesh=cardIndex.get(oldSourceKey);
+      if(oldSourceMesh?.edgeSheenMaterial){
+        if(oldSourceMesh.edgeSheenMaterial.color.getHex()===0xffe1ad)
+          oldSourceMesh.edgeSheenMaterial.color.setHex(
+            oldSourceMesh.slot.owner===0?0xeefff8:0xffeccc);
+        vrLastRevokedSourceRimHue=oldSourceMesh.edgeSheenMaterial.color.getHex();
+        vrRevokedSourceRimResets++;
+      }
+      const oldTargetMesh=cardIndex.get(oldTargetKey);
+      if(oldTargetMesh?.edgeSheenMaterial){
+        if(oldTargetMesh.edgeSheenMaterial.color.getHex()===0xffd6a0)
+          oldTargetMesh.edgeSheenMaterial.color.setHex(
+            oldTargetMesh.slot.owner===0?0xeefff8:0xffeccc);
+        vrLastRevokedTargetRimHue=oldTargetMesh.edgeSheenMaterial.color.getHex();
+        vrRevokedTargetRimResets++;
+      }
+    }
+    // VR01HY: the same occupied native slot can receive a NEW public
+    // card after combat or a turn refresh. Previous hover highlights
+    // cannot transfer to that new identity until a genuine pointer move.
+    if(vrMode&&vrHoverPublicIdentity&&
+      hoveredKey===vrHoverPublicIdentity.key){
+      const occupant=list.find(p=>p.key===hoveredKey);
+      if(!occupant?.name||!vrSamePublicIdentity(
+        vrHoverPublicIdentity.id,vrHoverPublicIdentity.name,
+        occupant.cardId,occupant.name)){
+        vrHoverIdentityWithdrawals++;
+        const oldHoverKey=hoveredKey;
+        setHover(null,true);
+        // VR01HZ: visual focus must be withdrawn in the SAME native
+        // public sync as an identity replacement. Otherwise the single
+        // moving 3D lamp can illuminate the next card in the old seat
+        // for a frame, even though hover and targeting were revoked.
+        if(vrFocusLamp&&vrFocusedCardKey===oldHoverKey){
+          vrFocusLamp.intensity=0;
+          vrFocusedCardKey=null;
+          vrStaleFocusLampWithdrawals++;
+        }
+      }
+    }
+    // VR01P: a departed card must not leave hover light or its inspector
+    // attached to an empty, non-actionable slot. Legal empty slots remain.
+    if(vrMode&&hoveredKey&&!list.some(p=>p.key===hoveredKey&&
+      (p.name||p.legal||p.attackTarget)))setHover(null,true);
     for(const p of list){
       const slot=boardSlots.get(p.key);
       // Phase72: follow the original native .legal class; never change rules.
@@ -886,11 +2113,34 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
         item.frame.material=p.selected?gold:(slot.owner===0?blue:red);
         item.hpBg.visible=item.hpFill.visible=p.hasHealth;
         item.hpFill.material=p.hpRatio<=.33?healthDangerMat:p.hpRatio<=.66?healthWarnMat:healthHealthyMat;
-        item.hpFill.scale.x=Math.max(.001,p.hpRatio??0);
-        item.hpFill.position.x=-1.02*(1-(p.hpRatio??0));
-        item.statusDot.material=/보호|방호/.test(p.stateChip)?wardMat:
-          /행동 완료|대기/.test(p.stateChip)?actedMat:readyMat;
+        // VR01EE: read ONLY the existing public HP bar and animate its
+        // THREE.js indicator. The native DOM and actual HP are untouched.
+        const current=Math.max(0,Math.min(1,p.hpRatio??0));
+        if(vrMode){
+          if(!Number.isFinite(item.visualHealth))item.visualHealth=current;
+          if(p.hasHealth&&item.visualHealth>current+.025&&
+            (!Number.isFinite(item.damageTrail)||item.damageTrail<item.visualHealth)){
+            // Only an already PUBLIC lower HP target can start the trail.
+            item.damageTrail=item.visualHealth;
+            item.damageTrailAt=performance.now();
+            vrDamageTrailsStarted++;
+          }
+          if(Number.isFinite(item.healthTarget)&&
+            Math.abs(item.healthTarget-current)>.002)vrHealthBarTransitions++;
+          else if(!Number.isFinite(item.healthTarget)&&
+            Math.abs(item.visualHealth-current)>.002)vrHealthBarTransitions++;
+          item.healthTarget=current;
+        }else{
+          item.hpFill.scale.x=Math.max(.001,current);
+          item.hpFill.position.x=-1.02*(1-current);
+        }
+        const ward=/보호|방호/.test(p.stateChip);
+        const spent=/행동 완료|대기/.test(p.stateChip);
+        item.statusDot.material=ward?wardMat:spent?actedMat:readyMat;
         item.statusDot.visible=!!p.stateChip;
+        // The bezel may show only with the native public status chip.
+        if(item.statusBezel)item.statusBezel.visible=item.statusDot.visible;
+        if(vrMode)item.publicStatusKind=ward?'ward':spent?'spent':'ready';
         if(p.hasHealth){
           healthIndicatorCount++;
           cardHealth.set(p.key,{ratio:p.hpRatio,state:p.stateChip,color:p.hpRatio<=.33?'danger':p.hpRatio<=.66?'warning':'healthy'});
@@ -898,29 +2148,122 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       }
     }
     if(hoveredKey&&!list.some(p=>p.key===hoveredKey))hoveredKey=null;
-    const hovered=list.find(p=>p.key===hoveredKey);
-    const source=boardSlots.get(selectedKey),target=boardSlots.get(hoveredKey);
-    const arrowVisible=!!(source&&target&&hovered?.attackTarget);
-    attackArrow.visible=attackTip.visible=arrowVisible;
-    if(arrowVisible){
-      const pos=attackArrowGeo.attributes.position;
-      pos.setXYZ(0,source.x,1.65,source.z);
-      pos.setXYZ(1,target.x,1.65,target.z);
-      pos.needsUpdate=true;
-      const direction=new THREE.Vector3(target.x-source.x,0,target.z-source.z);
-      attackTip.position.set(target.x,1.66,target.z);
-      attackTip.rotation.set(0,0,0);
-      attackTip.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());
+    // The authoritative Phase21 state ends the attack. No visual lock
+    // or target halo may persist after native target classes disappear.
+    if(!attackTargetCount)vrTargetLock=null;
+    // VR01GA: withdrawing a native lock must withdraw its last rendered
+    // 3D bracket and orbiting particles in the SAME public sync, without
+    // one stale WebGL frame pointing at a departed public card.
+    if(vrMode&&!vrTargetLock){
+      if(vrTargetBracket)vrTargetBracket.visible=false;
+      if(vrTargetFloorHalo)vrTargetFloorHalo.visible=false;
+      vrTargetBracketKey=null;
+      for(const spark of vrTargetSparks)spark.visible=false;
     }
+    const hovered=list.find(p=>p.key===hoveredKey);
+    // VR01DV: only a REAL native legal, unoccupied destination can glow.
+    // When aiming at an enemy or exiting targeting, the guide vanishes.
+    const legalLanding=!!(vrMode&&hovered?.legal&&!hovered.name);
+    const nextLandingKey=legalLanding?hoveredKey:null;
+    if(vrMode&&nextLandingKey&&nextLandingKey!==vrLandingGuideKey){
+      vrLandingGuideBorn=performance.now();
+      vrLandingGuideReveals++;
+    }
+    vrLandingGuideKey=nextLandingKey;
+    // VR01FY: when the original game revokes a legal empty slot, retire
+    // its decorative columns synchronously during public DOM sync.
+    // Never expose a stale landing beacon for another render frame.
+    if(vrMode&&!legalLanding)
+      for(const post of vrLandingPillars)post.visible=false;
+    if(vrLandingGuide){
+      vrLandingGuide.visible=legalLanding;
+      if(legalLanding){
+        const site=boardSlots.get(hoveredKey);
+        vrLandingGuide.position.set(site.x,.36,site.z);
+      }
+    }
+    const source=boardSlots.get(selectedKey),target=boardSlots.get(hoveredKey);
+    // VR01GI: a revoked native target lock must revoke the same 3D aim
+    // trajectory immediately. The .attack-target class alone may still
+    // exist for one public paint after the selected card changes identity.
+    // Keep the legacy battlefield unchanged outside the VR01 PC mode.
+    const arrowVisible=!!(source&&target&&hovered?.attackTarget&&
+      (!vrMode||vrTargetLock?.key===hoveredKey));
+    if(vrMode)vrTargetBracketPublicChecks++;
+    attackArrow.visible=attackTip.visible=arrowVisible;
+    // VR01IN: if the original native attack target is revoked,
+    // retire ALL decorative flight markers in this same public sync.
+    // Slow Chromium may otherwise keep a stale 3D mote floating at
+    // an enemy even after its legal target class or identity changes.
+    if(vrMode&&!arrowVisible){
+      for(const spark of vrTargetSparks)spark.visible=false;
+      for(const mote of vrAttackMotes)mote.visible=false;
+    }
+    if(arrowVisible){
+      const pathKey=selectedKey+'>'+hoveredKey;
+      if(!vrMode||pathKey!==vrAimPathKey){
+        const pos=attackArrowGeo.attributes.position;
+        for(let i=0;i<=attackArcSegments;i++){
+          const t=i/attackArcSegments;
+          const rise=vrMode?.98*Math.sin(Math.PI*t):0;
+          pos.setXYZ(i,source.x+(target.x-source.x)*t,
+            1.65+rise,source.z+(target.z-source.z)*t);
+        }
+        pos.needsUpdate=true;
+        // The original arrow tip still lands on the TRUE native target.
+        const last=attackArcSegments-1;
+        vrAimTangent.set(
+          pos.getX(attackArcSegments)-pos.getX(last),
+          pos.getY(attackArcSegments)-pos.getY(last),
+          pos.getZ(attackArcSegments)-pos.getZ(last));
+        attackTip.position.set(target.x,1.66,target.z);
+        attackTip.rotation.set(0,0,0);
+        attackTip.quaternion.setFromUnitVectors(vrAimAxis,vrAimTangent.normalize());
+        attackArrowGeo.computeBoundingSphere();
+        if(vrMode){vrAimPathKey=pathKey;vrAimPathBuilds++;}
+      }else vrAimPathReuses++;
+    }else if(vrMode)vrAimPathKey=null;
     events.onState?.({selectedKey,hoveredKey,legalCount,attackTargetCount,publicCardCount});
     if((cardChanged||statusChanged)&&hoveredKey)setHover(hoveredKey,true);
   }
   function setHover(key,force=false){
+    if(vrMode&&!key){vrFaceHoverBias=0;vrFaceHoverBiasY=0;vrRimPointerBias=vrRimPointerHeight=0;}
     if(hoveredKey===key&&!force)return;
-    hoveredKey=key;
     const slot=document.querySelector('#arena [data-slot="'+(key||'')+'"]');
+    // VR01N: acquire a target only on a TRUE native attack-target hover
+    // transition. Sync rechecks must never retrigger the short flash.
+    const canLock=vrMode&&!!key&&!!selectedKey&&key!==selectedKey&&
+      !!slot?.classList.contains('attack-target')&&
+      !!slot.querySelector('.board-card .card-ui');
+    if(!canLock)vrTargetLock=null;
+    else if(hoveredKey!==key&&vrTargetLock?.key!==key){
+      // VR01FZ: sync() can force-refresh an unchanged hovered slot.
+      // Such a refresh must not acquire a new native lock after the
+      // old public occupant disappeared or its identity changed.
+      const publicCard=slot.querySelector('.board-card .card-ui');
+      const id=publicCard?.getAttribute('data-mrr-public-card-id')||null;
+      const name=publicCard?.querySelector('.card-name')?.textContent?.trim()||'';
+      if(name){
+        const sourceCard=document.querySelector('#arena [data-slot="'+selectedKey+
+          '"] .board-card .card-ui');
+        const sourceId=sourceCard?.getAttribute('data-mrr-public-card-id')||null;
+        const sourceName=sourceCard?.querySelector('.card-name')?.textContent?.trim()||'';
+        vrTargetLock={key,id,name,sourceKey:selectedKey,
+          sourceId,sourceName,at:performance.now()};
+        vrTargetLocks++;
+      }
+    }
+    hoveredKey=key;
     const card=slot?.querySelector('.board-card .card-ui');
-    mount.style.cursor=key&&(card||slot?.classList.contains('legal')||slot?.classList.contains('attack-target'))?'pointer':'grab';
+    // Only a real hover transition establishes the binding. A forced
+    // sync refresh cannot silently rebind a new occupant at this slot.
+    if(vrMode&&(!force||!key)){
+      const name=card?.querySelector('.card-name')?.textContent?.trim()||'';
+      vrHoverPublicIdentity=name?{
+        key,id:card.getAttribute('data-mrr-public-card-id')||null,name
+      }:null;
+    }
+    mount.style.cursor=key&&(card||slot?.classList.contains('legal')||slot?.classList.contains('attack-target'))?'pointer':vrMode?'default':'grab';
     events.onHover?.(key,card?{
       name:card.querySelector('.card-name')?.textContent?.trim()||'',
       kind:card.querySelector('.card-kind')?.textContent?.trim()||'',
@@ -932,52 +2275,214 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(!force)sync();
   }
   let yaw=0,pitch=.77,distance=29,focusX=0,focusZ=0,cameraPreset='all',focusKey=null;
+  // The player always wins control: density-aware camera framing runs only
+  // while using the untouched automatic tabletop preset.
+  let manualCamera=false;
   let drag=false,moved=false,lastX=0,lastY=0,startX=0,startY=0;
+  let vrActivePointerId=null,vrInterruptedPointerGestures=0;
+  let vrPointerStartCard=null,vrGestureIdentityRejects=0;
+  let vrPointerStartLegalSlot=null,vrVanishedLegalGestureRejects=0;
+  // VR01HE: only a gesture that BEGINS on the same native board slot
+  // may end in a delegated click. Empty/outside press is never a click.
+  let vrPointerStartKey=null,vrInvalidOriginGestureRejects=0;
+  // VR01HI: the native slot must be actionable AT pointerdown, not
+  // merely after a delayed pointerup when an empty seat becomes legal.
+  let vrPointerStartActionable=false,vrNonactionableOriginRejects=0;
+  // VR01HJ: native attack-target eligibility cannot be borrowed from
+  // pointerdown after Phase21 withdraws it before pointerup.
+  let vrPointerStartAttackTarget=false,vrRevokedAttackGestureRejects=0;
+  let vrUntrackedReleaseDrags=0,vrNonPrimaryReleaseRejects=0;
+  let vrForeignPointerEventsIgnored=0,vrPausedInputEventsIgnored=0;
+  let vrLostPointerCaptures=0;
   function updateCamera(){
     const aspect=mount.clientWidth/Math.max(1,mount.clientHeight);
     const d=distance*(aspect<.75?1.6:aspect<1.1?1.22:1);
     camera.position.set(focusX+Math.sin(yaw)*Math.cos(pitch)*d,
       1.3+Math.sin(pitch)*d,focusZ+Math.cos(yaw)*Math.cos(pitch)*d);
     camera.lookAt(focusX,.8,focusZ);
+    // Raycaster, projectCard and projectSlot can be called before the next
+    // WebGL frame after a camera button click. Never use a stale view matrix.
+    camera.updateMatrixWorld(true);
   }
   function down(e){
+    // VR01FH: a stopped/hidden scene cannot arm a delegated native click.
+    if(vrMode&&(!running||disposed)){vrPausedInputEventsIgnored++;return;}
     if(e.button!==0||e.target!==renderer.domElement)return;
-    drag=true;moved=false;
+    // VR01FF: a secondary pointer cannot steal an active PC gesture.
+    if(vrMode&&drag){vrForeignPointerEventsIgnored++;return;}
+    drag=true;moved=false;vrActivePointerId=e.pointerId;
+    // VR01GD: record only the public native card the user actually
+    // pressed. If that slot changes occupant before release, a delayed
+    // mouseup cannot act on the replacement through the visual bridge.
+    vrPointerStartCard=null;vrPointerStartLegalSlot=null;
+    vrPointerStartKey=null;vrPointerStartActionable=false;
+    vrPointerStartAttackTarget=false;
+    if(vrMode){
+      const key=publicHit(e);
+      vrPointerStartKey=key;
+      if(key){
+        const slot=document.querySelector('#arena [data-slot="'+key+'"]');
+        const node=slot?.querySelector('.board-card .card-ui');
+        const name=node?.querySelector('.card-name')?.textContent?.trim()||'';
+        vrPointerStartActionable=!!(name||slot?.classList.contains('legal'));
+        vrPointerStartAttackTarget=!!name&&
+          !!slot?.classList.contains('attack-target');
+        if(name)vrPointerStartCard={key,
+          id:node.getAttribute('data-mrr-public-card-id')||null,name,
+          // VR01IZ: the real clicked face/frame ray hit supplies an
+          // optional local pressure pivot. No new input or private state.
+          pressX:Math.abs(vrFaceHoverBias)>.001?
+            vrFaceHoverBias:vrRimPointerBias,
+          pressY:vrFaceHoverBiasY};
+        // VR01GF: a pointer gesture begun on a currently legal empty
+        // native slot must not complete after the original game revokes
+        // that destination or occupies it with another card.
+        else if(slot?.classList.contains('legal'))
+          vrPointerStartLegalSlot=key;
+      }
+    }
     startX=lastX=e.clientX;startY=lastY=e.clientY;
     mount.setPointerCapture?.(e.pointerId);
   }
   function move(e){
+    if(vrMode&&(!running||disposed)){vrPausedInputEventsIgnored++;return;}
     if(!drag){setHover(e.target===renderer.domElement?publicHit(e):null);return;}
+    if(vrMode&&e.pointerId!==vrActivePointerId){
+      vrForeignPointerEventsIgnored++;return;
+    }
     if(Math.hypot(e.clientX-startX,e.clientY-startY)>6)moved=true;
-    if(moved){
+    // VR mode is a fixed tabletop: dragging must never turn, tilt or pan
+    // the entire board. Keep movement threshold to avoid accidental
+    // card selection when the player releases after a gesture.
+    if(moved&&!vrMode){
       yaw=Math.max(-.8,Math.min(.8,yaw+(e.clientX-lastX)*.004));
       pitch=Math.max(.42,Math.min(1.28,pitch+(e.clientY-lastY)*.003));
+      manualCamera=true;
       updateCamera();setHover(null);
     }
     lastX=e.clientX;lastY=e.clientY;
   }
   function up(e){
+    if(vrMode&&(!running||disposed)){vrPausedInputEventsIgnored++;return;}
     if(!drag)return;
-    drag=false;
+    // Only the pointer that started this drag may finish a native click.
+    if(vrMode&&e.pointerId!==vrActivePointerId){
+      vrForeignPointerEventsIgnored++;return;
+    }
+    // VR01HG: only the same primary-button gesture may finish a
+    // native click. A secondary-button release cancels this gesture.
+    if(vrMode&&e.button!==0){
+      vrNonPrimaryReleaseRejects++;cancelPointer(e);return;
+    }
+    // VR01HF: a fast mouse release can be delivered without an
+    // intermediate pointermove. Check the FINAL displacement too, so
+    // a drag does not become a native click by missing a move event.
+    if(vrMode&&!moved&&
+      Math.hypot(e.clientX-startX,e.clientY-startY)>6){
+      moved=true;vrUntrackedReleaseDrags++;
+    }
+    drag=false;vrActivePointerId=null;
     const picked=publicHit(e);
-    if(!moved&&picked){events.onPick?.(picked);sync();}
-    setHover(picked);
+    const origin=vrPointerStartCard;
+    const legalOrigin=vrPointerStartLegalSlot;
+    const startKey=vrPointerStartKey,wasActionable=vrPointerStartActionable;
+    const beganAttackTarget=vrPointerStartAttackTarget;
+    vrPointerStartCard=null;vrPointerStartLegalSlot=null;
+    vrPointerStartKey=null;vrPointerStartActionable=false;
+    vrPointerStartAttackTarget=false;
+    let staleGesture=false;
+    if(vrMode&&(!startKey||startKey!==picked)){
+      vrInvalidOriginGestureRejects++;staleGesture=true;
+    }
+    if(vrMode&&startKey&&!wasActionable){
+      vrNonactionableOriginRejects++;staleGesture=true;
+    }
+    // VR01HC: a captured gesture may release OFF the canvas even if
+    // it started on a valid native empty legal slot. A null 3D pick
+    // also revokes the gesture and must be counted as such; never infer
+    // the original legal click from the stale pointer origin.
+    if(vrMode&&legalOrigin){
+      const slot=document.querySelector('#arena [data-slot="'+legalOrigin+'"]');
+      if(picked!==legalOrigin||!slot?.classList.contains('legal')||
+        slot.querySelector('.board-card .card-ui')){
+        vrVanishedLegalGestureRejects++;staleGesture=true;
+      }
+    }
+    if(vrMode&&origin){
+      const card=document.querySelector('#arena [data-slot="'+origin.key+
+        '"] .board-card .card-ui');
+      const id=card?.getAttribute('data-mrr-public-card-id')||null;
+      const name=card?.querySelector('.card-name')?.textContent?.trim()||'';
+      staleGesture=origin.key!==picked||!name||
+        (origin.id?origin.id!==id:!!id||origin.name!==name);
+      if(staleGesture)vrGestureIdentityRejects++;
+    }
+    if(vrMode&&beganAttackTarget){
+      const nativeTarget=document.querySelector('#arena [data-slot="'+
+        startKey+'"]');
+      if(!nativeTarget?.classList.contains('attack-target')){
+        vrRevokedAttackGestureRejects++;staleGesture=true;
+      }
+    }
+    if(!staleGesture&&!moved&&picked){events.onPick?.(picked);sync();}
+    setHover(staleGesture?null:picked);
   }
   function leave(){if(!drag)setHover(null);}
-  function wheel(e){e.preventDefault();distance=Math.max(24,Math.min(47,distance+e.deltaY*.018));updateCamera();setHover(null);}
+  // Cancellation is never a card click, even if the pointer has not moved.
+  function cancelPointer(e){
+    if(vrMode&&drag&&e?.pointerId!==vrActivePointerId){
+      vrForeignPointerEventsIgnored++;return;
+    }
+    drag=false;moved=false;vrActivePointerId=null;
+    vrPointerStartCard=null;vrPointerStartLegalSlot=null;
+    vrPointerStartKey=null;vrPointerStartActionable=false;
+    vrPointerStartAttackTarget=false;setHover(null);
+  }
+  function lostPointerCapture(e){
+    // VR01FI: focus loss, OS gestures, or another surface stealing the
+    // pointer can release capture without pointerup or pointercancel.
+    // Abandon only the matching gesture; never infer a Phase21 click.
+    if(!vrMode||!drag||e.pointerId!==vrActivePointerId)return;
+    vrLostPointerCaptures++;
+    cancelPointer(e);
+  }
+  function wheel(e){
+    e.preventDefault();
+    if(vrMode&&(!running||disposed)){vrPausedInputEventsIgnored++;return;}
+    manualCamera=true;
+    distance=Math.max(24,Math.min(47,distance+e.deltaY*.018));
+    updateCamera();setHover(null);
+  }
   mount.addEventListener('pointerdown',down);
   mount.addEventListener('pointermove',move);
   mount.addEventListener('pointerup',up);
-  mount.addEventListener('pointercancel',up);
+  mount.addEventListener('pointercancel',cancelPointer);
+  if(vrMode)mount.addEventListener('lostpointercapture',lostPointerCapture);
   mount.addEventListener('pointerleave',leave);
   mount.addEventListener('wheel',wheel,{passive:false});
   let frames=0,raf=0,running=false,disposed=false,lastDraw=0,lastVisualTime=0;
+  let vrRenderStarts=0,vrRenderResumes=0,vrResumeFirstDelta=null;
+  let vrResumeAwaitingFrame=false;
+  let vrCanvasWidth=0,vrCanvasHeight=0,vrCanvasDpr=0;
+  let vrCanvasResizes=0,vrCanvasResizeSkips=0;
   function resize(){
     if(disposed)return;
     const w=Math.max(250,mount.clientWidth||900),h=Math.max(240,mount.clientHeight||560);
+    const dpr=Math.min(devicePixelRatio||1,w<650?1:1.5);
+    // VR01FE: resize() is also called on every scene resume, even when
+    // neither the desktop viewport nor DPR changed. Avoid reuploading
+    // the WebGL drawing buffer and projection on those no-op requests.
+    // Actual PC viewport/DPR changes still perform the original resize.
+    if(vrMode&&vrCanvasWidth===w&&vrCanvasHeight===h&&vrCanvasDpr===dpr){
+      vrCanvasResizeSkips++;return;
+    }
     camera.aspect=w/h;camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(devicePixelRatio||1,w<650?1:1.5));
+    if(!vrMode||vrCanvasDpr!==dpr)renderer.setPixelRatio(dpr);
     renderer.setSize(w,h,false);updateCamera();
+    if(vrMode){
+      vrCanvasWidth=w;vrCanvasHeight=h;vrCanvasDpr=dpr;
+      vrCanvasResizes++;
+    }
   }
   function tick(time){
     if(!running||disposed)return;
@@ -986,10 +2491,52 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
     if(time-lastDraw<interval)return;
     lastDraw=time;
     const visualDelta=lastVisualTime?Math.max(1,Math.min(220,time-lastVisualTime)):32;
+    // VR01ET: first frame after restarting a hidden/stopped scene uses
+    // the normal animation delta rather than the elapsed background gap.
+    if(vrResumeAwaitingFrame){
+      vrResumeFirstDelta=visualDelta;
+      vrResumeAwaitingFrame=false;
+    }
     lastVisualTime=time;
     if(time-lastSync>220){lastSync=time;sync();}
     const frozen=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(vrMode&&cameraPreset==='tabletop'&&!manualCamera){
+      // VR01G: a crowded 6-row table needs more vertical screen real
+      // estate. Move the camera back a little while preserving true slot
+      // coordinates and the player's absolute priority over auto views.
+      const dense=cards.length>=16;
+      const desiredPitch=dense?1.31:cards.length>=9?1.245:1.17;
+      const desiredDistance=dense?32.2:cards.length>=9?30.2:28.8;
+      const alpha=frozen?1:1-Math.exp(-visualDelta/330);
+      const np=pitch+(desiredPitch-pitch)*alpha;
+      const nd=distance+(desiredDistance-distance)*alpha;
+      if(Math.abs(np-pitch)>.0002||Math.abs(nd-distance)>.001){
+        pitch=np;distance=nd;updateCamera();
+      }
+    }
     if(!frozen)sealCore.rotation.y=time*.00035;
+    // VR01DU: gentle aiming feedback, not an animation of confirmed damage.
+    if(vrMode&&attackArrow.visible){
+      attackArrowMat.opacity=frozen?.95:.76+.18*(.5+.5*Math.sin(time*.007));
+      attackTip.scale.setScalar(frozen?1:1+.12*(.5+.5*Math.sin(time*.009)));
+    }
+    // VR01EC: keep the real attack route readable as three light motes,
+    // without creating any new legal attack target or input surface.
+    if(vrMode){
+      const pos=attackArrowGeo.attributes.position;
+      const end=attackArcSegments;
+      for(let i=0;i<vrAttackMotes.length;i++){
+        const mote=vrAttackMotes[i];
+        mote.visible=attackArrow.visible&&!frozen;
+        if(!mote.visible)continue;
+        const t=(time*.00024+i/3)%1;
+        mote.position.set(
+          pos.getX(0)+(pos.getX(end)-pos.getX(0))*t,
+          1.77+.98*Math.sin(Math.PI*t),
+          pos.getZ(0)+(pos.getZ(end)-pos.getZ(0))*t);
+        mote.scale.setScalar(.7+.45*Math.sin(Math.PI*t));
+      }
+    }
     // Phase72: decorative slot halos never enter raycast target meshes.
     if(tabletop)for(const [key,slot] of boardSlots){
       // Phases74-76: semantic targets share existing halos/materials;
@@ -997,82 +2544,994 @@ window.MRRBattlefieldFactory=function(THREE,mount,events){
       const pulse=frozen?0:.5+.5*Math.sin(time*.0046);
       const size=frozen?1:slot.attackPulse?1.07+.16*pulse:
         slot.legalPulse?1.035+.075*pulse:hoveredKey===key?1.055:1;
-      slot.halo.scale.setScalar(size);
+      const lock=vrMode&&slot.attackPulse&&vrTargetLock?.key===key;
+      const lockAge=lock?Math.max(0,(time-vrTargetLock.at)/380):1;
+      // Single restrained acquisition pulse then a small stable hover
+      // emphasis; native attack, movement and raycast meshes are untouched.
+      const accent=lock&&!frozen?
+        .055+(lockAge < 1 ? .13*Math.sin(Math.PI*lockAge) : 0):0;
+      slot.halo.scale.setScalar(size+accent);
+      if(vrMode&&slot.focusRing){
+        const active=slot.focusRing.visible&&key===selectedKey;
+        const age=vrSelectionBurst?.key===key?
+          Math.max(0,(time-vrSelectionBurst.at)/460):1;
+        // One spring-like gold accent, no infinite attention animation.
+        // Face, seat and native raycast hitboxes never change position.
+        const pulse=active&&!frozen&&age<1?
+          .19*Math.sin(Math.PI*Math.max(0,age))*Math.pow(1-age,.38):0;
+        slot.focusRing.scale.setScalar(1+pulse);
+      }
+    }
+    if(vrMode&&vrSelectionBurst&&time-vrSelectionBurst.at>520)
+      vrSelectionBurst=null;
+    if(vrTargetBracket){
+      // Lock-on is assigned solely by a real hover on a native target.
+      const lock=vrTargetLock;
+      // VR01EL: sync already revalidates the actual .attack-target
+      // class and derives the native-only 3D arc. No repeated DOM
+      // selectors in the WebGL frame loop, including dense boards.
+      const isNative=!!(lock&&selectedKey&&attackTargetCount&&
+        attackArrow.visible&&hoveredKey===lock.key&&cardIndex.has(lock.key));
+      vrTargetBracket.visible=isNative;
+      if(vrTargetFloorHalo)vrTargetFloorHalo.visible=isNative;
+      vrTargetBracketKey=isNative?lock.key:null;
+      if(isNative){
+        const slot=boardSlots.get(lock.key);
+        vrTargetBracket.position.set(slot.x,.53,slot.z);
+        const progress=frozen?1:Math.max(0,Math.min(1,(time-lock.at)/340));
+        // Seat-local acquisition eases once, never claims an actual hit.
+        if(vrTargetFloorHalo){
+          vrTargetFloorHalo.position.set(slot.x,.405,slot.z);
+          vrTargetFloorHalo.scale.setScalar(frozen?1:1.10-.10*progress);
+          vrTargetFloorHalo.material.opacity=.15+.10*progress;
+        }
+        vrTargetBracket.scale.setScalar(1.14-.14*(1-Math.pow(1-progress,3)));
+        vrTargetBracket.children[0].material.opacity=
+          frozen?.85:.73+.12*(.5+.5*Math.sin(time*.006));
+      }
+      // VR01FT: the two glints follow only the current native public
+      // target. Stop, lost targeting or reduced motion removes them.
+      for(let i=0;i<vrTargetSparks.length;i++){
+        const spark=vrTargetSparks[i];
+        spark.visible=isNative&&!frozen;
+        if(!spark.visible)continue;
+        const slot=boardSlots.get(lock.key);
+        const theta=time*.0028+i*Math.PI;
+        spark.position.set(slot.x+Math.cos(theta)*.94,
+          .82+.13*Math.sin(theta*2),slot.z+Math.sin(theta)*.97);
+        spark.scale.setScalar(.76+.18*(.5+.5*Math.sin(theta*3)));
+      }
+    }
+    // VR01EP: only expire deferred events by age in the render loop.
+    // The cardIndex can be stale for up to one public sync after the
+    // native HP repaint, so identity checks belong in sync() only.
+    // This avoids discarding a legitimate new public card before it
+    // gets its replacement Three.js mesh, without querying the DOM.
+    for(const [key,hit] of vrPendingPublicHits){
+      if(time-hit.reaction.born>4000)vrPendingPublicHits.delete(key);
+    }
+    for(const [key,fx] of vrHitFaceFlash){
+      // VR01EN: do not expire a confirmed visual hit before slow software
+      // WebGL gets a chance to actually render it. Release the event after
+      // six material updates plus a one-second visible lifetime, or after
+      // a bounded orphan timeout when its public card has departed.
+      const active=cardIndex.get(key);
+      const stillPublic=active&&vrSamePublicIdentity(fx.publicId,fx.name,
+        active.publicId,active.publicName);
+      if(!stillPublic&&time-fx.at>1600||
+        fx.firstShownAt!==undefined&&fx.shownFrames>=6&&
+          time-fx.firstShownAt>1100||
+        time-fx.at>20000)vrHitFaceFlash.delete(key);
+    }
+    if(vrLandingGuide?.visible){
+      // VR01EG: give the TRUE native empty legal destination a short
+      // materializing arrival. All three meshes existed at scene creation.
+      const p=frozen?1:Math.max(0,Math.min(1,(time-vrLandingGuideBorn)/260));
+      const eased=1-Math.pow(1-p,3);
+      vrLandingGuide.children[0].rotation.z=frozen?0:time*.0012;
+      vrLandingGuide.scale.setScalar(.90+.10*eased+
+        (frozen?0:.022*Math.sin(time*.006)));
+      vrLandingGuide.children[1].material.opacity=.32*eased;
+      vrLandingGuide.children[2].material.opacity=.13*eased;
+      // VR01JF: reveal the exact card-sized placement footprint along
+      // with the native legal slot's existing guide, static in reduce-motion.
+      if(vrLandingFootprint)vrLandingFootprint.material.opacity=.48*eased;
+      vrLandingGuide.position.y=.36+(frozen?0:.025*Math.sin(time*.005));
+    }
+    // VR01FU: the companion 3D posts follow ONLY the already validated
+    // legal empty hover. The four meshes are recycled across all slots.
+    for(let i=0;i<vrLandingPillars.length;i++){
+      const post=vrLandingPillars[i];
+      post.visible=!!vrLandingGuide?.visible;
+      if(!post.visible)continue;
+      const slot=boardSlots.get(vrLandingGuideKey);
+      if(!slot){post.visible=false;continue;}
+      // VR01FY: corner-to-corner 45ms rising sequence makes the actual
+      // vacant destination materialize with depth instead of four posts
+      // abruptly appearing at once. Reduced motion remains fully static.
+      const raw=frozen?1:Math.max(0,Math.min(1,
+        (time-vrLandingGuideBorn-i*45)/260));
+      const rise=1-Math.pow(1-raw,3);
+      post.scale.set(.88+.12*rise,.05+.95*rise,.88+.12*rise);
+      post.position.set(slot.x+post.userData.cornerX*.93,
+        .48+(post.scale.y-1)*.31,
+        slot.z+post.userData.cornerZ*.96);
+    }
+    // VR01DY: follow only an existing, publicly rendered card. The single
+    // point light eases as the pointer changes without re-creating materials.
+    if(vrFocusLamp){
+      const focus=cardIndex.get(hoveredKey)||cardIndex.get(selectedKey)||null;
+      vrFocusedCardKey=focus?.key||null;
+      const strength=focus?(focus.key===hoveredKey?32:15):0;
+      const blend=frozen?1:1-Math.exp(-visualDelta/110);
+      vrFocusLamp.intensity+=(strength-vrFocusLamp.intensity)*blend;
+      if(focus){
+        // VR01HR: a hovered public ally/enemy may have a different hue.
+        // Keep the physically existing lamp and blend its colour, too.
+        vrFocusColorGoal.setHex(focus.slot.owner===0?0xb0ffe4:0xffd9b7);
+        vrFocusLamp.color.lerp(vrFocusColorGoal,
+          frozen?1:1-Math.exp(-visualDelta/175));
+        // VR01EB: ease the light's position as well as its intensity.
+        // Avoid allocations and jerky cross-board light teleportation.
+        const move=frozen?1:1-Math.exp(-visualDelta/155);
+        vrFocusLamp.position.x+=(focus.slot.x-vrFocusLamp.position.x)*move;
+        vrFocusLamp.position.y+=(4.15-vrFocusLamp.position.y)*move;
+        vrFocusLamp.position.z+=(focus.slot.z+1.05-vrFocusLamp.position.z)*move;
+      }
     }
     for(const [i,c] of cards.entries()){
+      // VR01FV: exactly the same confirmed native hit flash that colors
+      // the public face may tint its existing Three.js frame edges.
+      // Neither aiming nor hovering invents a hit or changes a card stat.
+      const flash=vrMode?vrHitFaceFlash.get(c.key):null;
+      const validFlash=flash&&vrSamePublicIdentity(
+        flash.publicId,flash.name,c.publicId,c.publicName);
+      // VR01HT: prepare the selected 3D frame ONLY for an existing,
+      // native-validated source-to-target lock, never a speculative shot.
+      const vrAimSource=vrMode&&!frozen&&c.key===selectedKey&&
+        vrTargetLock?.sourceKey===c.key&&attackArrow.visible&&
+        vrTargetLock.key===hoveredKey;
+      // VR01IX: the held primary pointer presses only the SAME public 3D
+      // card, then eases back on release, drag, capture loss or cancellation.
+      // Only the native gesture origin can activate this cosmetic pose.
+      if(vrMode){
+        const pressed=!frozen&&drag&&!moved&&!c.deploy&&
+          vrPointerStartCard?.key===c.key&&
+          vrSamePublicIdentity(vrPointerStartCard.id,vrPointerStartCard.name,
+            c.publicId,c.publicName);
+        const target=pressed?1:0;
+        if(pressed){
+          c.vrPressBiasX=vrPointerStartCard.pressX||0;
+          c.vrPressBiasY=vrPointerStartCard.pressY||0;
+        }
+        const blend=frozen?1:1-Math.exp(-visualDelta/(pressed?62:110));
+        c.vrPressAmount=(c.vrPressAmount??0)+
+          (target-(c.vrPressAmount??0))*blend;
+        if(Math.abs(c.vrPressAmount-target)<.001)c.vrPressAmount=target;
+      }
+      // VR01FX: a real public impact can illuminate the same occupied
+      // seat that is already used for genuine card inspection. The
+      // existing confirmed FX event is the ONLY authority for this pulse.
+      if(validFlash&&flash.firstShownAt===undefined)
+        flash.firstShownAt=time;
+      const vrImpactContact=validFlash&&!frozen?Math.max(0,
+        1-(time-flash.firstShownAt)/900):0;
+      // VR01FN: ease the card's physical contact light to the REAL native
+      // hover/selection state. Each public mesh owns its own opacity, so
+      // neighboring seats never flash together. Reduced motion is static.
+      if(c.contactRing){
+        const inspected=c.key===hoveredKey?1:c.key===selectedKey?.48:0;
+        const target=Math.max(inspected,vrImpactContact*.78,(c.vrPressAmount||0)*.84);
+        // VR01GQ: a genuine hit can receive a very short first RAF delta
+        // on SwiftShader. Give its FIRST confirmed rendered frame at least
+        // one 32ms visual easing step, so the contact glow is actually
+        // visible before the short-lived native FX expires.
+        const firstNativeFrame=validFlash&&flash.shownFrames===0&&!frozen;
+        const contactDelta=firstNativeFrame?Math.max(32,visualDelta):visualDelta;
+        const alpha=frozen?1:1-Math.exp(-contactDelta/160);
+        c.contactAmount=(c.contactAmount??0)+
+          (target-(c.contactAmount??0))*alpha;
+        c.contactRing.visible=c.contactAmount>.012;
+        c.contactRing.material.opacity=(.68+.10*(c.vrPressAmount||0))*c.contactAmount;
+        c.contactRing.material.color.setHex(vrImpactContact>.02?
+          0xffb18e:(c.vrPressAmount||0)>.12?
+            (c.slot.owner===0?0xd2fff4:0xffedcd):
+            c.slot.owner===0?0xa1f9d6:0xffc997);
+        c.contactRing.scale.setScalar(.91+.09*c.contactAmount);
+        if(vrImpactContact>.02)vrNativeHitContactPeak=Math.max(
+          vrNativeHitContactPeak,c.contactRing.material.opacity);
+      }
+      // VR01FP: side-frame light is independent for each public card,
+      // time-eased without modifying the shared frame material or art.
+      if(c.edgeGlint){
+        const focus=c.key===hoveredKey?1:
+          vrAimSource?.72:c.key===selectedKey?.4:0;
+        const nativeImpact=validFlash?.95:0;
+        const edgeDelta=validFlash&&flash.shownFrames===0&&!frozen?
+          Math.max(32,visualDelta):visualDelta;
+        const alpha=frozen?1:1-Math.exp(-edgeDelta/125);
+        c.edgeAmount=(c.edgeAmount??0)+
+          (Math.max(focus,nativeImpact)-(c.edgeAmount??0))*alpha;
+        c.edgeGlint.visible=c.edgeAmount>.015;
+        c.edgeGlintMaterial.opacity=(.44+.12*(c.vrPressAmount||0))*c.edgeAmount;
+        c.edgeGlintMaterial.color.setHex(validFlash?0xffa476:
+          vrAimSource?0xffd69a:
+          c.slot.owner===0?0xc5ffe8:0xffdfad);
+        if(validFlash)vrNativeHitEdgePeak=Math.max(
+          vrNativeHitEdgePeak,c.edgeGlintMaterial.opacity);
+      }
+      // VR01IB: native-confirmed PUBLIC damage briefly warms the
+      // physical top-rim shine even without hover. It uses the already
+      // identity-checked fx-hit, never a click, aim or inferred HP loss.
+      // The subdued native selection and pointer inspection still work.
+      if(c.edgeSheen){
+        const over=c.key===hoveredKey&&!c.deploy;
+        const selected=c.key===selectedKey&&!c.deploy;
+        const hit=validFlash&&!frozen&&!c.deploy?
+          Math.max(0,vrImpactContact)*.90:0;
+        // VR01IF: an existing native-validated target lock warms only
+        // its CURRENT public card's rim. A lock on an old occupant
+        // cannot colour the next occupant at the same native slot.
+        const locked=vrMode&&!frozen&&!c.deploy&&over&&
+          attackArrow.visible&&vrTargetLock?.key===c.key&&
+          vrSamePublicIdentity(vrTargetLock.id,vrTargetLock.name,
+            c.publicId,c.publicName);
+        // VR01IG: the ORIGINAL native-selected source also receives a
+        // matching warm metal accent only while that exact public card
+        // is locked to the native target. No speculative combat state.
+        const sourceLocked=vrAimSource&&selected&&
+          vrSamePublicIdentity(vrTargetLock.sourceId,
+            vrTargetLock.sourceName,c.publicId,c.publicName);
+        const target=Math.max(over?1:selected?.27:0,hit);
+        // On the first confirmed rendered native hit, reserve a real
+        // easing sample on slow software WebGL just like the side frame.
+        const delta=validFlash&&flash.shownFrames===0&&!frozen?
+          Math.max(32,visualDelta):visualDelta;
+        const alpha=frozen?1:1-Math.exp(-delta/135);
+        c.edgeSheenAmount=(c.edgeSheenAmount??0)+
+          (target-(c.edgeSheenAmount??0))*alpha;
+        const xTarget=over&&!frozen?Math.max(-.73,
+          Math.min(.73,vrRimPointerBias*.73)):0;
+        c.edgeSheenX=(c.edgeSheenX??0)+
+          (xTarget-(c.edgeSheenX??0))*alpha;
+        c.edgeSheen.visible=c.edgeSheenAmount>.015;
+        // VR01IE: the current public pointer height changes only the
+        // reflection, not selected state, strike validation or hitboxes.
+        const upperFactor=over&&!frozen?.85+.15*(vrRimPointerHeight+1)/2:1;
+        c.edgeSheen.material.opacity=(.34+.10*(c.vrPressAmount||0))*
+          c.edgeSheenAmount*upperFactor;
+        c.edgeSheen.material.color.setHex(hit>.02?0xffba8e:
+          locked?0xffd6a0:sourceLocked?0xffe1ad:
+          c.slot.owner===0?0xeefff8:0xffeccc);
+        c.edgeSheen.position.x=c.edgeSheenX;
+        if(hit>.02)vrNativeHitRimSheenPeak=Math.max(
+          vrNativeHitRimSheenPeak,c.edgeSheen.material.opacity);
+      }
+      // VR01FQ: the four genuine 3D seat corners belong only to the
+      // card selected by native Phase21. No speculative attack cue.
+      if(c.seatCorners){
+        const focus=c.key===selectedKey?1:0;
+        const alpha=frozen?1:1-Math.exp(-visualDelta/135);
+        c.seatCornerAmount=(c.seatCornerAmount??0)+
+          (focus-(c.seatCornerAmount??0))*alpha;
+        c.seatCorners.visible=c.seatCornerAmount>.012;
+        c.seatCornersMaterial.opacity=.62*c.seatCornerAmount;
+      }
+      // VR01EF: a true public status dot softly breathes only when ready
+      // or protected. Spent units remain still, and reduced motion is static.
+      // This scales the EXISTING indicator, never a click or rule surface.
+      if(vrMode){
+        const active=c.statusDot.visible&&c.publicStatusKind!=='spent';
+        const period=c.publicStatusKind==='ward'?.005:.0037;
+        const pulse=active&&!frozen?.9+.22*(.5+.5*Math.sin(time*period+i*.77)):1;
+        c.statusDot.scale.setScalar(pulse);
+      }
+      if(vrMode&&Number.isFinite(c.healthTarget)){
+        const alpha=frozen?1:1-Math.exp(-visualDelta/220);
+        c.visualHealth+=(c.healthTarget-c.visualHealth)*alpha;
+        if(Math.abs(c.visualHealth-c.healthTarget)<.0008)c.visualHealth=c.healthTarget;
+        const visible=Math.max(0,Math.min(1,c.visualHealth));
+        c.hpFill.scale.x=Math.max(.001,visible);
+        c.hpFill.position.x=-1.02*(1-visible);
+        if(c.hpDamageTrail){
+          const alive=Number.isFinite(c.damageTrail)&&c.hpFill.visible&&!frozen;
+          if(alive&&time-(c.damageTrailAt||0)>230){
+            const trailAlpha=1-Math.exp(-visualDelta/430);
+            c.damageTrail+=(c.healthTarget-c.damageTrail)*trailAlpha;
+          }
+          const trailing=alive&&c.damageTrail>visible+.01;
+          c.hpDamageTrail.visible=!!trailing;
+          if(trailing){
+            const length=Math.max(.001,Math.min(1,c.damageTrail));
+            c.hpDamageTrail.scale.x=length;
+            c.hpDamageTrail.position.x=-1.02*(1-length);
+          }
+          if(!trailing||time-(c.damageTrailAt||0)>3300){
+            c.hpDamageTrail.visible=false;
+            if(Number.isFinite(c.damageTrail)&&c.damageTrail<=visible+.01)
+              c.damageTrail=null;
+          }
+        }
+      }
+      // Native-confirmed impact gleams directly on the CURRENT real card
+      // surface even when its public HP update forces a texture replacement.
+      const flashAge=validFlash?Math.min(
+        Math.max(0,(time-flash.firstShownAt)/1100),
+        Math.min(1,flash.shownFrames/6)):1;
+      const intensity=validFlash&&!frozen&&flashAge>=0&&flashAge<1?
+        .95*Math.pow(1-flashAge,2):0;
+      if(validFlash)flash.shownFrames++;
+      if(vrMode){
+        c.face.material.emissive.setHex(0xff9565);
+        c.face.material.emissiveIntensity=intensity;
+        vrHitFaceFlashPeak=Math.max(vrHitFaceFlashPeak,intensity);
+      }
       const hover=c.key===hoveredKey;
+      // VR01HQ/HT: the native-validated source pose and edge light both
+      // follow vrAimSource, never a separate combat or target decision.
+      // VR01ED: a per-card Three.js material, already unique for its public
+      // texture, catches more of the existing scene lighting on inspection.
+      // No duplicate artwork, hidden information, geometry or input layer.
+      if(vrMode){
+        // VR01IY: touch pressure catches the EXISTING public card's
+        // physical enamel and metal trim, then relaxes on release. No
+        // extra geometry, card texture, gameplay state or pickable layer.
+        const pressure=c.vrPressAmount||0;
+        const targetRoughness=(hover?.29:c.key===selectedKey?.37:.48)-.06*pressure;
+        const targetMetalness=(hover?.18:c.key===selectedKey?.11:.05)+.09*pressure;
+        const alpha=frozen?1:1-Math.exp(-visualDelta/145);
+        c.face.material.roughness+=(targetRoughness-c.face.material.roughness)*alpha;
+        c.face.material.metalness+=(targetMetalness-c.face.material.metalness)*alpha;
+      }
+      // VR01DW: the existing real Three.js card subtly turns toward an
+      // inspector. Only public native hover / selection keys can drive this
+      // easing. No mesh is recreated and original raycast faces still pick.
+      if(vrMode){
+        // VR01FW: tiny pointer-dependent parallax stays within the
+        // existing restrained card tilt, with NO camera orbit and no
+        // additional hitbox. Only the native visible public face supplies
+        // the horizontal UV; legal empty slots always have zero bias.
+        // VR01JA: the selected public attack source subtly turns toward
+        // the real Phase21-validated, identity-matched opponent target.
+        // This is only card presentation: targeting still follows the
+        // original native .attack-target and slot-click decision.
+        const aimTarget=vrAimSource&&vrTargetLock&&
+          vrSamePublicIdentity(vrTargetLock.sourceId,
+            vrTargetLock.sourceName,c.publicId,c.publicName)?
+            cardIndex.get(vrTargetLock.key):null;
+        const validAimTarget=aimTarget&&
+          vrSamePublicIdentity(vrTargetLock.id,vrTargetLock.name,
+            aimTarget.publicId,aimTarget.publicName);
+        const aimTurn=validAimTarget&&!frozen?Math.max(-.13,Math.min(.13,
+          Math.atan2(aimTarget.slot.x-c.slot.x,
+            Math.abs(aimTarget.slot.z-c.slot.z)+2)*.15)):0;
+        const targetYaw=c.deploy?0:hover?
+          (c.slot.owner===0?-1:1)*(.115+vrFaceHoverBias*.014):
+          c.key===selectedKey?(c.slot.owner===0?-.043:.043)+aimTurn:0;
+        const alpha=frozen?1:1-Math.exp(-visualDelta/130);
+        c.visualYaw=(c.visualYaw??0)+(targetYaw-(c.visualYaw??0))*alpha;
+        c.group.rotation.y=c.visualYaw;
+        // VR01FO: small face-forward pitch follows REAL public hover or
+        // selection. It never tilts the entire board or changes picking.
+        // Reduced motion retains the original static card inclination.
+        const targetPitch=frozen||c.deploy?0:hover?
+          .043+vrFaceHoverBiasY*.006:c.key===selectedKey?
+            (validAimTarget&&!frozen?.048:.014):0;
+        c.visualPitch=(c.visualPitch??0)+
+          (targetPitch-(c.visualPitch??0))*alpha;
+        // VR01HN: restrained second-axis parallax on the genuine public
+        // face, with no camera orbit, additional pick mesh or rule changes.
+        const targetRoll=frozen||c.deploy?0:hover?vrFaceHoverBias*.024:0;
+        c.visualRoll=(c.visualRoll??0)+
+          (targetRoll-(c.visualRoll??0))*alpha;
+      }
       if(tabletop){
-        // Phase67: physical cards must read like cards, not miniatures on an
-        // oversized app canvas. Smoothly elevate only the focused card.
-        // 3.37 world units separate adjacent columns: the 2.22-wide idle
-        // card at 1.30 scale is 2.886 units, with physical air between cards.
-        const targetScale=hover?1.52:c.key===selectedKey?1.35:1.30;
-        const targetLift=hover?.86:c.key===selectedKey?.18:0;
-        // Elapsed-time easing, not per-frame easing: low FPS Chromium/WebGL
-        // must not leave enlarged cards stranded for seconds after pointer exit.
+        // VR01-C: an occupied card gets larger when it has actual physical
+        // room. Dense battles retain a non-overlapping normal scale; lone
+        // cards must not look like thumbnails in a nearly empty arena.
+        // Only publicly rendered slot coordinates are considered.
+        // VR01G: measure actual occupied row direction, not just nearest
+        // radial neighbor. Card HEIGHT is the limiting dimension when
+        // adjacent native rows share a column; a 1.42 face can cover most
+        // of the face behind it even though native slot clicks still work.
+        const sameColumnRow=vrMode&&c.vrNearColumn;
+        const sameRowNeighbor=vrMode&&c.vrNearRow;
+        const dense=vrMode&&cards.length>=16;
+        const adaptive=vrMode&&cameraPreset==='tabletop'?
+          sameColumnRow?(dense?.96:1.04):
+          sameRowNeighbor?(dense?1.19:1.31):dense?1.13:1.61:1.30;
+        // A focused card may rise for inspection, but never expand enough
+        // to hide an unrelated occupied row in a dense battlefield.
+        const lockedTarget=vrMode&&hover&&boardSlots.get(c.key)?.attackPulse;
+        const emphasis=hover?
+          lockedTarget?(sameColumnRow?.035:.11):(sameColumnRow?.10:.23):
+          c.key===selectedKey?(sameColumnRow?.045:.12):0;
+        const targetScale=vrMode?adaptive+emphasis:
+          hover?1.52:c.key===selectedKey?1.35:1.30;
+        // Attack targets do not jump up into the neighboring native row
+        // when the user aims. The separate card-focus inspector is the
+        // full-size reading surface.
+        const targetLift=hover?(lockedTarget?.38:.86):c.key===selectedKey?
+          (vrAimSource?.29:.18):0;
+        // Time-based smoothing stays stable on low-FPS software WebGL.
         const blend=frozen?1:1-Math.exp(-visualDelta/115);
         c.visualScale=(c.visualScale??1.30)+(targetScale-(c.visualScale??1.30))*blend;
         c.visualLift=(c.visualLift??0)+(targetLift-(c.visualLift??0))*blend;
-        c.group.scale.setScalar(c.visualScale);
-        c.group.position.y=1.76+c.visualLift+(frozen?0:Math.sin(time*.0015+i*.67)*.025);
+        // VR01HS: briefly tighten the real 3D contact shadow only when
+        // the CURRENT public card received a native-confirmed hit.
+        if(vrMode)updateVrLiftShadow(c,validFlash&&!frozen?
+          Math.max(0,1-(time-flash.firstShownAt)/600):0,
+          visualDelta,frozen);
+        if(vrMode&&c.deploy){
+          const raw=Math.max(0,Math.min(1,(performance.now()-c.deploy.started)/720));
+          const ease=1-Math.pow(1-raw,3);
+          const arc=Math.sin(Math.PI*raw)*1.65;
+          const start=c.deploy.from;
+          c.group.position.set(
+            start.x+(c.slot.x-start.x)*ease,
+            start.y+(1.76+c.visualLift-start.y)*ease+arc,
+            start.z+(c.slot.z-start.z)*ease);
+          c.group.rotation.x=.16+(-.74-.16)*ease;
+          c.group.rotation.z=(1-ease)*.13;
+          c.group.scale.setScalar(c.visualScale*(.66+.34*ease));
+          if(c.seat)c.seat.scale.setScalar(.72+.28*ease);
+          if(raw>=1){
+            c.deploy=null;
+            // VR01HU: only this already native-confirmed 3D arrival
+            // can start the delayed seat-shadow reveal.
+            vrLandingShadowReveals++;
+            c.frame.userData.mrrDeploying=c.face.userData.mrrDeploying=false;
+            c.group.rotation.set(-.74,0,0);
+            if(c.seat)c.seat.scale.setScalar(1);
+            spawnVrLandingDust(c.slot,time);
+          }
+        }else{
+          // VR01IX: compress the existing public mesh briefly without changing
+          // native hitboxes, public slot coordinates or Phase21 rules.
+          const press=vrMode?(c.vrPressAmount||0):0;
+          c.group.scale.setScalar(c.visualScale*(1-.038*press));
+          c.group.position.y=1.76+c.visualLift-.115*press+
+            (frozen?0:Math.sin(time*.0015+i*.67)*.025);
+          if(vrMode){
+            const impact=c.hitReaction;
+            // VR01EX: slow software WebGL can spend multiple seconds on
+            // uploads after the actual native hit. Start the recoil's clock
+            // on its first rendered card frame, not the original DOM event.
+            // Keep the 6-frame floor and a 20-second orphan upper bound.
+            if(impact&&impact.firstShownAt===undefined)
+              impact.firstShownAt=time;
+            const age=impact?Math.min(
+              Math.max(0,(time-impact.firstShownAt)/900),
+              Math.min(1,(impact.shownFrames||0)/6)):1;
+            if(impact){
+              impact.shownFrames=(impact.shownFrames||0)+1;
+              vrHitRecoilRenderFrames++;
+              if(age>=1||time-impact.born>20000)c.hitReaction=null;
+            }
+            // VR01FG: a reduced-motion user must never see native-hit
+            // recoil translation or tilt. Keep the public, static hit
+            // feedback and normal-graphics motion unchanged.
+            const recoil=impact&&!frozen&&age<1?
+              Math.sin(Math.PI*Math.max(0,age))*(1-Math.max(0,age)*.35):0;
+            c.group.position.x=c.slot.x+(impact?.dx||0)*recoil*.34;
+            c.group.position.z=c.slot.z+(impact?.dz||0)*recoil*.34;
+            // VR01IZ: tilt a held public card around its true raycast
+            // pressure point. The gesture has no additional pick surface.
+            c.group.rotation.z=(impact?.dx||0)*recoil*.10+
+              (c.visualRoll||0)+.028*press*(c.vrPressBiasX||0);
+            // VR01DZ: compress and pitch the real 3D card briefly after
+            // native fx-hit only. The Phase21 hitbox and health are untouched.
+            const spring=frozen?0:recoil;
+            c.group.rotation.x=-.74+(c.visualPitch||0)+spring*.08-
+              .020*press*(c.vrPressBiasY||0);
+            c.group.scale.multiplyScalar(1-spring*.055);
+            vrImpactSpringPeak=Math.max(vrImpactSpringPeak,spring);
+          }
+        }
       }else{
         // Keep the existing standalone battlefield presentation unchanged.
         c.group.scale.setScalar(hover?1.26:1);
         c.group.position.y=1.76+(hover?.78:0)+(frozen?0:Math.sin(time*.0015+i*.67)*.045);
       }
     }
-    advanceEffects(time);
+    advanceEffects(time,vrMode&&frozen);
+    if(vrMode){advanceVrLandingDust(time);advanceVrDeparture(time);}
     advanceCinematics(time);
     renderer.render(scene,camera);frames++;
   }
   function start(){if(disposed)return;resize();sync();if(running)return;
+    // VR01ET: every fresh run starts from a clean RAF clock. A stopped
+    // scene must never fast-forward hover, health or card spring easing.
+    if(vrMode){
+      vrRenderStarts++;
+      if(vrRenderStarts>1){vrRenderResumes++;vrResumeAwaitingFrame=true;}
+    }
     const arena=document.querySelector('#arena');
-    if(arena)fxObserver.observe(arena,{subtree:true,attributes:true,attributeFilter:['class']});
-    running=true;lastDraw=0;raf=requestAnimationFrame(tick);
+    if(arena)fxObserver.observe(arena,{subtree:true,attributes:true,
+      attributeOldValue:true,attributeFilter:['class']});
+    running=true;lastDraw=0;lastVisualTime=0;raf=requestAnimationFrame(tick);
   }
-  function stop(){running=false;cancelAnimationFrame(raf);fxObserver.disconnect();}
+  function stop(){
+    // VR01FB: a hidden or closed scene must not retain a half-completed
+    // pointer gesture. In particular, an old down event cannot produce
+    // a native card click after reopening the 3D canvas.
+    if(drag){
+      drag=false;moved=false;
+      if(vrActivePointerId!==null&&
+        mount.hasPointerCapture?.(vrActivePointerId))
+        mount.releasePointerCapture?.(vrActivePointerId);
+      if(vrMode)vrInterruptedPointerGestures++;
+    }
+    vrActivePointerId=null;vrPointerStartCard=null;
+    vrPointerStartLegalSlot=null;vrPointerStartKey=null;
+    vrPointerStartActionable=false;vrPointerStartAttackTarget=false;
+    // VR01FJ: a hidden or stopped canvas cannot keep an old visual
+    // hover/aim lock. This only withdraws presentation; Phase21 controls,
+    // selection and actual legal target classes remain untouched.
+    if(vrMode){
+      if(hoveredKey)setHover(null,true);
+      // VR01IP: do not retain 3D ray-hit UV biases after closing a
+      // stage. A paused cursor cannot tilt a newly repainted public card
+      // when a resume begins without a genuine fresh mouse movement.
+      vrFaceHoverBias=vrFaceHoverBiasY=0;
+      vrRimPointerBias=vrRimPointerHeight=0;
+      vrHoverPublicIdentity=null;
+      vrTargetLock=null;
+      // VR01IT: native selectedKey still belongs to the original
+      // Phase21 game. The short cosmetic selection burst does not.
+      // Never replay a stale selection flash across stop/start.
+      vrSelectionBurst=null;
+      attackArrow.visible=attackTip.visible=false;
+      vrAimPathKey=null;
+      // VR01HX: stop immediately withdraws transient top-rim glare;
+      // cancelled RAF must not strand a lit public hover on the board.
+      // Real selected state, current cards and native target classes stay.
+      for(const c of cards)if(c.edgeSheen){
+        c.edgeSheen.visible=false;
+        c.edgeSheenAmount=0;c.edgeSheenX=0;
+        c.edgeSheenMaterial.opacity=0;
+        c.edgeSheen.position.x=0;
+        // VR01IR: dormant materials are still reused on a future
+        // public stat/HP repaint. A paused scene cannot carry an
+        // amber impact or aim rim into an unrelated new inspection.
+        c.edgeSheenMaterial.color.setHex(
+          c.slot.owner===0?0xeefff8:0xffeccc);
+      }
+      // VR01IJ: stop clears the separate, non-pickable four-edge
+      // glint as well; an old aim or hit cannot remain frozen on screen.
+      for(const c of cards)if(c.edgeGlint){
+        c.edgeGlint.visible=false;c.edgeAmount=0;
+        c.edgeGlintMaterial.opacity=0;
+        c.edgeGlintMaterial.color.setHex(
+          c.slot.owner===0?0xc5ffe8:0xffdfad);
+      }
+      // VR01IK: the independent ground-level inspection contact ring
+      // must not preserve a previous public hover or native-hit glow
+      // in a paused battle. The original seat/raycast and card remain.
+      for(const c of cards)if(c.contactRing){
+        c.contactRing.visible=false;c.contactAmount=0;
+        c.contactRing.material.opacity=0;
+        c.contactRing.material.color.setHex(
+          c.slot.owner===0?0xa1f9d6:0xffc997);
+      }
+      // VR01IL: the eight noninteractive 3D seat-corner segments
+      // are another independently eased visual selection highlight.
+      // Clear them while hidden without altering native selectedKey;
+      // the genuine selection can relight them after the next start.
+      for(const c of cards)if(c.seatCorners){
+        c.seatCorners.visible=false;c.seatCornerAmount=0;
+        c.seatCornersMaterial.opacity=0;
+      }
+      // VR01IU: native ready/ward/spent status remains genuinely
+      // visible, but its cosmetic idle breathing must not freeze at a
+      // random enlarged scale when the 3D battle is stopped.
+      for(const c of cards)if(c.statusDot)
+        c.statusDot.scale.setScalar(1);
+      // VR01IV: HP comes exclusively from native public state, but
+      // the delayed 3D damage afterimage is disposable presentation.
+      // A stopped battle must not resurrect that OLD red trail when
+      // a later turn or different card becomes visible on resume.
+      // Preserve visualHealth and healthTarget without any gameplay edit.
+      for(const c of cards)if(c.hpDamageTrail){
+        c.hpDamageTrail.visible=false;
+        c.damageTrail=null;c.damageTrailAt=0;
+      }
+      // VR01IW: native hits already resolved by Phase21 remain
+      // authoritative. Unfinished 3D recoil, face flash and deferred
+      // cosmetic hit markers must not replay into another visual
+      // interaction after the scene has been hidden.
+      vrHitFaceFlash.clear();vrPendingPublicHits.clear();
+      for(const c of cards)if(c.hitReaction){
+        c.hitReaction=null;
+        if(!c.deploy){
+          c.group.position.x=c.slot.x;c.group.position.z=c.slot.z;
+          c.group.rotation.z=c.visualRoll||0;
+          c.group.rotation.x=-.74+(c.visualPitch||0);
+          c.group.scale.setScalar(c.visualScale||1);
+        }
+      }
+      // VR01IX: an interrupted press must not remain visually stuck after
+      // stop and resume. Native card selection and HP are unchanged.
+      for(const c of cards)if(c.vrPressAmount){
+        c.vrPressAmount=0;c.vrPressBiasX=c.vrPressBiasY=0;
+        if(!c.deploy){
+          c.group.scale.setScalar(c.visualScale||1);
+          c.group.position.y=1.76+(c.visualLift||0);
+        }
+      }
+      // A stopped scene has no inspection beam. The original lighting
+      // smoothly reacquires public focus on the next genuine RAF frame.
+      if(vrFocusLamp){
+        vrFocusLamp.intensity=0;vrFocusedCardKey=null;
+        // VR01IS: the same reusable light also retains owner-specific
+        // colour when its intensity is zero. Rebase both lamp and eased
+        // target hue to a neutral colour on stop, so a new public
+        // opponent cannot inherit the prior battle's old warm/cool hue.
+        vrFocusLamp.color.setHex(0xffd3a0);
+        vrFocusColorGoal.setHex(0xffd3a0);
+      }
+      if(vrTargetBracket)vrTargetBracket.visible=false;
+      if(vrTargetFloorHalo)vrTargetFloorHalo.visible=false;
+      // VR01IM: independently animated arc particles are not the
+      // native attack itself. Stop all three immediately, because
+      // there may be no next RAF to advance their visibility state.
+      for(const mote of vrAttackMotes)mote.visible=false;
+      // VR01IO: a real legal destination may be highlighted when
+      // its canvas is closed. Withdraw the 3D landing beacon and its
+      // cached slot at the same stop boundary; only a fresh public
+      // pointer hover can reacquire it after resume.
+      if(vrLandingGuide)vrLandingGuide.visible=false;
+      vrLandingGuideKey=null;
+      for(const m of vrLandingPillars)m.visible=false;
+      for(const m of vrTargetSparks)m.visible=false;
+      // VR01IQ: every decorative slot halo or selected ring has a
+      // time-eased 3D scale independent of native Phase21 targeting.
+      // A stopped canvas must not retain its old pulsing geometry.
+      // Keep the actual visible/selected/legal native statuses intact.
+      for(const slot of boardSlots.values()){
+        slot.halo.scale.setScalar(1);
+        if(slot.focusRing)slot.focusRing.scale.setScalar(1);
+      }
+      vrTargetBracketKey=null;
+    }
+    // VR01HA: pause/exit revokes an unconfirmed cosmetic strike.
+    // A later replay must never inherit a different battle's source.
+    // This changes no original Phase21 action or resolved native hit.
+    if(vrMode&&pendingStrike){pendingStrike=null;vrPausedStrikeWithdrawals++;}
+    running=false;cancelAnimationFrame(raf);fxObserver.disconnect();
+    lastDraw=0;lastVisualTime=0;
+  }
   function setCameraPreset(preset){
     const target=preset==='selected'?(selectedKey||hoveredKey):null;
     if(preset==='selected'&&!target)return false;
     if(!['all','ally','enemy','selected','tabletop'].includes(preset))return false;
     if(preset==='tabletop'&&!tabletop)return false;
-    yaw=0;pitch=preset==='tabletop'?1.17:preset==='selected'?.64:preset==='all'?.77:.67;
+    yaw=0;manualCamera=false;
+    pitch=vrMode&&['ally','enemy'].includes(preset)?1.12:
+      preset==='tabletop'?1.17:preset==='selected'?.64:preset==='all'?.77:.67;
     focusKey=target;cameraPreset=preset;
     const slot=target?boardSlots.get(target):null;
     focusX=slot?.x||0;
-    focusZ=slot?.z||(preset==='ally'?5.6:preset==='enemy'?-5.6:0);
-    distance=preset==='tabletop'?28.8:preset==='all'?29:preset==='selected'?11.5:18.5;
+    // Dedicated PC tactical views are high enough to preserve all five
+    // columns. The generic Phase76 camera and modal keep their exact values.
+    focusZ=slot?.z||(preset==='ally'?(vrMode?5.0:5.6):
+      preset==='enemy'?(vrMode?-5.0:-5.6):0);
+    distance=preset==='tabletop'?28.8:preset==='all'?29:
+      preset==='selected'?11.5:vrMode?22.8:18.5;
     updateCamera();return true;
   }
   function resetCamera(){setCameraPreset('all');}
   function dispose(){
     if(disposed)return;stop();disposed=true;
     for(const fx of liveEffects.splice(0))removeFx(fx);
-    recentFx.clear();pendingStrike=null;cinemaImpact=null;impactLamp.intensity=0;
-    for(const c of cards){c.face.material.map.userData.artDisposed=true;c.face.material.map.dispose();c.face.material.dispose();}
+    for(const f of vrLandingDust.splice(0)){scene.remove(f.points);f.geo.dispose();f.mat.dispose();}
+    for(const f of vrDepartBursts.splice(0))removeVrDeparture(f);
+    recentFx.clear();vrHitFaceFlash.clear();vrPendingPublicHits.clear();
+    pendingStrike=null;cinemaImpact=null;impactLamp.intensity=0;
+    // VR01ER: one unique texture disposal per real WebGL resource.
+    // A current card texture is also in madeTextures, so disposing via
+    // each card AND that array double-disposed identical GPU handles.
+    // Keep the art-disposed guard for asynchronous image onload callbacks.
+    const uniqueTextures=new Set([...madeTextures,...tabletopTextures]);
+    for(const c of cards){
+      if(c.seat)scene.remove(c.seat);
+      if(c.contactRing)c.contactRing.material.dispose();
+      if(c.seatShadowMaterial)c.seatShadowMaterial.dispose();
+      if(c.edgeGlintMaterial)c.edgeGlintMaterial.dispose();
+        if(c.edgeSheenMaterial)c.edgeSheenMaterial.dispose();
+      if(c.seatCornersMaterial)c.seatCornersMaterial.dispose();
+      const tex=c.face.material.map;
+      if(tex){tex.userData.artDisposed=true;uniqueTextures.add(tex);}
+      c.face.material.dispose();
+    }
     cards=[];for(const g of madeGeometry)g.dispose();
     for(const m of madeMaterials)m.dispose();
-    for(const t of madeTextures)t.dispose();
-    for(const t of tabletopTextures)t.dispose();
+    for(const t of uniqueTextures){t.dispose();vrDisposedTextureCount++;}
     mount.removeEventListener('pointerdown',down);
     mount.removeEventListener('pointermove',move);
     mount.removeEventListener('pointerup',up);
-    mount.removeEventListener('pointercancel',up);
+    mount.removeEventListener('pointercancel',cancelPointer);
+    if(vrMode)mount.removeEventListener('lostpointercapture',lostPointerCapture);
     mount.removeEventListener('pointerleave',leave);
     mount.removeEventListener('wheel',wheel);
     renderer.dispose();renderer.domElement.remove();
   }
-  return {start,stop,dispose,resize,resetCamera,setCameraPreset,sync,projectCard,projectSlot,stageAttack,getCardPreview,hasCard,
+  return {start,stop,dispose,resize,resetCamera,setCameraPreset,sync,projectCard,projectCardBounds,projectSlot,stageAttack,getCardPreview,hasCard,armDeployment,
     refreshHover:(key)=>setHover(key,true),
     get state(){return {revision:49,projection:camera.type,frames,slotCount:boardSlots.size,
       publicCardCount,cardMeshCount:cards.length,shadows:renderer.shadowMap.enabled,
       rendererAlive:renderer.domElement.isConnected,yaw,pitch,distance,
+      vrRenderResumes:vrMode?vrRenderResumes:null,
+      vrCanvasResizes:vrMode?vrCanvasResizes:null,
+      vrCanvasResizeSkips:vrMode?vrCanvasResizeSkips:null,
+      vrProjectionSamples:vrMode?vrProjectionSamples:null,
+      vrStalePreviewRejected:vrMode?vrStalePreviewRejected:null,
+      vrStaleCardQueriesRejected:vrMode?vrStaleCardQueriesRejected:null,
+      vrStaleRaycastRejects:vrMode?vrStaleRaycastRejects:null,
+      vrResumeFirstDelta:vrMode?vrResumeFirstDelta:null,
+      vrPointerDragging:vrMode?drag:null,
+      vrGestureIdentityRejects:vrMode?vrGestureIdentityRejects:null,
+      vrVanishedLegalGestureRejects:vrMode?vrVanishedLegalGestureRejects:null,
+      vrInvalidOriginGestureRejects:vrMode?vrInvalidOriginGestureRejects:null,
+      vrNonactionableOriginRejects:vrMode?vrNonactionableOriginRejects:null,
+      vrPointerStartActionable:vrMode?vrPointerStartActionable:null,
+      vrRevokedAttackGestureRejects:vrMode?vrRevokedAttackGestureRejects:null,
+      vrPointerStartAttackTarget:vrMode?vrPointerStartAttackTarget:null,
+      vrUntrackedReleaseDrags:vrMode?vrUntrackedReleaseDrags:null,
+      vrNonPrimaryReleaseRejects:vrMode?vrNonPrimaryReleaseRejects:null,
+      vrPointerStartKey:vrMode?vrPointerStartKey:null,
+      vrInterruptedPointerGestures:vrMode?vrInterruptedPointerGestures:null,
+      vrForeignPointerEventsIgnored:vrMode?vrForeignPointerEventsIgnored:null,
+      vrLostPointerCaptures:vrMode?vrLostPointerCaptures:null,
+      vrPausedInputEventsIgnored:vrMode?vrPausedInputEventsIgnored:null,
+      vrCameraAuto:vrMode?!manualCamera:null,
+      vrCrowdedComposition:vrMode&&cameraPreset==='tabletop'&&cards.length>=16,
       hoveredKey,selectedKey,legalCount,attackTargetCount,pickableCount:pickMeshes.length,
+      vrHoverPublicIdentityKey:vrMode?vrHoverPublicIdentity?.key||null:null,
+      vrHoverIdentityWithdrawals:vrMode?vrHoverIdentityWithdrawals:null,
+      vrStaleFocusLampWithdrawals:vrMode?vrStaleFocusLampWithdrawals:null,
+      vrFocusedCardKey:vrMode?vrFocusedCardKey:null,
+      vrFocusedLightIntensity:vrMode?Number(vrFocusLamp.intensity.toFixed(2)):null,
+      vrPausedFocusHueNeutral:vrMode&&!running?
+        vrFocusLamp.color.getHex()===0xffd3a0&&
+        vrFocusColorGoal.getHex()===0xffd3a0:null,
+      vrFocusColourDelta:vrMode&&vrFocusedCardKey?Number(Math.max(
+        Math.abs(vrFocusLamp.color.r-vrFocusColorGoal.r),
+        Math.abs(vrFocusLamp.color.g-vrFocusColorGoal.g),
+        Math.abs(vrFocusLamp.color.b-vrFocusColorGoal.b)).toFixed(4)):null,
+      vrFocusLightTargetDistance:vrMode&&cardIndex.has(vrFocusedCardKey)?
+        Number(Math.hypot(
+          vrFocusLamp.position.x-cardIndex.get(vrFocusedCardKey).slot.x,
+          vrFocusLamp.position.z-(cardIndex.get(vrFocusedCardKey).slot.z+1.05)
+        ).toFixed(3)):null,
+      vrHoveredCardSurface:vrMode&&cardIndex.has(hoveredKey)?{
+        roughness:Number(cardIndex.get(hoveredKey).face.material.roughness.toFixed(3)),
+        metalness:Number(cardIndex.get(hoveredKey).face.material.metalness.toFixed(3))
+      }:null,
+      vrFaceHoverBias:vrMode?Number(vrFaceHoverBias.toFixed(4)):null,
+      vrFaceHoverSamples:vrMode?vrFaceHoverSamples:null,
+      vrRimPointerBias:vrMode?Number(vrRimPointerBias.toFixed(4)):null,
+      vrRimPointerHeight:vrMode?Number(vrRimPointerHeight.toFixed(4)):null,
+      vrRimPointerSamples:vrMode?vrRimPointerSamples:null,
+      vrHoveredCardYaw:vrMode&&cardIndex.has(hoveredKey)?
+        Number(cardIndex.get(hoveredKey).group.rotation.y.toFixed(4)):null,
+      vrSelectedCardYaw:vrMode&&cardIndex.has(selectedKey)?
+        Number(cardIndex.get(selectedKey).group.rotation.y.toFixed(4)):null,
+      vrHoveredCardPitch:vrMode&&cardIndex.has(hoveredKey)?
+        Number(((cardIndex.get(hoveredKey).visualPitch)||0).toFixed(4)):null,
+      vrFaceHoverBiasY:vrMode?Number(vrFaceHoverBiasY.toFixed(4)):null,
+      vrHoveredCardRoll:vrMode&&cardIndex.has(hoveredKey)?
+        Number(((cardIndex.get(hoveredKey).visualRoll)||0).toFixed(4)):null,
+      vrHoveredEdgeGlintOpacity:vrMode&&cardIndex.get(hoveredKey)?.edgeGlint?
+        Number(cardIndex.get(hoveredKey).edgeGlintMaterial.opacity.toFixed(3)):null,
+      vrEdgeGlintPickSafe:vrMode?cards.every(c=>!c.edgeGlint||
+        c.edgeGlint.children.every(m=>!pickMeshes.includes(m))):null,
+      vrFullFrameGlint:vrMode?cards.every(c=>
+        !c.edgeGlint||c.edgeGlint.children.length===4):null,
+      vrVisibleFrameGlintCount:vrMode?cards.filter(c=>
+        c.edgeGlint?.visible).length:null,
+      vrEdgeSheenPickSafe:vrMode?cards.every(c=>
+        !c.edgeSheen||!pickMeshes.includes(c.edgeSheen)):null,
+      vrVisibleEdgeSheenCount:vrMode?cards.filter(c=>
+        c.edgeSheen?.visible).length:null,
+      vrPausedRimColoursNeutral:vrMode&&!running?cards.every(c=>
+        !c.edgeSheenMaterial||
+        c.edgeSheenMaterial.color.getHex()===(c.slot.owner===0?
+          0xeefff8:0xffeccc)):null,
+      vrHoveredEdgeSheen:vrMode&&cardIndex.get(hoveredKey)?.edgeSheen?{
+        opacity:Number(cardIndex.get(hoveredKey).edgeSheenMaterial.opacity.toFixed(3)),
+        x:Number(cardIndex.get(hoveredKey).edgeSheen.position.x.toFixed(3)),
+        color:cardIndex.get(hoveredKey).edgeSheenMaterial.color.getHex()
+      }:null,
+      vrAimTargetRimHue:vrMode&&cardIndex.get(vrTargetLock?.key)?.edgeSheen?
+        cardIndex.get(vrTargetLock.key).edgeSheenMaterial.color.getHex():null,
+      vrAimSourceRimHue:vrMode&&cardIndex.get(selectedKey)?.edgeSheen?
+        cardIndex.get(selectedKey).edgeSheenMaterial.color.getHex():null,
+      vrSelectedRimSheen:vrMode&&cardIndex.get(selectedKey)?.edgeSheen?{
+        opacity:Number(cardIndex.get(selectedKey).edgeSheenMaterial.opacity.toFixed(3)),
+        x:Number(cardIndex.get(selectedKey).edgeSheen.position.x.toFixed(3))
+      }:null,
+      vrSourceAimEdgeOpacity:vrMode&&cardIndex.get(selectedKey)?.edgeGlint?
+        Number(cardIndex.get(selectedKey).edgeGlintMaterial.opacity.toFixed(3)):null,
+      vrSelectedSeatCornersOpacity:vrMode&&cardIndex.get(selectedKey)?.seatCorners?
+        Number(cardIndex.get(selectedKey).seatCornersMaterial.opacity.toFixed(3)):null,
+      vrVisibleSeatCornersCount:vrMode?cards.filter(c=>c.seatCorners?.visible).length:null,
+      vrSeatCornersPickSafe:vrMode?cards.every(c=>
+        !c.seatCorners||!pickMeshes.includes(c.seatCorners)):null,
       nativeFxRevision:48,fxReceived:{...effectsReceived},liveFxCount:liveEffects.length,peakLiveFxCount,
       fxSources:'native-slot-classes',cinematicRevision:49,
+      vrFxClassNoiseIgnored:vrMode?vrFxClassNoiseIgnored:null,
+      vrFxRisingEdges:vrMode?vrFxRisingEdges:null,
+      vrNativeFxAudit:vrMode?vrNativeFxAudit.map(x=>({...x})):null,
+      vrFxBatchedTransitions:vrMode?vrFxBatchedTransitions:null,
+      vrFxRapidNativeEdges:vrMode?vrFxRapidNativeEdges:null,
+      vrDetachedFxRecordsIgnored:vrMode?vrDetachedFxRecordsIgnored:null,
       confirmedStrikes,cinematicFrameCount,impactLightIntensity:impactLamp.intensity,
+      vrConfirmedProjectileStarted:vrMode?vrConfirmedProjectileStarted:null,
+      vrStrikeConfirmWindow:vrMode?nativeStrikeWindow:null,
+      vrStagedAttacks:vrMode?vrStagedAttacks:null,
+      vrStrikeTimeouts:vrMode?vrStrikeTimeouts:null,
+      vrStaleStrikeSourceRejects:vrMode?vrStaleStrikeSourceRejects:null,
+      vrPausedStrikeWithdrawals:vrMode?vrPausedStrikeWithdrawals:null,
+      vrStoppedStrikeRejects:vrMode?vrStoppedStrikeRejects:null,
+      vrStaleStrikeTargetRejects:vrMode?vrStaleStrikeTargetRejects:null,
+      vrStrikeMissingPublicRejects:vrMode?vrStrikeMissingPublicRejects:null,
+      vrUnpairedNativeHits:vrMode?vrUnpairedNativeHits:null,
+      vrLastUnpairedHit:vrMode?vrLastUnpairedHit:null,
+      vrPendingStrike:vrMode&&pendingStrike?{
+        sourceKey:pendingStrike.sourceKey,targetKey:pendingStrike.targetKey,
+        ageMs:Math.round(performance.now()-pendingStrike.at)
+      }:null,
+      vrConfirmedProjectileActive:vrMode?liveEffects.filter(f=>f.projectile?.mesh.visible).length:null,
+      vrProjectileGeometryShared:vrMode?liveEffects.every(f=>
+        !f.projectile||f.projectile.mesh.geometry===vrProjectileGeo):null,
+      vrProjectilePickSafe:vrMode?liveEffects.every(f=>
+        !f.projectile||!pickMeshes.includes(f.projectile.mesh)):null,
       realCombatQaRevision:50,nativeCombatEvents:nativeCombatEvents.slice(),
       visualArtRevision:51,pcArtRevision:tabletop?57:0,illustratedCards:cards.length,illustrationArchetypes:cards.map(c=>c.face.material.map?.userData?.artArchetype||''),cameraPreset,focusKey,focusX,focusZ,
+      vrAdaptiveCardScales:vrMode?Object.fromEntries(cards.map(c=>[c.key,Math.round((c.visualScale||1.30)*1000)/1000])):null,
+      vrNeighborPairChecks:vrMode?vrNeighborPairChecks:null,
+      vrNeighborCacheRebuilds:vrMode?vrNeighborCacheRebuilds:null,
+      vrNeighborCacheSize:vrMode?vrNeighborCache.size:null,
+      vrNearColumnCards:vrMode?cards.filter(c=>c.vrNearColumn).length:null,
+      vrNearRowCards:vrMode?cards.filter(c=>c.vrNearRow).length:null,
+      vrOccupiedSeats:vrMode?cards.filter(c=>!!c.seat).length:null,
+      vrInspectionContactCount:vrMode?cards.filter(c=>!!c.contactRing).length:null,
+      vrSeatShadowCount:vrMode?cards.filter(c=>!!c.seatShadow).length:null,
+      vrSeatShadowPickSafe:vrMode?cards.every(c=>
+        !c.seatShadow||!pickMeshes.includes(c.seatShadow)):null,
+      vrPressedPublicCards:vrMode?Object.fromEntries(cards.filter(c=>
+        (c.vrPressAmount||0)>.001).map(c=>[c.key,Number(c.vrPressAmount.toFixed(3))])):null,
+      vrHoveredSeatShadow:vrMode&&cardIndex.get(hoveredKey)?.seatShadow?{
+        visible:cardIndex.get(hoveredKey).seatShadow.visible,
+        opacity:Number(cardIndex.get(hoveredKey).seatShadowMaterial.opacity.toFixed(3)),
+        scale:Number(cardIndex.get(hoveredKey).seatShadow.scale.x.toFixed(3)),
+        lift:Number((cardIndex.get(hoveredKey).visualLift||0).toFixed(3))
+      }:null,
+      vrInspectionContactActiveKeys:vrMode?
+        cards.filter(c=>c.contactRing?.visible).map(c=>c.key):null,
+      vrInspectionHoveredContactOpacity:vrMode&&cardIndex.get(hoveredKey)?.contactRing?
+        Number(cardIndex.get(hoveredKey).contactRing.material.opacity.toFixed(3)):null,
+      vrInspectionContactPickSafe:vrMode?
+        cards.every(c=>!c.contactRing||!pickMeshes.includes(c.contactRing)):null,
+      vrReusedCards:vrMode?vrReusedCards:null,vrDeployTransitions:vrMode?vrDeployTransitions:null,
+      vrLandingShadowReveals:vrMode?vrLandingShadowReveals:null,
+      vrSeatShadowRevealByKey:vrMode?Object.fromEntries(cards.filter(c=>c.seatShadow)
+        .map(c=>[c.key,Number((c.seatShadowReveal??1).toFixed(3))])):null,
+      vrPresentationCarryTransfers:vrMode?vrPresentationCarryTransfers:null,
+      vrIdentityCarryRejects:vrMode?vrIdentityCarryRejects:null,
+      vrDeployActive:vrMode?cards.filter(c=>!!c.deploy).length:null,
+      vrLiveCardTextures:vrMode?madeTextures.length:null,
+      vrDisposedTextureCount:vrMode?vrDisposedTextureCount:null,
+      vrLandingDustStarted:vrMode?vrLandingDustStarted:null,
+      vrLandingDustActive:vrMode?vrLandingDust.length:null,
+      vrDepartStarted:vrMode?vrDepartCount:null,
+      vrDepartActive:vrMode?vrDepartBursts.length:null,
+      vrDepartHaloStarted:vrMode?vrDepartHaloCount:null,
+      vrDepartHaloActive:vrMode?vrDepartBursts.filter(f=>!!f.halo).length:null,
+      vrHitReactions:vrMode?vrHitReactions:null,
+      vrDeferredHitApplied:vrMode?vrDeferredHitApplied:null,
+      vrTransientPublicIndexBuilds:vrMode?vrTransientPublicIndexBuilds:null,
+      vrTransientPublicComparisons:vrMode?vrTransientPublicComparisons:null,
+      vrPendingPublicHitCount:vrMode?vrPendingPublicHits.size:null,
+      vrPendingPublicHitKeys:vrMode?[...vrPendingPublicHits.keys()]:null,
+      vrStatusBeaconCount:vrMode?cards.filter(c=>c.statusDot.visible).length:null,
+      vrStatusBeacons:vrMode?cards.filter(c=>c.statusDot.visible).map(c=>({
+        key:c.key,kind:c.publicStatusKind,
+        scale:Number(c.statusDot.scale.x.toFixed(3))
+      })):null,
+      vrDamageTrailsStarted:vrMode?vrDamageTrailsStarted:null,
+      vrDamageTrailVisible:vrMode?cards.filter(c=>c.hpDamageTrail?.visible).length:null,
+      vrDamageTrailPickSafe:vrMode?cards.every(c=>
+        !c.hpDamageTrail||!pickMeshes.includes(c.hpDamageTrail)):null,
+      vrHealthBarTransitions:vrMode?vrHealthBarTransitions:null,
+      vrPublicHealthVisual:vrMode?Object.fromEntries(cards.filter(c=>c.hpFill.visible)
+        .map(c=>[c.key,{display:Number((c.visualHealth??0).toFixed(3)),
+          target:Number((c.healthTarget??0).toFixed(3))}])):null,
+      vrImpactSpringPeak:vrMode?Number(vrImpactSpringPeak.toFixed(3)):null,
+      vrHitRecoilRenderFrames:vrMode?vrHitRecoilRenderFrames:null,
+      vrHitFaceFlashCount:vrMode?vrHitFaceFlashCount:null,
+      vrHitWithoutPublicCard:vrMode?vrHitWithoutPublicCard:null,
+      vrHitFaceFlashPeak:vrMode?Number(vrHitFaceFlashPeak.toFixed(4)):null,
+      vrNativeHitEdgePeak:vrMode?Number(vrNativeHitEdgePeak.toFixed(4)):null,
+      vrNativeHitContactPeak:vrMode?Number(vrNativeHitContactPeak.toFixed(4)):null,
+      vrNativeHitShadowPeak:vrMode?Number(vrNativeHitShadowPeak.toFixed(4)):null,
+      vrNativeHitRimSheenPeak:vrMode?
+        Number(vrNativeHitRimSheenPeak.toFixed(4)):null,
+      vrHitFaceFlashActive:vrMode?vrHitFaceFlash.size:null,
+      vrHitFaceRendered:vrMode?[...vrHitFaceFlash.values()].filter(f=>
+        f.shownFrames>0).length:null,
+      vrReducedMotionActive:vrMode?matchMedia('(prefers-reduced-motion: reduce)').matches:null,
+      vrReducedMotionRecoilSafe:vrMode&&matchMedia('(prefers-reduced-motion: reduce)').matches?
+        cards.every(c=>!c.hitReaction||(
+          Math.abs(c.group.position.x-c.slot.x)<.001&&
+          Math.abs(c.group.position.z-c.slot.z)<.001&&
+          Math.abs(c.group.rotation.z)<.001)):null,
+      vrReducedMotionFxStatic:vrMode&&matchMedia('(prefers-reduced-motion: reduce)').matches?
+        liveEffects.every(f=>f.sparkMat.opacity===0&&
+          (!f.projectile||!f.projectile.mesh.visible)):null,
+      vrHitFacePublicSafe:vrMode?[...vrHitFaceFlash].every(([key,fx])=>{
+        const c=cardIndex.get(key);
+        return !!c&&vrSamePublicIdentity(fx.publicId,fx.name,
+          c.publicId,c.publicName);
+      }):null,
+      vrSelectionBursts:vrMode?vrSelectionBursts:null,
+      vrTargetLocks:vrMode?vrTargetLocks:null,
+      vrTargetLockKey:vrMode?vrTargetLock?.key||null:null,
+      vrRevokedTargetRimResets:vrMode?vrRevokedTargetRimResets:null,
+      vrLastRevokedTargetRimHue:vrMode?vrLastRevokedTargetRimHue:null,
+      vrRevokedSourceRimResets:vrMode?vrRevokedSourceRimResets:null,
+      vrLastRevokedSourceRimHue:vrMode?vrLastRevokedSourceRimHue:null,
+      vrTargetBracketKey:vrMode?vrTargetBracketKey:null,
+      vrTargetBracketPublicChecks:vrMode?vrTargetBracketPublicChecks:null,
+      vrTargetBracketCount:vrMode&&vrTargetBracket?.visible?vrTargetBracket.children.length:0,
+      vrTargetBracketPickSafe:vrMode?vrTargetBracket.children.every(c=>
+        !pickMeshes.includes(c)):null,
+      vrTargetFloorHaloVisible:vrMode?vrTargetFloorHalo.visible:null,
+      vrTargetFloorHaloPickSafe:vrMode?!pickMeshes.includes(vrTargetFloorHalo):null,
+      vrTargetFloorHaloOpacity:vrMode?
+        Number(vrTargetFloorHalo.material.opacity.toFixed(3)):null,
+      vrTargetSparkCount:vrMode?vrTargetSparks.filter(m=>m.visible).length:null,
+      vrTargetSparksPickSafe:vrMode?vrTargetSparks.every(m=>
+        !pickMeshes.includes(m)):null,
+      vrLandingGuideKey:vrMode?vrLandingGuideKey:null,
+      vrLandingGuideReveals:vrMode?vrLandingGuideReveals:null,
+      vrLandingGuideScale:vrMode?Number(vrLandingGuide.scale.x.toFixed(3)):null,
+      vrLandingGuideLightOpacity:vrMode?Number(
+        vrLandingGuide.children[2].material.opacity.toFixed(3)):null,
+      vrLandingGuideVisible:vrMode?vrLandingGuide.visible:null,
+      vrLandingGuidePickSafe:vrMode?!pickMeshes.includes(vrLandingGuide.children[0])&&
+        !pickMeshes.includes(vrLandingGuide.children[1])&&
+        !pickMeshes.includes(vrLandingGuide.children[2]):null,
+      vrLandingPillarCount:vrMode?vrLandingPillars.filter(p=>p.visible).length:null,
+      vrLandingPillarsPickSafe:vrMode?vrLandingPillars.every(p=>
+        !pickMeshes.includes(p)):null,
+      vrLandingPillarScales:vrMode?vrLandingPillars.filter(p=>p.visible)
+        .map(p=>Number(p.scale.y.toFixed(3))):null,
+      vrAttackArcMoteCount:vrMode?vrAttackMotes.filter(m=>m.visible).length:null,
+      vrAttackArcMotePickSafe:vrMode?vrAttackMotes.every(m=>!pickMeshes.includes(m)):null,
+      vrAimPathBuilds:vrMode?vrAimPathBuilds:null,
+      vrAimPathReuses:vrMode?vrAimPathReuses:null,
+      vrAimPathKey:vrMode?vrAimPathKey:null,
+      vrAttackArcVisible:vrMode?attackArrow.visible:null,
+      vrSourceAimPoseActive:vrMode?!!(
+        !matchMedia('(prefers-reduced-motion: reduce)').matches&&
+        vrTargetLock&&vrTargetLock.sourceKey===selectedKey&&
+        vrTargetLock.key===hoveredKey&&attackArrow.visible):null,
+      vrSourceAimLift:vrMode&&cardIndex.get(selectedKey)?
+        Number((cardIndex.get(selectedKey).visualLift||0).toFixed(3)):null,
+      vrAttackArcSamples:vrMode&&attackArrow.visible?attackArrowGeo.attributes.position.count:0,
+      vrAttackArcPeakY:vrMode&&attackArrow.visible?
+        Number(attackArrowGeo.attributes.position.getY(attackArcSegments/2).toFixed(3)):null,
+      vrTargetLockScale:vrMode&&vrTargetLock?
+        Number((boardSlots.get(vrTargetLock.key)?.halo?.scale.x||1).toFixed(4)):null,
+      vrSelectionBurstKey:vrMode?vrSelectionBurst?.key||null:null,
+      vrSelectionRingScale:vrMode&&selectedKey?
+        Number((boardSlots.get(selectedKey)?.focusRing?.scale.x||1).toFixed(4)):null,
+      vrPausedSlotScalesNeutral:vrMode&&!running?[...boardSlots.values()].every(slot=>
+        Math.abs(slot.halo.scale.x-1)<.0001&&
+        (!slot.focusRing||Math.abs(slot.focusRing.scale.x-1)<.0001)):null,
+      vrActiveHitReactions:vrMode?cards.filter(c=>!!c.hitReaction).length:null,
       healthHudRevision:52,healthIndicatorCount,cardHealth:Object.fromEntries(cardHealth),
       previewRevision:53,previewReadyCards:cardIndex.size,
       artworkSlotRevision:tabletop?58:0,
@@ -1151,30 +3610,80 @@ window.MRRBattlefieldUIInit=function(loadThree){
       zoomImage.alt='공개 카드 일러스트 확대';
       const zoomCaption=document.createElement('div');zoomCaption.id='mrr-battlefield-zoom-caption';
       zoomPane.append(zoomImage,zoomCaption);
-      let pinnedKey=null,previewKey=null,shownImage='';
+      let pinnedKey=null,pinnedPublic=null,previewKey=null,shownImage='',
+        shownCaptionSignature='';
+      function samePinnedPublic(info){
+        if(!pinnedPublic||!info||info.key!==pinnedKey)return false;
+        if(pinnedPublic.id||info.publicId)
+          return !!pinnedPublic.id&&!!info.publicId&&
+            pinnedPublic.id===info.publicId;
+        return !!pinnedPublic.name&&pinnedPublic.name===info.name;
+      }
+      function releasePin(){
+        pinnedKey=null;pinnedPublic=null;
+        pinPreview.setAttribute('aria-pressed','false');
+        pinPreview.textContent='확대 고정';
+      }
       function renderZoom(key){
         if(pinnedKey)key=pinnedKey;
         const info=key?view?.getCardPreview(key):null;
-        if(!info||!info.name){
-          previewKey=null;shownImage='';zoomPane.classList.remove('visible');
+        // The original Phase21 native slot can now show another card.
+        // Never silently redirect a pinned public inspector to it.
+        if(pinnedKey&&!samePinnedPublic(info)){
+          releasePin();key=null;
+        }
+        if(!key||!info||!info.name){
+          previewKey=null;shownImage='';shownCaptionSignature='';
+          zoomPane.classList.remove('visible');
           zoomImage.removeAttribute('src');zoomCaption.textContent='';
           return;
         }
         previewKey=info.key;
         if(shownImage!==info.artData){shownImage=info.artData;zoomImage.src=info.artData;}
         zoomImage.alt=info.name+' 카드 확대';
-        zoomCaption.textContent=[info.name,info.kind,info.stats].filter(Boolean).join(' · ');
+        // VR01JH: pinned previews refresh on every native state sync
+        // after VR01JG. Rebuild caption DOM only when PUBLIC metadata
+        // changes, preventing needless layout work during Chromium play.
+        const captionSignature=JSON.stringify([
+          info.name,info.kind,info.cost,info.stats,info.sigil,
+          info.hpBarPercent,info.statusChip
+        ]);
+        if(captionSignature!==shownCaptionSignature){
+          shownCaptionSignature=captionSignature;
+          const title=document.createElement('strong');title.textContent=info.name;
+          const details=document.createElement('span');
+          details.textContent=[info.kind,info.cost?'비용 '+info.cost:'',
+            info.stats].filter(Boolean).join(' · ');
+          zoomCaption.replaceChildren(title,details);
+          if(info.sigil){
+            const sigil=document.createElement('span');
+            sigil.className='mrr-zoom-sigil';sigil.textContent=info.sigil;
+            zoomCaption.append(sigil);
+          }
+          const nativeState=[
+            Number.isFinite(info.hpBarPercent)?
+              '공개 HP 게이지 '+Math.round(info.hpBarPercent)+'%':'',
+            info.statusChip||''
+          ].filter(Boolean).join(' · ');
+          if(nativeState){
+            const state=document.createElement('span');
+            state.className='mrr-zoom-public-state';
+            state.textContent=nativeState;
+            zoomCaption.append(state);
+          }
+        }
         zoomPane.classList.add('visible');
       }
       pinPreview.addEventListener('click',()=>{
         if(pinnedKey){
-          pinnedKey=null;pinPreview.setAttribute('aria-pressed','false');
-          pinPreview.textContent='확대 고정';
+          releasePin();
           renderZoom(view?.state.hoveredKey||view?.state.selectedKey||previewKey);
         }else{
           const key=view?.state.hoveredKey||view?.state.selectedKey||previewKey;
-          if(!key||!view?.hasCard(key))return;
-          pinnedKey=key;pinPreview.setAttribute('aria-pressed','true');
+          const info=key?view?.getCardPreview(key):null;
+          if(!info||!info.name)return;
+          pinnedKey=key;pinnedPublic={id:info.publicId||null,name:info.name};
+          pinPreview.setAttribute('aria-pressed','true');
           pinPreview.textContent='고정 해제';renderZoom(key);
         }
       });
@@ -1190,13 +3699,28 @@ window.MRRBattlefieldUIInit=function(loadThree){
       cancelAction.addEventListener('click',()=>runNativeAction('button[data-cancel-action]'));
       function updateCommands(info){
         if(previewKey&&!view?.hasCard(previewKey))renderZoom(null);
-        if(pinnedKey&&!view?.hasCard(pinnedKey)){
-          pinnedKey=null;pinPreview.setAttribute('aria-pressed','false');
-          pinPreview.textContent='확대 고정';
+        // VR01JG: the same pinned PUBLIC occupant can receive native HP
+        // or stat changes while its slot stays unchanged. Refresh the
+        // existing inspector from the live identity-checked face instead
+        // of waiting for a new mouse hover or unpin action.
+        if(pinnedKey){
+          const pinnedInfo=view?.getCardPreview(pinnedKey);
+          if(!samePinnedPublic(pinnedInfo)){
+            releasePin();
+            renderZoom(null);
+          }else{
+            renderZoom(pinnedKey);
+          }
         }
         pinPreview.disabled=!(pinnedKey||view?.hasCard(info.hoveredKey)||view?.hasCard(info.selectedKey)||view?.hasCard(previewKey));
-        if(!pinnedKey&&(info.hoveredKey||info.selectedKey)&&(info.hoveredKey||info.selectedKey)!==previewKey){
-          renderZoom(info.hoveredKey||info.selectedKey);
+        // VR01JJ: a legal EMPTY hover is not a public card. Follow only
+        // an actually visible public hover, otherwise the original
+        // selected public card, and clear the inspector when neither
+        // exists. Do not leave a stale departed card enlarged.
+        if(!pinnedKey){
+          const followKey=view?.hasCard(info.hoveredKey)?info.hoveredKey:
+            view?.hasCard(info.selectedKey)?info.selectedKey:null;
+          if(followKey!==previewKey)renderZoom(followKey);
         }
         if(combatFeed.classList.contains('active')&&performance.now()-Number(combatFeed.dataset.since)>1650){combatFeed.classList.remove('active');}
         const inspect=Boolean(info.selectedKey);
@@ -1228,7 +3752,11 @@ window.MRRBattlefieldUIInit=function(loadThree){
         view.refreshHover(key);
       }
       function describeHover(key,profile){
-        if(!pinnedKey&&(view?.hasCard(key)||view?.hasCard(view?.state.selectedKey)))renderZoom(view?.hasCard(key)?key:view?.state.selectedKey);
+        if(!pinnedKey){
+          const publicKey=view?.hasCard(key)?key:
+            view?.hasCard(view?.state.selectedKey)?view.state.selectedKey:null;
+          if(publicKey!==previewKey)renderZoom(publicKey);
+        }
         if(!key||!profile){cardTip.classList.remove('visible');cardTip.textContent='';return;}
         const legal=profile.target?'공격 가능 대상':profile.legal?'합법적 대상 또는 위치':'';
         cardTip.replaceChildren();
@@ -1238,6 +3766,8 @@ window.MRRBattlefieldUIInit=function(loadThree){
         cardTip.append(headline,summary);cardTip.classList.add('visible');
       }
       const overlayHelp=document.createElement('div');overlayHelp.id='mrr-battlefield-help';
+      // This standalone Phase55 modal has its own orbit camera. The
+      // factory's local vrMode belongs only to the integrated VR scene.
       overlayHelp.textContent='카드 클릭 - 선택  |  공격 버튼 - 대상 지정  |  드래그 - 시점 회전  |  휠 - 확대·축소';
       const enemy=document.createElement('div');enemy.className='mrr-side-label enemy';enemy.textContent='OPPONENT TERRITORY';
       const friendly=document.createElement('div');friendly.className='mrr-side-label friendly';friendly.textContent='ALLIED TERRITORY';
