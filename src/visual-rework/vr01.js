@@ -892,7 +892,11 @@ function refresh(){
  // VR01AF: advertise A/M only while the SAME native action can run.
  // A targeting state, private handoff or hidden/disabled native command
  // must never display a shortcut that the real keyboard handler rejects.
+ // VR01LW: never advertise A/M as playable while an original Phase76
+ // information panel is open. The keyboard handler already yields there;
+ // align live UI and accessibility metadata with that real restriction.
  const canNativeCommand=(native,quick)=>!!(mode==='selected'&&selectedKey&&
+   !nativeInfoPanelOpen()&&
    native&&!native.disabled&&quick&&!quick.hidden&&!quick.disabled&&
    !q('#mrr-integrated-context')?.hidden&&
    q('#overlay')?.classList.contains('hidden'));
@@ -963,6 +967,16 @@ function refresh(){
  const blockedByPanel=nativeInfoPanelOpen();
  cancel.hidden=!nativeCancel;
  cancel.disabled=blockedByPanel||!nativeCancel||nativeCancel.disabled;
+ // VR01LW: C is a REAL Phase21 action only when the native cancel
+ // remains available. Keep its keytip accessible then, withdraw its
+ // keyboard claim when a native panel or unavailable action blocks it.
+ if(!cancel.disabled&&!cancel.hidden){
+   cancel.setAttribute('aria-keyshortcuts','C');
+   cancel.title='C · 현재 선택 취소';
+ }else{
+   cancel.removeAttribute('aria-keyshortcuts');
+   cancel.removeAttribute('title');
+ }
  q('#vr-end-turn',ui).disabled=blockedByPanel||!!q('#endTurn')?.disabled;
  updateAim();
 }
