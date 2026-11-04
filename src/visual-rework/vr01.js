@@ -401,6 +401,13 @@ function updateHand(){
     !ui.classList.contains('vr-placing')&&
     hand.filter(d=>d.publicId===priorId).length===1?
     hand.findIndex(d=>d.publicId===priorId):-1;
+  // VR01MA: only genuinely new native PUBLIC hand identities receive a
+  // short deal-in flourish. Reordering, cosmetic edits and initial VR entry
+  // must not replay a draw. Privacy and native targeting always win.
+  const animateNativeArrival=!!handSignature&&!nativeInfoPanelOpen()&&
+    !ui.classList.contains('vr-placing')&&
+    q('#overlay')?.classList.contains('hidden');
+  const previousPublicIds=new Set(previousHand.map(d=>d.publicId).filter(Boolean));
   handSignature=signature;handArtSources=artSources;
   fan.replaceChildren();
   const n=hand.length;
@@ -408,6 +415,10 @@ function updateHand(){
     const card=el('button','vr-card');card.type='button';
     card.setAttribute('aria-label',d.name+' 손패 선택');card.dataset.index=String(d.i);
     card.dataset.vrPublicId=d.publicId||'';
+    if(animateNativeArrival&&d.publicId&&!previousPublicIds.has(d.publicId)){
+      card.classList.add('vr-card-dealt');
+      card.style.setProperty('--vr-deal-delay',Math.min(d.i,7)*22+'ms');
+    }
     if(d.i<10){
       const shortcut=d.i===9?'0':String(d.i+1);
       card.setAttribute('aria-keyshortcuts',shortcut);

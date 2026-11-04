@@ -723,3 +723,17 @@ body.mrr-vr-active #gameScreen:is(.mrr-integrated-inspector-open,.mrr-integrated
   mix-blend-mode:screen;
  }
 }
+
+/* VR01MA: newly dealt genuine public hand cards arrive in their existing
+   fixed pointer anchors. No native card, hitbox or game action is animated.
+   Reduced-motion users receive the same immediate static card presentation. */
+@media(prefers-reduced-motion:no-preference){
+ body.mrr-vr-active #mrr-vr-shell .vr-card.vr-card-dealt .vr-card-face{
+  animation:vr01-native-card-arrive .26s cubic-bezier(.18,.77,.28,1)
+   var(--vr-deal-delay,0ms) both;
+ }
+ @keyframes vr01-native-card-arrive{
+  from{opacity:.38;translate:0 24px}
+  to{opacity:1;translate:0 0}
+ }
+}
