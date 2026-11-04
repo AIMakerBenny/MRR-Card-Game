@@ -1438,6 +1438,35 @@ try:
         return document.getElementById('gameScreen')?.classList.contains(args.panel);
       }""",{'control':control_id,'panel':panel_class})
       assert opened,('native panel did not open',control_id)
+      # VR01LZ: original panel toggles must be reflected by every VR
+      # button that opens them. All gameplay keyboard cues and the
+      # 3D camera are disabled while those native panels own focus.
+      page.wait_for_function("""panel => {
+        const inspector=panel==='mrr-integrated-inspector-open';
+        const ids={
+          'vr-inspector':inspector,
+          'vr-piles':!inspector,
+          'vr-token-deck':!inspector,
+          'vr-token-grave':!inspector,
+          'vr-token-exile':!inspector
+        };
+        const cam=document.getElementById('vr-camera');
+        const cancel=document.getElementById('vr-cancel');
+        return Object.entries(ids).every(([id,pressed])=>{
+          const button=document.getElementById(id);
+          return button?.getAttribute('aria-pressed')===String(pressed)&&
+            button.classList.contains('vr-panel-active')===pressed;
+        })&&!!cam&&cam.disabled&&
+          (!cancel||!cancel.hasAttribute('aria-keyshortcuts'));
+      }""",arg=panel_class,timeout=12000)
+      camera_guard=page.evaluate("""() => {
+        const camera=document.getElementById('vr-camera');
+        const before=MRRIntegrated.state.scene.cameraPreset;
+        camera.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+        return {before,after:MRRIntegrated.state.scene.cameraPreset};
+      }""")
+      assert camera_guard['before']==camera_guard['after'],(
+        'VR01LZ camera changed behind native info panel',control_id,camera_guard)
       page.wait_for_function("""() => {
         const root=document.getElementById('gameScreen');
         const hand=document.getElementById('vr-hand');
@@ -1520,6 +1549,15 @@ try:
       page.wait_for_function("""panel =>
         !document.getElementById('gameScreen')?.classList.contains(panel)
       """,arg=panel_class,timeout=12000)
+      page.wait_for_function("""() => {
+        const ids=['vr-inspector','vr-piles','vr-token-deck',
+          'vr-token-grave','vr-token-exile'];
+        return ids.every(id=>{
+          const button=document.getElementById(id);
+          return button?.getAttribute('aria-pressed')==='false'&&
+            !button.classList.contains('vr-panel-active');
+        })&&!document.getElementById('vr-camera')?.disabled;
+      }""",timeout=12000)
       page.mouse.move(xy['x']+2,xy['y']+2)
       page.wait_for_function("""key => {
         const focus=document.getElementById('mrr-vr-card-focus');

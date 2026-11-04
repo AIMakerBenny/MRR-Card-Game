@@ -69,6 +69,19 @@ body.mrr-vr-active #mrr-integrated-context #mrr-quick-attack{
  border:1px solid #849d9382;border-radius:7px;box-shadow:inset 0 1px #e8eed425,0 5px 15px #0009;
  font:600 12px 'Malgun Gothic',sans-serif}
 #mrr-vr-shell .vr-btn:hover{background:#36565c;border-color:#c5b390}
+/* VR01LZ: native inspector and supply panel state is displayed by the
+   actual VR controls, not a synthetic replacement panel. */
+#mrr-vr-shell .vr-btn.vr-panel-active{
+ background:linear-gradient(#4c6360,#243d3d);
+ border-color:#e0c69b;color:#fff1d4;
+ box-shadow:inset 0 0 0 1px #edd5a455,0 3px 14px #0009;
+}
+body.mrr-vr-active #mrr-vr-shell .vr-pile.vr-panel-active{
+ border-color:#e0c69b;color:#fff0cf;
+ background:radial-gradient(circle,#496a66,#24424a 65%,#102a30);
+ box-shadow:0 0 0 2px #e0c69b44,0 6px 18px #000d;
+}
+
 #mrr-vr-shell .vr-btn:disabled{opacity:.4;cursor:default}
 #mrr-vr-shell .vr-btn:focus-visible,#mrr-vr-shell .vr-pile:focus-visible{
  outline:2px solid #e0c69b;outline-offset:3px;
