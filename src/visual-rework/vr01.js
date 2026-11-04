@@ -48,6 +48,13 @@ function buildUI(){
     button('vr-piles','덱 · 묘지',()=>native('#mrr-integrated-rail')),
     button('vr-inspector','카드 상세',()=>native('#mrr-integrated-inspector')),
     button('vr-camera','시점: 전체',()=>{
+      // VR01LY: a queued click must not change the rendered battlefield
+      // camera behind the original native inspector, private handoff,
+      // closed game or retired integrated Three.js view.
+      if(!open||busy||nativeInfoPanelOpen()||
+         root.classList.contains('hidden')||!root.isConnected||
+         !window.MRRIntegrated?.state.open||
+         !q('#overlay')?.classList.contains('hidden'))return;
       const views=['tabletop','ally','enemy'];
       const labels=['시점: 전체','시점: 아군','시점: 상대'];
       const next=(views.indexOf(tacticalCamera)+1)%views.length;
@@ -983,6 +990,11 @@ function refresh(){
  // VR01LM: controls express their genuine current availability. The
  // gameplay guards above remain authoritative for same-frame transitions.
  const blockedByPanel=nativeInfoPanelOpen();
+ // VR01LY: the camera is a real PC-only control but may not change
+ // visual state behind the original native information or private panel.
+ const camera=q('#vr-camera',ui);
+ if(camera)camera.disabled=blockedByPanel||
+   !q('#overlay')?.classList.contains('hidden');
  cancel.hidden=!nativeCancel;
  cancel.disabled=blockedByPanel||!nativeCancel||nativeCancel.disabled;
  // VR01LW: C is a REAL Phase21 action only when the native cancel
